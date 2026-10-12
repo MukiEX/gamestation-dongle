@@ -1145,7 +1145,11 @@ void ble_central_start(void)
         s_links[i].conn = BLE_HS_CONN_HANDLE_NONE;
     }
 
-    ESP_ERROR_CHECK(nimble_port_init());
+    esp_err_t err = nimble_port_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Bluetooth failed to start: %s", esp_err_to_name(err));
+        return;
+    }
     ble_hs_cfg.reset_cb = on_reset;
     ble_hs_cfg.sync_cb = on_sync;
     nimble_port_freertos_init(host_task);

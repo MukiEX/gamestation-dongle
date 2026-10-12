@@ -19,12 +19,13 @@
 
 #include "ble_central.h"
 #include "bonds.h"
+#include "diag.h"
 #include "pad.h"
 #include "usb_gamepad.h"
 
 static const char *TAG = "main";
 
-#define FW_VERSION       "0.1.0-step1"
+#define FW_VERSION       "0.1.1-step1"
 #define BOOT_GPIO        GPIO_NUM_0
 #define FORGET_HOLD_US   5000000
 
@@ -60,6 +61,7 @@ static void button_task(void *arg)
                 fired = true;
                 ESP_LOGW(TAG, "BOOT held 5 s: forgetting all paired controllers");
                 ble_central_forget_all();
+                diag_clear_crash();
             }
         } else {
             pressed_since = 0;
@@ -71,13 +73,20 @@ static void button_task(void *arg)
 
 void app_main(void)
 {
+    bool safe_mode = diag_boot();
     init_nvs();
     pad_init(usb_gamepad_poke);
     usb_gamepad_start();   // first, so the log mirror catches everything after it
 
     ESP_LOGI(TAG, "Joy-Con 2 Dongle %s", FW_VERSION);
+    diag_start();
     bonds_init();
-    ble_central_start();
+    if (safe_mode) {
+        ESP_LOGW(TAG, "SAFE MODE: crashed several times in a row, Bluetooth not started. "
+                      "Save the log and send it; replug to try normal mode again.");
+    } else {
+        ble_central_start();
+    }
 
     xTaskCreatePinnedToCore(button_task, "button", 3072, NULL, 3, NULL, 1);
     ESP_LOGI(TAG, "ready: press a button on a paired controller, or hold SYNC to pair a new one");

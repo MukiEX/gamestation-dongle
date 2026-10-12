@@ -275,6 +275,7 @@ footer a { color: inherit; }
         <div class="stat"><b>Joy-Con R</b><span id="st-r">– /s</span></div>
         <div class="stat"><b>Pro</b><span id="st-p">– /s</span></div>
         <div class="stat"><b>Interval</b><span id="st-itvl">–</span></div>
+        <div class="stat"><b>Last reset</b><span id="st-reset">–</span></div>
       </div>
     </section>
 
@@ -416,6 +417,9 @@ __MD5_JS__
       $(id).textContent = m[2] + " /s";
     }
     if ((m = text.match(/interval ([\d.]+) ms/))) $("st-itvl").textContent = m[1] + " ms";
+    if ((m = text.match(/last reset: ([^;]+); crashes in a row: (\d+)(.*)/))) {
+      $("st-reset").textContent = m[1] + (m[2] !== "0" ? " (×" + m[2] + ")" : "") + (/SAFE MODE/.test(m[3]) ? ", safe mode" : "");
+    }
     if ((m = text.match(/(Joy-Con L|Joy-Con R|Pro Controller) connected/))) present.add(m[1]);
     if ((m = text.match(/(Joy-Con L|Joy-Con R|Pro Controller) disconnected/))) present.delete(m[1]);
     if (/pair merged/.test(text)) present.add("merged");
@@ -533,6 +537,7 @@ __MD5_JS__
     out.push("Firmware: " + $("st-fw").textContent);
     out.push("Browser: " + navigator.userAgent);
     out.push("");
+    out.push("Last reset: " + $("st-reset").textContent);
     out.push("Readings: Joy-Con L " + $("st-l").textContent + ", Joy-Con R " + $("st-r").textContent +
              ", Pro " + $("st-p").textContent + ", interval " + $("st-itvl").textContent);
     out.push("");

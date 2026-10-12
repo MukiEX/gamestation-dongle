@@ -1,6 +1,8 @@
-# Name,    Type, SubType, Offset,   Size
-nvs,       data, nvs,     0x9000,   0x6000
-phy_init,  data, phy,     0xf000,   0x1000
-factory,   app,  factory, 0x10000,  0x400000
+# Name,    Type, SubType,  Offset,   Size
+nvs,       data, nvs,      0x9000,   0x6000
+phy_init,  data, phy,      0xf000,   0x1000
+factory,   app,  factory,  0x10000,  0x400000
 # Reserved for the web configurator's static files (step 3).
-www,       data, spiffs,  0x410000, 0x200000
+www,       data, spiffs,   0x410000, 0x200000
+# Crash report from the last panic (read and summarised on the next boot).
+coredump,  data, coredump, 0x610000, 0x20000

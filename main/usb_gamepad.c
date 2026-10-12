@@ -175,31 +175,111 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
 // Log mirror to the CDC port
 // ---------------------------------------------------------------------------
 
+// Every log line is formatted ONCE, into a static buffer, by the task that
+// logs it; the text is written to the UART console and copied into a ring
+// buffer. A separate low-priority task drains the ring to the CDC port, so a
+// logging task never calls into TinyUSB and never needs a big stack. The ring
+// keeps the most recent 16 KB, so lines logged before the host opened the
+// port (boot messages, crash reports) are still delivered.
+
+#define LOG_RING_SIZE 16384
+
 static vprintf_like_t s_uart_vprintf;
-static SemaphoreHandle_t s_cdc_mtx;
-static volatile bool s_cdc_ready;
+static SemaphoreHandle_t s_fmt_mtx;
+static volatile bool s_log_ready;
+static char s_fmt_buf[320];
+
+static char s_ring[LOG_RING_SIZE];
+static size_t s_ring_head;   // next write position
+static size_t s_ring_len;    // bytes waiting
+static portMUX_TYPE s_ring_mux = portMUX_INITIALIZER_UNLOCKED;
+static TaskHandle_t s_log_task;
+
+static void ring_push(const char *data, size_t len)
+{
+    if (len > LOG_RING_SIZE) {
+        data += len - LOG_RING_SIZE;
+        len = LOG_RING_SIZE;
+    }
+    portENTER_CRITICAL(&s_ring_mux);
+    for (size_t i = 0; i < len; i++) {
+        s_ring[s_ring_head] = data[i];
+        s_ring_head = (s_ring_head + 1) % LOG_RING_SIZE;
+    }
+    s_ring_len += len;
+    if (s_ring_len > LOG_RING_SIZE) {
+        s_ring_len = LOG_RING_SIZE;  // oldest bytes overwritten
+    }
+    portEXIT_CRITICAL(&s_ring_mux);
+}
+
+// Copies up to `max` waiting bytes out of the ring (without removing them).
+static size_t ring_peek(char *out, size_t max)
+{
+    portENTER_CRITICAL(&s_ring_mux);
+    size_t n = s_ring_len < max ? s_ring_len : max;
+    size_t tail = (s_ring_head + LOG_RING_SIZE - s_ring_len) % LOG_RING_SIZE;
+    for (size_t i = 0; i < n; i++) {
+        out[i] = s_ring[(tail + i) % LOG_RING_SIZE];
+    }
+    portEXIT_CRITICAL(&s_ring_mux);
+    return n;
+}
+
+static void ring_drop(size_t n)
+{
+    portENTER_CRITICAL(&s_ring_mux);
+    s_ring_len = n > s_ring_len ? 0 : s_ring_len - n;
+    portEXIT_CRITICAL(&s_ring_mux);
+}
 
 static int log_vprintf(const char *fmt, va_list args)
 {
-    char buf[256];
-    va_list copy;
-    va_copy(copy, args);
-    int n = vsnprintf(buf, sizeof(buf), fmt, copy);
-    va_end(copy);
+    if (!s_log_ready || xPortInIsrContext() || xSemaphoreTake(s_fmt_mtx, 0) != pdTRUE) {
+        return s_uart_vprintf(fmt, args);
+    }
+    int n = vsnprintf(s_fmt_buf, sizeof(s_fmt_buf), fmt, args);
+    if (n > 0) {
+        size_t len = (size_t)n < sizeof(s_fmt_buf) ? (size_t)n : sizeof(s_fmt_buf) - 1;
+        fputs(s_fmt_buf, stdout);
+        ring_push(s_fmt_buf, len);
+    }
+    xSemaphoreGive(s_fmt_mtx);
+    if (s_log_task) {
+        xTaskNotifyGive(s_log_task);
+    }
+    return n;
+}
 
-    int ret = s_uart_vprintf(fmt, args);
-
-    if (n > 0 && s_cdc_ready && !xPortInIsrContext() && tud_cdc_n_connected(0) &&
-        xSemaphoreTake(s_cdc_mtx, 0) == pdTRUE) {
-        size_t len = (size_t)n < sizeof(buf) ? (size_t)n : sizeof(buf) - 1;
-        // Never block: if the host isn't reading, log lines are dropped.
-        if (tud_cdc_n_write_available(0) >= len) {
-            tinyusb_cdcacm_write_queue(TINYUSB_CDC_ACM_0, (const uint8_t *)buf, len);
+static void log_task(void *arg)
+{
+    (void)arg;
+    char chunk[64];
+    for (;;) {
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
+        // Only send while the host has the port open (DTR raised); until then
+        // the ring keeps the most recent lines.
+        while (tud_mounted() && tud_cdc_n_connected(0)) {
+            size_t space = tud_cdc_n_write_available(0);
+            if (space == 0) {
+                tud_cdc_n_write_flush(0);
+                vTaskDelay(pdMS_TO_TICKS(2));
+                break;
+            }
+            size_t n = ring_peek(chunk, space < sizeof(chunk) ? space : sizeof(chunk));
+            if (n == 0) {
+                break;
+            }
+            size_t written = tinyusb_cdcacm_write_queue(TINYUSB_CDC_ACM_0, (const uint8_t *)chunk, n);
+            ring_drop(written);
+            if (written < n) {
+                break;
+            }
+        }
+        if (tud_mounted() && tud_cdc_n_connected(0)) {
             tinyusb_cdcacm_write_flush(TINYUSB_CDC_ACM_0, 0);
         }
-        xSemaphoreGive(s_cdc_mtx);
     }
-    return ret;
 }
 
 // ---------------------------------------------------------------------------
@@ -313,15 +393,25 @@ void usb_gamepad_start(void)
     cfg.descriptor.string_count = sizeof(string_desc) / sizeof(string_desc[0]);
     cfg.descriptor.full_speed_config = config_desc;
     cfg.task.xCoreID = 1;
-    ESP_ERROR_CHECK(tinyusb_driver_install(&cfg));
+    esp_err_t err = tinyusb_driver_install(&cfg);
+    if (err != ESP_OK) {
+        // Keep running: the UART log still works, and Bluetooth can still be
+        // debugged even if USB never comes up.
+        ESP_LOGE(TAG, "USB stack failed to start (%s); continuing without USB", esp_err_to_name(err));
+        return;
+    }
 
     tinyusb_config_cdcacm_t cdc = {
         .cdc_port = TINYUSB_CDC_ACM_0,
     };
-    ESP_ERROR_CHECK(tinyusb_cdcacm_init(&cdc));
-    s_cdc_mtx = xSemaphoreCreateMutex();
+    err = tinyusb_cdcacm_init(&cdc);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "USB serial (log) port failed to start: %s", esp_err_to_name(err));
+    }
+    s_fmt_mtx = xSemaphoreCreateMutex();
+    xTaskCreatePinnedToCore(log_task, "usb_log", 3072, NULL, 2, &s_log_task, 1);
     s_uart_vprintf = esp_log_set_vprintf(log_vprintf);
-    s_cdc_ready = true;
+    s_log_ready = true;
 
     xTaskCreatePinnedToCore(report_task, "usb_report", 4096, NULL, 7, &s_task, 1);
     ESP_LOGI(TAG, "USB gamepad started (%04x:%04x)", USB_VID, USB_PID);
