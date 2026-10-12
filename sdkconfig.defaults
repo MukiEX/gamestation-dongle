@@ -1,7 +1,9 @@
 # Target: ESP32-S3 N16R8 (16 MB quad flash, 8 MB octal PSRAM)
 CONFIG_IDF_TARGET="esp32s3"
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
-CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+# DIO, as Switch2Connect uses: works on every N16R8 flash chip. (QIO is only a
+# small speed-up and depends on the flash chip having its QE bit set.)
+CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 # PSRAM is not used until step 3/4; leaving it off removes one boot-time failure point.

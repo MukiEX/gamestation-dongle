@@ -11,6 +11,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "driver/gpio.h"
+#include "esp_heap_caps.h"
+#include "esp_system.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -25,7 +27,11 @@
 
 static const char *TAG = "main";
 
-#define FW_VERSION       "0.1.1-step1"
+#ifdef DONGLE_DIAG
+#define FW_VERSION       "0.1.2-step1-diag"
+#else
+#define FW_VERSION       "0.1.2-step1"
+#endif
 #define BOOT_GPIO        GPIO_NUM_0
 #define FORGET_HOLD_US   5000000
 
@@ -71,23 +77,50 @@ static void button_task(void *arg)
     }
 }
 
+#ifdef DONGLE_DIAG
+// Diagnostic build: proves the firmware is alive and shows memory over time.
+static void heartbeat_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        ESP_LOGI(TAG, "alive: uptime %lld s, free heap %u bytes (min %u)",
+                 esp_timer_get_time() / 1000000, (unsigned)esp_get_free_heap_size(),
+                 (unsigned)esp_get_minimum_free_heap_size());
+    }
+}
+#endif
+
 void app_main(void)
 {
     bool safe_mode = diag_boot();
+    ESP_LOGI(TAG, "Joy-Con 2 Dongle %s starting", FW_VERSION);
+    ESP_LOGI(TAG, "stage 1/5: storage");
     init_nvs();
     pad_init(usb_gamepad_poke);
-    usb_gamepad_start();   // first, so the log mirror catches everything after it
+#ifdef DONGLE_DIAG
+    ESP_LOGW(TAG, "stage 2/5: DIAGNOSTIC BUILD - USB gamepad disabled, log on the built-in USB port");
+#else
+    ESP_LOGI(TAG, "stage 2/5: USB");
+    usb_gamepad_start();   // the log mirror catches everything after this
+#endif
 
     ESP_LOGI(TAG, "Joy-Con 2 Dongle %s", FW_VERSION);
+    ESP_LOGI(TAG, "stage 3/5: diagnostics");
     diag_start();
     bonds_init();
     if (safe_mode) {
         ESP_LOGW(TAG, "SAFE MODE: crashed several times in a row, Bluetooth not started. "
                       "Save the log and send it; replug to try normal mode again.");
     } else {
+        ESP_LOGI(TAG, "stage 4/5: Bluetooth");
         ble_central_start();
     }
 
+    ESP_LOGI(TAG, "stage 5/5: button");
     xTaskCreatePinnedToCore(button_task, "button", 3072, NULL, 3, NULL, 1);
+#ifdef DONGLE_DIAG
+    xTaskCreatePinnedToCore(heartbeat_task, "heartbeat", 3072, NULL, 1, NULL, 1);
+#endif
     ESP_LOGI(TAG, "ready: press a button on a paired controller, or hold SYNC to pair a new one");
 }

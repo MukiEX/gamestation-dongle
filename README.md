@@ -62,7 +62,7 @@ Prebuilt images are in `dist/`. You need [esptool](https://github.com/espressif/
 2. Flash the single merged image:
 
    ```
-   esptool.py --chip esp32s3 -p <PORT> -b 921600 write_flash 0x0 dist/joycon2-dongle-0.1.1-merged.bin
+   esptool.py --chip esp32s3 -p <PORT> -b 921600 write_flash 0x0 dist/joycon2-dongle-0.1.2-merged.bin
    ```
 
    (Or the separate files: `0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 joycon2_dongle.bin`.)

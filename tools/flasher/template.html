@@ -57,6 +57,13 @@ p { margin: 0; }
 .fw { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 20px; }
 .fw dt { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .fw .wide { grid-column: 1 / -1; }
+.choice { border: 0; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.choice label { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+.choice label:has(input:checked) { border-color: var(--ink); }
+.choice input { margin-top: 4px; }
+.choice span { display: grid; gap: 2px; min-width: 0; }
+.choice small { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .fw dd { margin: 2px 0 0; font-family: var(--font-mono); font-size: 13.5px; overflow-wrap: anywhere; }
 
 .banner { border-radius: 10px; padding: 12px 16px; border: 1px solid var(--bad); color: var(--bad); background: var(--panel); }
@@ -173,6 +180,13 @@ footer a { color: inherit; }
   <div class="tabpanel" id="tab-flash" role="tabpanel" aria-labelledby="tab-btn-flash">
   <section class="panel" aria-labelledby="fw-title">
     <h2 id="fw-title">Firmware</h2>
+    <fieldset class="choice" id="fw-choice">
+      <legend class="sr-only">Which firmware to flash</legend>
+      <label for="img-normal"><input type="radio" name="img" id="img-normal" value="0" checked>
+        <span><b>Normal</b><small>USB gamepad + log port. Use this for testing.</small></span></label>
+      <label for="img-diag"><input type="radio" name="img" id="img-diag" value="1">
+        <span><b>Diagnostic</b><small>No gamepad. Everything, including crash output, goes to the built-in port (USB JTAG/serial debug unit).</small></span></label>
+    </fieldset>
     <dl class="fw" style="margin:12px 0 0">
       <div class="wide"><dt>Image</dt><dd id="fw-name">__FW_NAME__</dd></div>
       <div><dt>Size</dt><dd id="fw-size">__FW_SIZE__</dd></div>
@@ -261,7 +275,12 @@ footer a { color: inherit; }
   <div class="tabpanel" id="tab-logs" role="tabpanel" aria-labelledby="tab-btn-logs" hidden>
     <section class="panel" aria-labelledby="mon-title">
       <h2 id="mon-title">Connect to the dongle's log</h2>
-      <p class="sub" style="margin-top:6px">Plug the dongle in normally, without BOOT. Pick <b>Joy-Con 2 Dongle (dev)</b>, its log port. The board's <b>UART/COM</b> port carries the same log and also catches crashes before USB starts.</p>
+      <p class="sub" style="margin-top:6px">Plug the dongle in normally, without BOOT, and pick its port:</p>
+      <ul class="sub" style="margin:6px 0 0;padding-left:20px">
+        <li><b>Joy-Con 2 Dongle (dev)</b>: the normal firmware's log port.</li>
+        <li><b>USB JTAG/serial debug unit</b>: the chip's built-in port. Use this with the <b>diagnostic</b> firmware, or to watch start-up.</li>
+        <li><b>UART/COM</b> (second USB-C port, if your board has one): always carries the full log.</li>
+      </ul>
       <div class="row" style="margin-top:12px">
         <button id="mon-connect" class="primary">Connect</button>
         <button id="mon-disconnect" disabled>Disconnect</button>
@@ -291,6 +310,7 @@ footer a { color: inherit; }
         <button id="mon-copy">Copy</button>
         <button id="mon-clear">Clear log</button>
         <label class="row" style="gap:6px" for="mon-follow"><input type="checkbox" id="mon-follow" checked> Follow new lines</label>
+        <label class="row" style="gap:6px" for="mon-auto"><input type="checkbox" id="mon-auto" checked> Reconnect automatically</label>
         <span class="chip" id="mon-count">0 lines</span>
       </div>
       <pre class="log mon" id="mon" aria-live="off"></pre>
@@ -476,27 +496,42 @@ __MD5_JS__
       return;  // chooser cancelled
     }
     const info = p.getInfo ? p.getInfo() : {};
-    // Espressif's USB VID is the dongle's own log port (or the ROM in download
-    // mode, PID 0x1001); anything else is the board's UART bridge chip.
-    isUart = info.usbVendorId !== 0x303a;
-    const isRom = info.usbVendorId === 0x303a && info.usbProductId === 0x1001;
+    wanted = { vid: info.usbVendorId, pid: info.usbProductId };
+    await openPort(p, false);
+  }
+
+  // Which port to reopen automatically when it reappears (after a restart).
+  let wanted = null;
+  let kind = "";  // "uart" | "builtin" | "dongle"
+
+  async function openPort(p, auto) {
+    const info = p.getInfo ? p.getInfo() : {};
+    // Espressif's VID: 0x1001 is the chip's built-in USB port (bootloader,
+    // diagnostic build, download mode); anything else from Espressif is the
+    // dongle's own log port. Other vendors are the board's UART bridge chip.
+    kind = info.usbVendorId !== 0x303a ? "uart" : info.usbProductId === 0x1001 ? "builtin" : "dongle";
+    isUart = kind !== "dongle";
     try {
       await p.open({ baudRate: 115200, bufferSize: 65536 });
     } catch (err) {
-      setState("Couldn't open port", "warn");
-      addLine("[couldn't open the port: " + err.message + ". If the Flash tab is connected to it, disconnect there first.]", "e");
+      if (!auto) {
+        setState("Couldn't open port", "warn");
+        addLine("[couldn't open the port: " + err.message + ". If the Flash tab is connected to it, disconnect there first.]", "e");
+      }
       return;
     }
     port = p;
     try {
-      // The dongle only sends its log once the host raises DTR. On a UART
-      // bridge both lines low = run normally (no reset, no download mode).
-      await port.setSignals(isUart ? { dataTerminalReady: false, requestToSend: false }
-                                   : { dataTerminalReady: true, requestToSend: false });
+      // The dongle's own port only sends its log once the host raises DTR.
+      // On the built-in port and UART bridges, both lines low = run normally
+      // (no reset, no download mode).
+      await port.setSignals(kind === "dongle" ? { dataTerminalReady: true, requestToSend: false }
+                                              : { dataTerminalReady: false, requestToSend: false });
     } catch (_) {}
-    setState(isUart ? "Connected · UART/COM" : isRom ? "Connected · board is in download mode" : "Connected · dongle log port", isRom ? "warn" : "ok");
-    if (isRom) addLine("[this is the chip's download mode, not the running firmware: replug the board without BOOT and connect again]", "w");
-    mark("connected " + (isUart ? "to UART/COM" : "to dongle log port") + (info.usbProductId ? " (" + info.usbVendorId.toString(16) + ":" + info.usbProductId.toString(16) + ")" : ""));
+    const label = kind === "uart" ? "UART/COM" : kind === "builtin" ? "built-in USB port" : "dongle log port";
+    setState("Connected · " + label, "ok");
+    mark((auto ? "reconnected" : "connected") + " to " + label +
+         (info.usbProductId ? " (" + info.usbVendorId.toString(16) + ":" + info.usbProductId.toString(16) + ")" : ""));
     $("mon-connect").disabled = true;
     $("mon-disconnect").disabled = false;
     $("mon-reset").disabled = !isUart;
@@ -513,8 +548,10 @@ __MD5_JS__
     $("mon-connect").disabled = false;
     $("mon-disconnect").disabled = true;
     $("mon-reset").disabled = true;
-    setState(lost ? "Port closed (dongle unplugged or restarted)" : "Not connected", lost ? "warn" : "");
-    mark(lost ? "port lost" : "disconnected");
+    if (!lost) wanted = null;  // a deliberate disconnect stops auto-reconnect
+    const waiting = lost && wanted && $("mon-auto").checked;
+    setState(lost ? (waiting ? "Port gone · waiting for it to come back" : "Port closed (unplugged or restarted)") : "Not connected", lost ? "warn" : "");
+    mark(lost ? "port lost (board restarted or unplugged)" : "disconnected");
   }
 
   async function restartBoard() {
@@ -590,13 +627,23 @@ __MD5_JS__
     navigator.serial.addEventListener("disconnect", (e) => {
       if (port && e.target === port) disconnect(true);
     });
+    // Reopen the same port automatically when it comes back, so a whole
+    // crash/restart loop lands in one log.
+    navigator.serial.addEventListener("connect", async (e) => {
+      const p = e.target;
+      const info = p.getInfo ? p.getInfo() : {};
+      if (!port && wanted && $("mon-auto").checked &&
+          info.usbVendorId === wanted.vid && info.usbProductId === wanted.pid) {
+        await new Promise((r) => setTimeout(r, 150));
+        if (!port) await openPort(p, true);
+      }
+    });
   }
 })();
 
 </script>
 <script type="module">
-const FW_B64 = "__FW_B64__";
-const FW_MD5 = "__FW_MD5__";
+const IMAGES = __IMAGES_JSON__;
 const LIB_URLS = [
   "https://cdn.jsdelivr.net/npm/esptool-js@0.5.7/bundle.js",
   "https://unpkg.com/esptool-js@0.5.7/bundle.js",
@@ -631,7 +678,18 @@ function setStep(n) {
 }
 
 // Firmware image as a binary string (one char per byte), which esptool-js expects.
-let image = { name: $("fw-name").textContent, data: atob(FW_B64), address: 0 };
+let image = null;
+function useEmbedded(i) {
+  const im = IMAGES[i];
+  image = { name: im.name, data: atob(im.b64), address: 0, md5: im.md5 };
+  $("fw-name").textContent = im.name;
+  $("fw-size").textContent = fmtSize(image.data.length);
+  $("fw-addr").textContent = "0x0";
+  $("fw-md5").textContent = im.md5;
+  if (md5bstr(image.data) !== im.md5) {
+    log("The embedded firmware " + im.name + " is damaged (MD5 mismatch). Download the tool again.", "err");
+  }
+}
 
 function u8ToBstr(u8) {
   let s = "";
@@ -646,6 +704,7 @@ $("custom-file").addEventListener("change", async (e) => {
   const buf = new Uint8Array(await f.arrayBuffer());
   const addr = parseInt($("custom-addr").value, 16);
   image = { name: f.name, data: u8ToBstr(buf), address: Number.isFinite(addr) ? addr : 0 };
+  for (const r of document.querySelectorAll('input[name="img"]')) r.checked = false;
   $("fw-name").textContent = f.name;
   $("fw-size").textContent = fmtSize(buf.length);
   $("fw-addr").textContent = "0x" + image.address.toString(16);
@@ -666,8 +725,13 @@ if (!("serial" in navigator)) {
 }
 
 // Sanity-check the embedded image before anything else.
-if (md5bstr(image.data) !== FW_MD5) {
-  log("The embedded firmware is damaged (MD5 mismatch). Download the flasher again.", "err");
+useEmbedded(0);
+for (const r of document.querySelectorAll('input[name="img"]')) {
+  r.addEventListener("change", () => {
+    useEmbedded(Number(r.value));
+    $("custom-file").value = "";
+    log("Selected " + image.name);
+  });
 }
 
 let ESPLoader, Transport;
@@ -792,7 +856,7 @@ if (navigator.serial) {
   });
 }
 
-log("Firmware " + image.name + " embedded (" + image.data.length + " bytes, MD5 " + FW_MD5 + ").");
+log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
 </script>
 </body>
 </html>

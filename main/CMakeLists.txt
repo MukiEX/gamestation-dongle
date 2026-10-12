@@ -16,3 +16,8 @@ idf_component_register(
         esp_tinyusb
         espcoredump
 )
+
+# Diagnostic build: `DONGLE_DIAG=1` in the environment when configuring.
+if(DEFINED ENV{DONGLE_DIAG})
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE DONGLE_DIAG=1)
+endif()

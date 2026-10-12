@@ -1,0 +1,5 @@
+# Diagnostic build overlay: the whole log (bootloader, app, crash output) goes
+# to the chip's built-in USB-Serial-JTAG port. The USB gamepad is not started.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=n
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
