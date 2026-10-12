@@ -29,16 +29,19 @@ header .fw { color: var(--muted); font-size: 13px; }
 header .spacer { flex: 1; }
 main { max-width: 980px; margin: 0 auto; padding: 18px 16px 60px;
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
 section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
 section.wide { grid-column: 1 / -1; }
 h2 { font-size: 15px; margin: 0 0 12px; font-weight: 650; }
-.row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; padding: 8px 0;
+.row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 0;
   border-top: 1px solid var(--line); }
 .row:first-of-type { border-top: 0; }
 .row label { font-weight: 550; }
 .hint { color: var(--muted); font-size: 13px; grid-column: 2; margin-top: -4px; }
 select, input[type=range] { width: 100%; }
+.grips { display: flex; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
+.grips label { display: flex; align-items: center; gap: 6px; flex: 1 1 8em; min-width: 0; }
+.grips select { min-width: 0; flex: 1 1 0; }
 input[type=range] { accent-color: var(--accent); }
 select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line);
   border-radius: 8px; padding: 7px 9px; }
@@ -146,6 +149,14 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="rangeval"><input type="range" id="deadzone" min="0" max="30" step="1"><output id="deadzoneOut"></output></div>
       <div class="hint">Applies immediately: watch the sticks under Live input.</div>
     </div>
+    <div class="row">
+      <label>Back buttons</label>
+      <div class="grips">
+        <label>GL <select id="gl"></select></label>
+        <label>GR <select id="gr"></select></label>
+      </div>
+      <div class="hint" id="griphint"></div>
+    </div>
     <div class="row" style="border-top:0">
       <span></span><span class="saved" id="saved">Saved</span>
     </div>
@@ -229,6 +240,11 @@ function showSettings() {
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
   seg("hotkeys", settings.hotkeys);
+  $("gl").value = settings.gl;
+  $("gr").value = settings.gr;
+  const auto = { ds4: "the touchpad's left / right half", hid: "its own buttons 20 / 21" }[settings.mode];
+  $("griphint").textContent = "Pro Controller 2 only. Auto in this mode: " +
+    (auto || "nothing (no spare buttons), so pick one here") + ".";
   $("rumble").value = settings.rumble;
   $("rumbleOut").textContent = settings.rumble === 0 ? "off" : settings.rumble + " / 10";
   $("deadzone").value = settings.deadzone;
@@ -275,6 +291,8 @@ for (const id of ["layout", "logPort", "hotkeys"]) {
   });
 }
 $("mode").addEventListener("change", () => save({ mode: $("mode").value }));
+$("gl").addEventListener("change", () => save({ gl: $("gl").value }));
+$("gr").addEventListener("change", () => save({ gr: $("gr").value }));
 $("rumble").addEventListener("input", () => save({ rumble: +$("rumble").value }));
 $("deadzone").addEventListener("input", () => save({ deadzone: +$("deadzone").value }));
 
@@ -401,6 +419,13 @@ async function poll() {
         const o = document.createElement("option");
         o.value = m.key; o.textContent = m.name;
         $("mode").appendChild(o);
+      }
+      for (const id of ["gl", "gr"]) {
+        for (const g of st.grips) {
+          const o = document.createElement("option");
+          o.value = g.key; o.textContent = g.name;
+          $(id).appendChild(o);
+        }
       }
       modesFilled = true;
     }

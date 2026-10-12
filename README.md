@@ -14,7 +14,7 @@ TommyWabg, so this project is **GPL-3.0**.
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
 | 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
 | 3 | Web configurator at 192.168.7.1, settings in flash | **done (0.3.4)** |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | **this build: gyro (0.4.0)** |
+| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | **this build: gyro, back buttons (0.4.1)** |
 | 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
 
 ### Controllers
@@ -86,7 +86,14 @@ B, whatever the label on the Nintendo controller says.
 | − / + | Back / Start | Share / Options | − / + |
 | Home | Guide | PS | Home |
 | Capture | – | Touchpad click | Capture |
-| C, GL, GR, SL, SR | – | – | – |
+| GL / GR (Pro Controller 2) | your choice | touchpad left / right half | your choice |
+| C, SL, SR | – | – | – |
+
+**Back buttons (GL / GR)** can be set to any button in the configurator. On
+*Auto* they press the left and right half of the touchpad in DS4 mode (the same
+trick Switch2Connect uses, so Steam Input and DS4Windows can bind them
+separately) and buttons 20 / 21 in generic HID mode. XInput and Switch Pro have
+no spare buttons, so there Auto does nothing until you pick one.
 
 **Rumble** follows Switch2Connect's defaults (strength 5, frequency 10): the
 large motor drives the low band and the small motor the high band. Switch HD

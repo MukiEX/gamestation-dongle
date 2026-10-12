@@ -322,6 +322,8 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddStringToObject(o, "layout", s->layout == LAYOUT_LABELS ? "labels" : "positional");
     cJSON_AddNumberToObject(o, "deadzone", s->deadzone_pct);
     cJSON_AddBoolToObject(o, "hotkeys", s->mode_hotkeys);
+    cJSON_AddStringToObject(o, "gl", settings_grip_key(s->grip_gl));
+    cJSON_AddStringToObject(o, "gr", settings_grip_key(s->grip_gr));
     return o;
 }
 
@@ -339,6 +341,14 @@ static esp_err_t h_state(httpd_req_t *req)
         cJSON_AddStringToObject(e, "key", settings_out_mode_key((out_mode_t)m));
         cJSON_AddStringToObject(e, "name", settings_out_mode_name((out_mode_t)m));
         cJSON_AddItemToArray(modes, e);
+    }
+
+    cJSON *grips = cJSON_AddArrayToObject(root, "grips");
+    for (int g = 0; g < GRIP_COUNT; g++) {
+        cJSON *e = cJSON_CreateObject();
+        cJSON_AddStringToObject(e, "key", settings_grip_key((grip_map_t)g));
+        cJSON_AddStringToObject(e, "name", settings_grip_name((grip_map_t)g));
+        cJSON_AddItemToArray(grips, e);
     }
 
     ble_link_info_t links[4];
@@ -408,6 +418,14 @@ static esp_err_t h_settings(httpd_req_t *req)
     }
     if ((v = cJSON_GetObjectItem(j, "deadzone")) && cJSON_IsNumber(v)) s.deadzone_pct = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "hotkeys")) && cJSON_IsBool(v)) s.mode_hotkeys = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
+        grip_map_t g = settings_grip_from_key(v->valuestring);
+        if (g < GRIP_COUNT) s.grip_gl = g;
+    }
+    if ((v = cJSON_GetObjectItem(j, "gr")) && cJSON_IsString(v)) {
+        grip_map_t g = settings_grip_from_key(v->valuestring);
+        if (g < GRIP_COUNT) s.grip_gr = g;
+    }
     cJSON_Delete(j);
     settings_set(&s);
     s = settings_get();

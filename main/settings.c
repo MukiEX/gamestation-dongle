@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "settings.h"
 
+#include <string.h>
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "nvs.h"
@@ -15,7 +17,42 @@ static settings_t s_cur = {
     .layout = LAYOUT_POSITIONAL,
     .deadzone_pct = 3,
     .mode_hotkeys = true,
+    .grip_gl = GRIP_AUTO,
+    .grip_gr = GRIP_AUTO,
 };
+
+static const struct { const char *key, *name; } s_grips[GRIP_COUNT] = {
+    [GRIP_AUTO] = { "auto", "Auto" },        [GRIP_OFF] = { "off", "Nothing" },
+    [GRIP_A] = { "a", "A" },                 [GRIP_B] = { "b", "B" },
+    [GRIP_X] = { "x", "X" },                 [GRIP_Y] = { "y", "Y" },
+    [GRIP_L] = { "l", "L" },                 [GRIP_R] = { "r", "R" },
+    [GRIP_ZL] = { "zl", "ZL" },              [GRIP_ZR] = { "zr", "ZR" },
+    [GRIP_LSTICK] = { "lstick", "L stick click" }, [GRIP_RSTICK] = { "rstick", "R stick click" },
+    [GRIP_MINUS] = { "minus", "\xe2\x88\x92" }, [GRIP_PLUS] = { "plus", "+" },
+    [GRIP_HOME] = { "home", "Home" },        [GRIP_CAPTURE] = { "capture", "Capture" },
+    [GRIP_UP] = { "up", "D-pad up" },        [GRIP_DOWN] = { "down", "D-pad down" },
+    [GRIP_LEFT] = { "left", "D-pad left" },  [GRIP_RIGHT] = { "right", "D-pad right" },
+    [GRIP_TP_LEFT] = { "tp_left", "Touchpad left (DS4)" },
+    [GRIP_TP_RIGHT] = { "tp_right", "Touchpad right (DS4)" },
+};
+
+const char *settings_grip_key(grip_map_t m)
+{
+    return m < GRIP_COUNT ? s_grips[m].key : "auto";
+}
+
+const char *settings_grip_name(grip_map_t m)
+{
+    return m < GRIP_COUNT ? s_grips[m].name : "Auto";
+}
+
+grip_map_t settings_grip_from_key(const char *key)
+{
+    for (int i = 0; i < GRIP_COUNT; i++) {
+        if (strcmp(key, s_grips[i].key) == 0) return (grip_map_t)i;
+    }
+    return GRIP_COUNT;
+}
 
 static uint8_t get_u8(nvs_handle_t h, const char *key, uint8_t def, uint8_t max)
 {
@@ -37,6 +74,8 @@ void settings_init(void)
         s.layout = (button_layout_t)get_u8(h, "layout", s.layout, LAYOUT_LABELS);
         s.deadzone_pct = get_u8(h, "deadzone", s.deadzone_pct, SETTINGS_DEADZONE_MAX);
         s.mode_hotkeys = get_u8(h, "hotkeys", s.mode_hotkeys, 1);
+        s.grip_gl = (grip_map_t)get_u8(h, "gl", s.grip_gl, GRIP_COUNT - 1);
+        s.grip_gr = (grip_map_t)get_u8(h, "gr", s.grip_gr, GRIP_COUNT - 1);
         s_cur = s;
         nvs_close(h);
     }
@@ -60,6 +99,8 @@ void settings_set(const settings_t *in)
     if (s.rumble_strength > SETTINGS_RUMBLE_MAX) s.rumble_strength = SETTINGS_RUMBLE_MAX;
     if (s.layout > LAYOUT_LABELS) s.layout = LAYOUT_POSITIONAL;
     if (s.deadzone_pct > SETTINGS_DEADZONE_MAX) s.deadzone_pct = SETTINGS_DEADZONE_MAX;
+    if (s.grip_gl >= GRIP_COUNT) s.grip_gl = GRIP_AUTO;
+    if (s.grip_gr >= GRIP_COUNT) s.grip_gr = GRIP_AUTO;
     portENTER_CRITICAL(&s_mux);
     s_cur = s;
     portEXIT_CRITICAL(&s_mux);
@@ -72,12 +113,15 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "layout", (uint8_t)s.layout);
         nvs_set_u8(h, "deadzone", s.deadzone_pct);
         nvs_set_u8(h, "hotkeys", s.mode_hotkeys);
+        nvs_set_u8(h, "gl", (uint8_t)s.grip_gl);
+        nvs_set_u8(h, "gr", (uint8_t)s.grip_gr);
         nvs_commit(h);
         nvs_close(h);
     }
-    ESP_LOGI(TAG, "saved: %s; log port %s; rumble %u/10; %s buttons; deadzone %u%%; hotkeys %s",
+    ESP_LOGI(TAG, "saved: %s; log port %s; rumble %u/10; %s buttons; deadzone %u%%; hotkeys %s; GL %s, GR %s",
              settings_out_mode_name(s.out_mode), s.log_port ? "on" : "off", s.rumble_strength,
-             s.layout == LAYOUT_LABELS ? "label" : "positional", s.deadzone_pct, s.mode_hotkeys ? "on" : "off");
+             s.layout == LAYOUT_LABELS ? "label" : "positional", s.deadzone_pct, s.mode_hotkeys ? "on" : "off",
+             settings_grip_key(s.grip_gl), settings_grip_key(s.grip_gr));
 }
 
 out_mode_t settings_out_mode(void)

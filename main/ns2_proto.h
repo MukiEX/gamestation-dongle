@@ -73,6 +73,10 @@
 #define NS2_BTN_GL     0x02000000u
 // The top byte of the field is a status byte on Joy-Con/Pro, not buttons.
 #define NS2_BTN_MASK   0x03FFFFFFu
+// Dongle-internal, never sent by a controller: DS4 touchpad left / right half
+// clicks (what GL / GR press by default in DS4 mode).
+#define NS2_BTN_TP_LEFT  0x10000000u
+#define NS2_BTN_TP_RIGHT 0x20000000u
 
 typedef struct {
     uint32_t timestamp;

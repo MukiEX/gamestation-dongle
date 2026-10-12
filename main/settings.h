@@ -20,6 +20,21 @@ typedef enum {
     LAYOUT_LABELS,          // Nintendo A = Xbox A, B = B, X = X, Y = Y
 } button_layout_t;
 
+// What the Pro Controller 2's GL / GR back buttons press. AUTO picks per
+// output mode: the DS4 touchpad's left / right half, the generic HID mode's
+// own buttons 20 / 21, nothing in XInput and Switch Pro (no spare buttons).
+typedef enum {
+    GRIP_AUTO = 0,
+    GRIP_OFF,
+    GRIP_A, GRIP_B, GRIP_X, GRIP_Y,
+    GRIP_L, GRIP_R, GRIP_ZL, GRIP_ZR,
+    GRIP_LSTICK, GRIP_RSTICK,
+    GRIP_MINUS, GRIP_PLUS, GRIP_HOME, GRIP_CAPTURE,
+    GRIP_UP, GRIP_DOWN, GRIP_LEFT, GRIP_RIGHT,
+    GRIP_TP_LEFT, GRIP_TP_RIGHT,  // DS4 touchpad left / right half click
+    GRIP_COUNT,
+} grip_map_t;
+
 typedef struct {
     out_mode_t out_mode;
     bool log_port;           // CDC serial log port next to the controller
@@ -27,6 +42,8 @@ typedef struct {
     button_layout_t layout;
     uint8_t deadzone_pct;    // radial stick deadzone, 0..30 %
     bool mode_hotkeys;       // controller hotkeys (- + for mode, Capture + Home for config)
+    grip_map_t grip_gl;      // Pro Controller 2 back buttons
+    grip_map_t grip_gr;
 } settings_t;
 
 #define SETTINGS_RUMBLE_MAX   10
@@ -42,6 +59,10 @@ void settings_set(const settings_t *s);
 out_mode_t settings_out_mode(void);
 const char *settings_out_mode_name(out_mode_t mode);
 const char *settings_out_mode_key(out_mode_t mode);  // "xinput", "ds4", ...
+
+const char *settings_grip_key(grip_map_t m);   // "auto", "off", "a", ..., "tp_left"
+const char *settings_grip_name(grip_map_t m);  // for people: "Auto", "A", "Touchpad left"...
+grip_map_t settings_grip_from_key(const char *key);  // GRIP_COUNT if unknown
 
 // Saves the next output mode in the cycle and returns it.
 out_mode_t settings_next_out_mode(void);

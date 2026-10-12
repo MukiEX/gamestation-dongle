@@ -360,6 +360,35 @@ static void check_hotkeys(const pad_out_t *o)
     }
 }
 
+// Pro Controller 2 back buttons: GL / GR press whatever the settings say.
+static uint32_t grip_target(grip_map_t m, bool left)
+{
+    static const uint32_t bits[GRIP_COUNT] = {
+        [GRIP_A] = NS2_BTN_A, [GRIP_B] = NS2_BTN_B, [GRIP_X] = NS2_BTN_X, [GRIP_Y] = NS2_BTN_Y,
+        [GRIP_L] = NS2_BTN_L, [GRIP_R] = NS2_BTN_R, [GRIP_ZL] = NS2_BTN_ZL, [GRIP_ZR] = NS2_BTN_ZR,
+        [GRIP_LSTICK] = NS2_BTN_LSTICK, [GRIP_RSTICK] = NS2_BTN_RSTICK,
+        [GRIP_MINUS] = NS2_BTN_MINUS, [GRIP_PLUS] = NS2_BTN_PLUS,
+        [GRIP_HOME] = NS2_BTN_HOME, [GRIP_CAPTURE] = NS2_BTN_CAPT,
+        [GRIP_UP] = NS2_BTN_UP, [GRIP_DOWN] = NS2_BTN_DOWN, [GRIP_LEFT] = NS2_BTN_LEFT, [GRIP_RIGHT] = NS2_BTN_RIGHT,
+        [GRIP_TP_LEFT] = NS2_BTN_TP_LEFT, [GRIP_TP_RIGHT] = NS2_BTN_TP_RIGHT,
+    };
+    if (m == GRIP_AUTO) {
+        if (s_drv == &out_ds4) return left ? NS2_BTN_TP_LEFT : NS2_BTN_TP_RIGHT;
+        if (s_drv == &out_hid) return left ? NS2_BTN_GL : NS2_BTN_GR;  // its own buttons 20 / 21
+        return 0;
+    }
+    return m < GRIP_COUNT ? bits[m] : 0;
+}
+
+static void apply_grips(pad_out_t *o)
+{
+    settings_t st = settings_get();
+    uint32_t b = o->buttons & ~(NS2_BTN_GL | NS2_BTN_GR);
+    if (o->buttons & NS2_BTN_GL) b |= grip_target(st.grip_gl, true);
+    if (o->buttons & NS2_BTN_GR) b |= grip_target(st.grip_gr, false);
+    o->buttons = b;
+}
+
 // "Label" layout: Nintendo's A/B/X/Y keep their names (Switch A -> Xbox A),
 // instead of their positions. The Switch Pro mode is labelled the same as the
 // controllers already, so it never swaps.
@@ -409,6 +438,7 @@ static void report_task(void *arg)
             continue;
         }
         was_mounted = true;
+        apply_grips(&out);   // before the layout, so "A" swaps like the real A
         apply_layout(&out);
         bool done = s_drv->send(&out);
         wait = done ? pdMS_TO_TICKS(s_drv->period_ms) : pdMS_TO_TICKS(1);
