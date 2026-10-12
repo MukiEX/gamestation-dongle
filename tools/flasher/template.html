@@ -348,22 +348,14 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Configurator, Live input, Motion: a Pro Controller 2 (or a Joy-Con pair held like a controller) lying flat face up reads Gravity Y about +1.00, X and Z near 0; the gyro bars settle at 0",
-    "Lift the top edge toward the ceiling: Z heads to -1 and the Tilt dot moves up; Pitch goes positive while you tilt it up",
-    "Lower the right side: X heads to -1 and the Tilt dot moves left; Roll goes negative while you roll it right",
-    "Flat on the table, turn it left (counter-clockwise from above): Yaw goes positive",
-    "A lone Joy-Con held sideways (try L and R): the same four checks hold for the way you hold it",
-    "Joy-Con pair: motion follows the right Joy-Con; turn the right one off and it follows the left",
-    "DS4 mode in Steam (Settings, Controller, Test Device Inputs): gyro follows the controller, not mirrored or swapped, and a quarter turn looks like a quarter turn",
-    "Switch Pro mode in Steam: same as the DS4 check",
-    "Put it down for a few seconds after moving it: nothing drifts afterwards",
-    "Buttons, sticks and rumble still work in all four modes",
-    "Pro Controller 2 GL / GR light up under Live input in the configurator",
-    "DS4 mode, Back buttons on Auto: GL and GR click the left and right half of the touchpad (Steam's Test Device Inputs, or DS4Windows)",
-    "Pick a button for GL and GR in the configurator (e.g. ZR) and Save & exit: in XInput and Switch Pro mode they now press that button",
-    "Generic HID mode on Auto: GL and GR are buttons 20 and 21",
-    "Joy-Con pair in the Joy-Con 2 Charging Grip (put them in before they connect): the log says 'in a charging grip' and 'charging grip GL/GR enabled' for each, and the grip's GL / GR light up under Live input",
-    "Grip GL / GR follow the Back buttons setting like the Pro Controller's (check one mode)",
+    "DS4 mode, Steam's Test Device Inputs: in the configurator (Feel, DS4 motion) toggle flips and Save & exit until Steam's gyro views all move the right way and rest upright. Put the winning code (e.g. 'gyro +-+ accel +++') in the note, or what no combination fixes",
+    "Switch Pro mode: same, with the Switch Pro motion toggles. Winning code in the note",
+    "With those codes: Steam gyro as mouse (Gyro Behavior 'As Mouse', always on): turn left = cursor left, tilt the top up = cursor up",
+    "DS4 mode, Back buttons on Auto, Steam Test Device Inputs: does a finger dot appear on the left half for GL and the right half for GR (the whole pad lighting up is the click)?",
+    "Switch Pro mode: rumble in a game or in Steam's controller test; the log shows 'rumble from the PC' lines when the PC sends any",
+    "Charging grip: take the Joy-Cons out of the grip and put them back while connected; within ~2 s the grip's GL / GR work again",
+    "Save & exit from the configurator several times (switch to DS4, Switch Pro and back): no crash ('assert failed' / reboot) in the log",
+    "Buttons, sticks, rumble and motion still work in all four modes",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "ns2_proto.h"
 #include "out.h"
+#include "settings.h"
 #include "rumble.h"
 
 static const char *TAG = "switchpro";
@@ -253,10 +254,11 @@ static void update_inputs(const pad_out_t *o)
     // X = -Z (toward the top), Y = -X (left), Z = Y (out of the face).
     int16_t v[6] = { 0, 0, 4096, 0, 0, 0 };  // no motion: lying flat
     if (o->motion.valid) {
-        const pad_motion_t *m = &o->motion;
+        float g[3], a[3];
+        out_motion_flipped(&o->motion, settings_get().flip_switch, g, a);
         const float A = 4096.0f, G = 13371.0f / 936.0f;  // the SPI calibration's scales
-        v[0] = s16(-m->accel[2] * A); v[1] = s16(-m->accel[0] * A); v[2] = s16(m->accel[1] * A);
-        v[3] = s16(-m->gyro[2] * G);  v[4] = s16(-m->gyro[0] * G);  v[5] = s16(m->gyro[1] * G);
+        v[0] = s16(-a[2] * A); v[1] = s16(-a[0] * A); v[2] = s16(a[1] * A);
+        v[3] = s16(-g[2] * G); v[4] = s16(-g[0] * G); v[5] = s16(g[1] * G);
     }
     uint8_t imu[36];
     for (int k = 0; k < 3; k++) {  // one fresh sample per report: repeat it
@@ -398,6 +400,22 @@ static void handle_subcommand(const uint8_t *d, uint16_t n)
     queue_reply(r);
 }
 
+// HD rumble from the PC; logged (at most every 2 s) when it isn't silence, so a
+// report shows whether the host sent any.
+static void host_rumble(const uint8_t *buf)
+{
+    static const uint8_t neutral[4] = { 0x00, 0x01, 0x40, 0x40 };
+    static int64_t last_log;
+    bool silent = memcmp(&buf[2], neutral, 4) == 0 && memcmp(&buf[6], neutral, 4) == 0;
+    int64_t now = esp_timer_get_time();
+    if (!silent && now - last_log > 2000000) {
+        last_log = now;
+        ESP_LOGI(TAG, "rumble from the PC: %02x %02x %02x %02x / %02x %02x %02x %02x", buf[2], buf[3], buf[4],
+                 buf[5], buf[6], buf[7], buf[8], buf[9]);
+    }
+    rumble_set_hd(&buf[2], &buf[6]);
+}
+
 static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, uint16_t len)
 {
     (void)type;
@@ -438,11 +456,11 @@ static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, u
         }
         break;
     case 0x01:  // rumble + subcommand
-        if (len >= 10) rumble_set_hd(&buf[2], &buf[6]);
+        if (len >= 10) host_rumble(buf);
         handle_subcommand(buf, len);
         break;
     case 0x10:  // rumble only
-        if (len >= 10) rumble_set_hd(&buf[2], &buf[6]);
+        if (len >= 10) host_rumble(buf);
         break;
     default:
         break;

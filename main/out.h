@@ -62,3 +62,12 @@ static inline float out_clampf(float v, float lo, float hi)
 
 // Hat switch from the d-pad bits: 0 = N, 1 = NE ... 7 = NW, 8 = centred.
 uint8_t out_hat(uint32_t buttons);
+
+// Motion with the configurator's per-mode test flips applied (MOTION_FLIP_*).
+static inline void out_motion_flipped(const pad_motion_t *m, uint8_t flips, float g[3], float a[3])
+{
+    for (int i = 0; i < 3; i++) {
+        g[i] = (flips & (1u << i)) ? -m->gyro[i] : m->gyro[i];
+        a[i] = (flips & (8u << i)) ? -m->accel[i] : m->accel[i];
+    }
+}

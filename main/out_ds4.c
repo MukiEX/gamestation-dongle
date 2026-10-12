@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "ns2_proto.h"
 #include "out.h"
+#include "settings.h"
 #include "rumble.h"
 
 #define EP_IN  0x81
@@ -385,9 +386,11 @@ static bool send(const pad_out_t *o)
     r[9] = (b & NS2_BTN_ZR) ? 255 : 0;
     if (o->motion.valid) {
         // 16.384 LSB per deg/s and 8192 per g, matching feature report 0x02.
+        float g[3], a[3];
+        out_motion_flipped(&o->motion, settings_get().flip_ds4, g, a);
         for (int i = 0; i < 3; i++) {
-            put16(&r[13 + 2 * i], o->motion.gyro[i] * 16.384f);
-            put16(&r[19 + 2 * i], o->motion.accel[i] * 8192.0f);
+            put16(&r[13 + 2 * i], g[i] * 16.384f);
+            put16(&r[19 + 2 * i], a[i] * 8192.0f);
         }
     } else {
         put16(&r[21], 8192.0f);  // at rest, lying flat

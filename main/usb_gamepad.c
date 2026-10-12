@@ -360,6 +360,18 @@ static void check_hotkeys(const pad_out_t *o)
     }
 }
 
+// Which motion axes the configurator flips for this mode (Steam testing).
+static void log_motion_flips(void)
+{
+    char code[20];
+    settings_t st = settings_get();
+    if (s_drv == &out_ds4) {
+        ESP_LOGI(TAG, "DS4 motion: %s", settings_flip_code(st.flip_ds4, code));
+    } else if (s_drv == &out_switchpro) {
+        ESP_LOGI(TAG, "Switch Pro motion: %s", settings_flip_code(st.flip_switch, code));
+    }
+}
+
 // Pro Controller 2 back buttons: GL / GR press whatever the settings say.
 static uint32_t grip_target(grip_map_t m, bool left)
 {
@@ -531,6 +543,7 @@ static void switch_to(int target)
     }
     ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s; controllers stay connected", s_drv->name, s_drv->vid,
              s_drv->pid, s_with_cdc ? "" : ", log port off");
+    log_motion_flips();
 }
 
 static void request(int target)
@@ -607,4 +620,5 @@ void usb_gamepad_start(void)
     ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s. Change mode: press BOOT or hold - and + for 3 s. "
                   "Configurator: hold BOOT 2 s or Capture + Home for 3 s",
              s_drv->name, s_drv->vid, s_drv->pid, s_with_cdc ? "" : ", log port off");
+    log_motion_flips();
 }

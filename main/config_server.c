@@ -22,6 +22,7 @@
 #include "lwip/esp_netif_net_stack.h"
 #include "device/usbd_pvt.h"
 #include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 #include "tusb.h"
 #include "lwip/sockets.h"
 
@@ -68,6 +69,10 @@ typedef struct {
 } tx_job_t;
 
 static EventGroupHandle_t s_tx_done;
+// Held while a packet is being handed to TinyUSB. Leaving the configurator
+// takes it, so no packet can reach TinyUSB after it has been uninstalled
+// (lwIP may still be sending when the page's Save & exit switches USB).
+static SemaphoreHandle_t s_tx_mtx;
 static tx_job_t *volatile s_tx_job;
 
 static void tx_in_usb_task(void *arg)
@@ -94,24 +99,30 @@ uint16_t tud_network_xmit_cb(uint8_t *dst, void *ref, uint16_t arg)
 static esp_err_t netif_transmit(void *h, void *buffer, size_t len)
 {
     (void)h;
-    if (!s_active || !tud_ready() || len > 0xFFFF) {
+    if (!s_active || len > 0xFFFF || xSemaphoreTake(s_tx_mtx, pdMS_TO_TICKS(100)) != pdTRUE) {
         s_tx_fail++;
         return ESP_OK;
     }
     tx_job_t job = { .buf = buffer, .len = (uint16_t)len };
-    for (int attempt = 0; attempt < 20; attempt++) {
+    bool ok = false;
+    for (int attempt = 0; attempt < 20 && s_active && tud_ready(); attempt++) {
         xEventGroupClearBits(s_tx_done, 1);
         s_tx_job = &job;
         usbd_defer_func(tx_in_usb_task, NULL, false);
         EventBits_t bits = xEventGroupWaitBits(s_tx_done, 1, pdTRUE, pdTRUE, pdMS_TO_TICKS(50));
         s_tx_job = NULL;
         if ((bits & 1) && job.sent) {
-            s_tx_pkts++;
-            return ESP_OK;
+            ok = true;
+            break;
         }
         vTaskDelay(1);
     }
-    s_tx_fail++;
+    xSemaphoreGive(s_tx_mtx);
+    if (ok) {
+        s_tx_pkts++;
+    } else {
+        s_tx_fail++;
+    }
     return ESP_OK;
 }
 
@@ -168,6 +179,7 @@ static esp_err_t netif_create(void)
     static bool once;
     if (!once) {
         s_tx_done = xEventGroupCreate();
+        s_tx_mtx = xSemaphoreCreateMutex();
         ESP_ERROR_CHECK(esp_netif_init());
         esp_err_t err = esp_event_loop_create_default();
         if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
@@ -324,6 +336,8 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddBoolToObject(o, "hotkeys", s->mode_hotkeys);
     cJSON_AddStringToObject(o, "gl", settings_grip_key(s->grip_gl));
     cJSON_AddStringToObject(o, "gr", settings_grip_key(s->grip_gr));
+    cJSON_AddNumberToObject(o, "flipDs4", s->flip_ds4);
+    cJSON_AddNumberToObject(o, "flipSwitch", s->flip_switch);
     return o;
 }
 
@@ -418,6 +432,8 @@ static esp_err_t h_settings(httpd_req_t *req)
     }
     if ((v = cJSON_GetObjectItem(j, "deadzone")) && cJSON_IsNumber(v)) s.deadzone_pct = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "hotkeys")) && cJSON_IsBool(v)) s.mode_hotkeys = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "flipDs4")) && cJSON_IsNumber(v)) s.flip_ds4 = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "flipSwitch")) && cJSON_IsNumber(v)) s.flip_switch = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);
         if (g < GRIP_COUNT) s.grip_gl = g;
@@ -662,6 +678,10 @@ static void cfg_started(void)
 static void cfg_stopping(void)
 {
     s_active = false;
+    // Wait for a packet already on its way into TinyUSB.
+    if (s_tx_mtx && xSemaphoreTake(s_tx_mtx, pdMS_TO_TICKS(1500)) == pdTRUE) {
+        xSemaphoreGive(s_tx_mtx);
+    }
 }
 
 static bool cfg_send(const pad_out_t *o)

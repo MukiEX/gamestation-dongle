@@ -14,7 +14,7 @@ TommyWabg, so this project is **GPL-3.0**.
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
 | 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
 | 3 | Web configurator at 192.168.7.1, settings in flash | **done (0.3.4)** |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | **this build: gyro, back buttons (0.4.2)** |
+| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | **this build: gyro, back buttons (0.4.3)** |
 | 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
 
 ### Controllers
@@ -92,7 +92,8 @@ B, whatever the label on the Nintendo controller says.
 **Back buttons (GL / GR)** on the Pro Controller 2 and on the Joy-Con 2
 Charging Grip. The grip's buttons reach the dongle through the Joy-Cons: the
 dongle sends each Joy-Con the "enable charging grip buttons" command (08:02)
-when it connects, so put the Joy-Cons in the grip before they connect. They can be set to any button in the configurator. On
+when it connects and every 2 seconds after that (a Joy-Con forgets it when it
+leaves the grip). They can be set to any button in the configurator. On
 *Auto* they press the left and right half of the touchpad in DS4 mode (the same
 trick Switch2Connect uses, so Steam Input and DS4Windows can bind them
 separately) and buttons 20 / 21 in generic HID mode. XInput and Switch Pro have
@@ -108,7 +109,10 @@ to what those controllers report (sensor scales measured by Switch2Connect).
 A Joy-Con pair uses the right Joy-Con's motion (the left one's while the right
 is away); a lone sideways Joy-Con's axes are turned to match how it is held.
 The gyro recalibrates itself whenever the controller rests still for about a
-second. The configurator shows live motion under Live input.
+second. The configurator shows live motion under Live input. While the axis
+conventions are being checked against Steam, the configurator can flip each
+gyro and accelerometer axis per mode (Feel, DS4 motion / Switch Pro motion);
+the log prints the active code (e.g. `gyro +-+ accel +++`) when those modes start.
 
 The generic HID mode is the step-1 layout:
 

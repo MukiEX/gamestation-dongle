@@ -44,7 +44,22 @@ typedef struct {
     bool mode_hotkeys;       // controller hotkeys (- + for mode, Capture + Home for config)
     grip_map_t grip_gl;      // Pro Controller 2 back buttons
     grip_map_t grip_gr;
+    // Motion axis flips while the right conventions are pinned down against
+    // Steam: one mask per mode, MOTION_FLIP_* bits.
+    uint8_t flip_ds4;
+    uint8_t flip_switch;
 } settings_t;
+
+#define MOTION_FLIP_GX 0x01  // gyro pitch (X)
+#define MOTION_FLIP_GY 0x02  // gyro yaw (Y)
+#define MOTION_FLIP_GZ 0x04  // gyro roll (Z)
+#define MOTION_FLIP_AX 0x08  // accelerometer X
+#define MOTION_FLIP_AY 0x10  // accelerometer Y
+#define MOTION_FLIP_AZ 0x20  // accelerometer Z
+#define MOTION_FLIP_ALL 0x3F
+
+// "gyro +-+ accel +++" style code for a flip mask (buf >= 20 bytes).
+const char *settings_flip_code(uint8_t mask, char *buf);
 
 #define SETTINGS_RUMBLE_MAX   10
 #define SETTINGS_DEADZONE_MAX 30

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "settings.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "esp_log.h"
@@ -46,6 +47,14 @@ const char *settings_grip_name(grip_map_t m)
     return m < GRIP_COUNT ? s_grips[m].name : "Auto";
 }
 
+const char *settings_flip_code(uint8_t m, char *buf)
+{
+    snprintf(buf, 20, "gyro %c%c%c accel %c%c%c", (m & MOTION_FLIP_GX) ? '-' : '+', (m & MOTION_FLIP_GY) ? '-' : '+',
+             (m & MOTION_FLIP_GZ) ? '-' : '+', (m & MOTION_FLIP_AX) ? '-' : '+', (m & MOTION_FLIP_AY) ? '-' : '+',
+             (m & MOTION_FLIP_AZ) ? '-' : '+');
+    return buf;
+}
+
 grip_map_t settings_grip_from_key(const char *key)
 {
     for (int i = 0; i < GRIP_COUNT; i++) {
@@ -76,6 +85,8 @@ void settings_init(void)
         s.mode_hotkeys = get_u8(h, "hotkeys", s.mode_hotkeys, 1);
         s.grip_gl = (grip_map_t)get_u8(h, "gl", s.grip_gl, GRIP_COUNT - 1);
         s.grip_gr = (grip_map_t)get_u8(h, "gr", s.grip_gr, GRIP_COUNT - 1);
+        s.flip_ds4 = get_u8(h, "flipds4", s.flip_ds4, MOTION_FLIP_ALL);
+        s.flip_switch = get_u8(h, "flipsw", s.flip_switch, MOTION_FLIP_ALL);
         s_cur = s;
         nvs_close(h);
     }
@@ -101,6 +112,8 @@ void settings_set(const settings_t *in)
     if (s.deadzone_pct > SETTINGS_DEADZONE_MAX) s.deadzone_pct = SETTINGS_DEADZONE_MAX;
     if (s.grip_gl >= GRIP_COUNT) s.grip_gl = GRIP_AUTO;
     if (s.grip_gr >= GRIP_COUNT) s.grip_gr = GRIP_AUTO;
+    s.flip_ds4 &= MOTION_FLIP_ALL;
+    s.flip_switch &= MOTION_FLIP_ALL;
     portENTER_CRITICAL(&s_mux);
     s_cur = s;
     portEXIT_CRITICAL(&s_mux);
@@ -115,13 +128,18 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "hotkeys", s.mode_hotkeys);
         nvs_set_u8(h, "gl", (uint8_t)s.grip_gl);
         nvs_set_u8(h, "gr", (uint8_t)s.grip_gr);
+        nvs_set_u8(h, "flipds4", s.flip_ds4);
+        nvs_set_u8(h, "flipsw", s.flip_switch);
         nvs_commit(h);
         nvs_close(h);
     }
-    ESP_LOGI(TAG, "saved: %s; log port %s; rumble %u/10; %s buttons; deadzone %u%%; hotkeys %s; GL %s, GR %s",
+    char fd[20], fs[20];
+    ESP_LOGI(TAG, "saved: %s; log port %s; rumble %u/10; %s buttons; deadzone %u%%; hotkeys %s; GL %s, GR %s; "
+                  "DS4 motion %s; Switch Pro motion %s",
              settings_out_mode_name(s.out_mode), s.log_port ? "on" : "off", s.rumble_strength,
              s.layout == LAYOUT_LABELS ? "label" : "positional", s.deadzone_pct, s.mode_hotkeys ? "on" : "off",
-             settings_grip_key(s.grip_gl), settings_grip_key(s.grip_gr));
+             settings_grip_key(s.grip_gl), settings_grip_key(s.grip_gr),
+             settings_flip_code(s.flip_ds4, fd), settings_flip_code(s.flip_switch, fs));
 }
 
 out_mode_t settings_out_mode(void)

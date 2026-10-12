@@ -39,6 +39,8 @@ h2 { font-size: 15px; margin: 0 0 12px; font-weight: 650; }
 .row label { font-weight: 550; }
 .hint { color: var(--muted); font-size: 13px; grid-column: 2; margin-top: -4px; }
 select, input[type=range] { width: 100%; }
+.seg.flips { flex-wrap: wrap; }
+.seg.flips button { padding: 6px 9px; font-size: 13px; }
 .grips { display: flex; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
 .grips label { display: flex; align-items: center; gap: 6px; flex: 1 1 8em; min-width: 0; }
 .grips select { min-width: 0; flex: 1 1 0; }
@@ -157,6 +159,16 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       </div>
       <div class="hint" id="griphint"></div>
     </div>
+    <div class="row">
+      <label>DS4 motion</label>
+      <div class="seg flips" id="flipDs4"></div>
+      <div class="hint" id="flipDs4Code"></div>
+    </div>
+    <div class="row">
+      <label>Switch Pro motion</label>
+      <div class="seg flips" id="flipSwitch"></div>
+      <div class="hint" id="flipSwitchCode"></div>
+    </div>
     <div class="row" style="border-top:0">
       <span></span><span class="saved" id="saved">Saved</span>
     </div>
@@ -240,6 +252,12 @@ function showSettings() {
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
   seg("hotkeys", settings.hotkeys);
+  for (const id of ["flipDs4", "flipSwitch"]) {
+    const m = settings[id] || 0;
+    [...$(id).children].forEach((b, i) => b.classList.toggle("on", (m & (1 << i)) !== 0));
+    $(id + "Code").textContent = "Highlighted = flipped. Code: " + flipCode(m) +
+      ". For testing gyro in Steam; applies when you exit.";
+  }
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
   const auto = { ds4: "the touchpad's left / right half", hid: "its own buttons 20 / 21" }[settings.mode];
@@ -291,6 +309,20 @@ for (const id of ["layout", "logPort", "hotkeys"]) {
   });
 }
 $("mode").addEventListener("change", () => save({ mode: $("mode").value }));
+// Motion flip toggles: bit 0-2 gyro pitch/yaw/roll, bit 3-5 accelerometer X/Y/Z.
+const FLIPS = ["Pitch", "Yaw", "Roll", "Acc X", "Acc Y", "Acc Z"];
+function flipCode(m) {
+  const c = (i) => (m & (1 << i)) ? "-" : "+";
+  return "gyro " + c(0) + c(1) + c(2) + " accel " + c(3) + c(4) + c(5);
+}
+for (const id of ["flipDs4", "flipSwitch"]) {
+  FLIPS.forEach((name, i) => {
+    const b = document.createElement("button");
+    b.textContent = name;
+    b.addEventListener("click", () => save({ [id]: (settings[id] || 0) ^ (1 << i) }));
+    $(id).appendChild(b);
+  });
+}
 $("gl").addEventListener("change", () => save({ gl: $("gl").value }));
 $("gr").addEventListener("change", () => save({ gr: $("gr").value }));
 $("rumble").addEventListener("input", () => save({ rumble: +$("rumble").value }));

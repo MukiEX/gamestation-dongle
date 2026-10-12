@@ -1367,13 +1367,28 @@ static ns2_vib_t vib_max(ns2_vib_t a, ns2_vib_t b)
     return r;
 }
 
+#define GRIP_REPEAT_MS 2010  // a multiple of RUMBLE_PERIOD_MS
+
 static void rumble_task(void *arg)
 {
     (void)arg;
     const ns2_vib_t silent[3] = { NS2_VIB_SILENT, NS2_VIB_SILENT, NS2_VIB_SILENT };
     TickType_t wake = xTaskGetTickCount();
+    unsigned tick = 0;
     for (;;) {
         vTaskDelayUntil(&wake, pdMS_TO_TICKS(RUMBLE_PERIOD_MS));
+        // Joy-Cons forget the charging grip's buttons when they leave the grip,
+        // and nothing tells us they went back in: repeat the enable every ~2 s.
+        if (++tick % (GRIP_REPEAT_MS / RUMBLE_PERIOD_MS) == 0) {
+            static const uint8_t grip_on[12] = { 0x08, 0x91, 0x01, 0x02, 0x00, 0x04, 0x00, 0x00,
+                                                 0x01, 0x00, 0x00, 0x00 };
+            for (int i = 0; i < MAX_LINKS; i++) {
+                link_t *l = &s_links[i];
+                if (l->state == LS_READY && l->role != PAD_ROLE_FULL && l->h_cmd != 0) {
+                    gatt_write(l, l->h_cmd, l->cmd_no_rsp, grip_on, sizeof(grip_on));
+                }
+            }
+        }
         rumble_frame_t f;
         bool active = rumble_get(&f);
         pad_out_t po;
