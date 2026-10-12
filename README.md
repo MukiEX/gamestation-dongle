@@ -136,7 +136,8 @@ trackpads.
 * **Grip sense (optional):** with *Sensor when held* set to *Grip sense*, a
   Joy-Con lying on its rail side (as a mouse) is a trackpad, and one held
   normally reports through its sensor whether your hand is on that grip
-  (Steam's grip-touch). The accelerometer tells the two apart.
+  (Steam's grip-touch); while it lies on its rail side its grip reads as
+  free. The accelerometer tells the two apart.
 * **Buttons:** Home = Steam button, Capture = quick access (…), − / + = the
   left / right centre buttons (Back / Start in SDL), GL / GR = L4 / R4; on the Joy-Con rails, left SL = L4, left SR = L5,
   right SR = R4, right SL = R5. ZL / ZR are full

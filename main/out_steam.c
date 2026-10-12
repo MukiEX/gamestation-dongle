@@ -298,11 +298,17 @@ static bool send(const pad_out_t *o)
     // the grips as held whenever a controller is connected.
     if (fabsf(o->lx) > 0.1f || fabsf(o->ly) > 0.1f) t |= T_LSTICK_TOUCH;
     if (fabsf(o->rx) > 0.1f || fabsf(o->ry) > 0.1f) t |= T_RSTICK_TOUCH;
-    // Grips: from the optical sensor in grip-sense mode, otherwise "held"
-    // whenever a controller is connected.
+    // Grips. With Grip sense on, a Joy-Con's grip is held only when its
+    // sensor sees a hand while held normally; lying on its rail side (mouse
+    // use) it reads as free. Otherwise (setting off, or a controller without
+    // a sensor) the grips read as held whenever a controller is connected.
     if (o->mode != PAD_MODE_NONE) {
-        if (o->tp[0].grip_mode ? o->tp[0].grip : true) t |= T_LGRIP_TOUCH;
-        if (o->tp[1].grip_mode ? o->tp[1].grip : true) t |= T_RGRIP_TOUCH;
+        bool gs = settings_get().pad_grip;
+        for (int i = 0; i < 2; i++) {
+            const pad_trackpad_t *p = &o->tp[i];
+            bool held = (gs && p->valid) ? (p->grip_mode && p->grip) : true;
+            if (held) t |= i == 0 ? T_LGRIP_TOUCH : T_RGRIP_TOUCH;
+        }
     }
     if (o->tp[0].touch) t |= T_LPAD_TOUCH;
     if (o->tp[1].touch) t |= T_RPAD_TOUCH;
