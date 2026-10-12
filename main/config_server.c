@@ -350,10 +350,11 @@ static esp_err_t h_state(httpd_req_t *req)
     cJSON_AddItemToObject(root, "settings", settings_json(&s));
 
     cJSON *modes = cJSON_AddArrayToObject(root, "modes");
-    for (int m = 0; m < OUT_MODE_COUNT; m++) {
+    for (int i = 0; i < OUT_MODE_COUNT; i++) {
+        out_mode_t m = SETTINGS_MODE_ORDER[i];
         cJSON *e = cJSON_CreateObject();
-        cJSON_AddStringToObject(e, "key", settings_out_mode_key((out_mode_t)m));
-        cJSON_AddStringToObject(e, "name", settings_out_mode_name((out_mode_t)m));
+        cJSON_AddStringToObject(e, "key", settings_out_mode_key(m));
+        cJSON_AddStringToObject(e, "name", settings_out_mode_name(m));
         cJSON_AddItemToArray(modes, e);
     }
 

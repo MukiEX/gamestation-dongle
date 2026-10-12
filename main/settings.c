@@ -142,6 +142,10 @@ void settings_set(const settings_t *in)
              settings_flip_code(s.flip_ds4, fd), settings_flip_code(s.flip_switch, fs));
 }
 
+const out_mode_t SETTINGS_MODE_ORDER[OUT_MODE_COUNT] = {
+    OUT_MODE_XINPUT, OUT_MODE_DS4, OUT_MODE_DS5, OUT_MODE_SWITCH_PRO, OUT_MODE_HID,
+};
+
 out_mode_t settings_out_mode(void)
 {
     return settings_get().out_mode;
@@ -154,6 +158,7 @@ const char *settings_out_mode_name(out_mode_t mode)
     case OUT_MODE_DS4:        return "DualShock 4";
     case OUT_MODE_SWITCH_PRO: return "Switch Pro Controller";
     case OUT_MODE_HID:        return "generic HID gamepad";
+    case OUT_MODE_DS5:        return "DualSense";
     default:                  return "?";
     }
 }
@@ -165,6 +170,7 @@ const char *settings_out_mode_key(out_mode_t mode)
     case OUT_MODE_DS4:        return "ds4";
     case OUT_MODE_SWITCH_PRO: return "switchpro";
     case OUT_MODE_HID:        return "hid";
+    case OUT_MODE_DS5:        return "ds5";
     default:                  return "?";
     }
 }
@@ -172,7 +178,9 @@ const char *settings_out_mode_key(out_mode_t mode)
 out_mode_t settings_next_out_mode(void)
 {
     settings_t s = settings_get();
-    s.out_mode = (out_mode_t)((s.out_mode + 1) % OUT_MODE_COUNT);
+    int i = 0;
+    while (i < OUT_MODE_COUNT && SETTINGS_MODE_ORDER[i] != s.out_mode) i++;
+    s.out_mode = SETTINGS_MODE_ORDER[(i + 1) % OUT_MODE_COUNT];
     settings_set(&s);
     return s.out_mode;
 }

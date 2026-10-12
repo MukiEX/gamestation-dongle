@@ -47,6 +47,7 @@ typedef struct {
 
 extern const out_driver_t out_xinput;
 extern const out_driver_t out_ds4;
+extern const out_driver_t out_ds5;
 extern const out_driver_t out_switchpro;
 extern const out_driver_t out_hid;
 extern const out_driver_t out_config;

@@ -357,7 +357,7 @@ footer a { color: inherit; }
   <div class="tabpanel" id="tab-motion" role="tabpanel" aria-labelledby="tab-btn-motion" hidden>
     <section class="panel" aria-labelledby="mv-title">
       <h2 id="mv-title">Motion viewer</h2>
-      <p class="sub" style="margin-top:6px">Reads the dongle's controller output in <b>DS4</b> or <b>Switch Pro</b> mode and decodes the gyro and accelerometer
+      <p class="sub" style="margin-top:6px">Reads the dongle's controller output in <b>DS4</b>, <b>DualSense</b> or <b>Switch Pro</b> mode and decodes the gyro and accelerometer
         exactly the way SDL does (SDL's controller code comes from Steam's). If these readings match the configurator's Live input, the dongle's
         output is right; anything still odd in Steam is Steam's own handling.</p>
       <div class="banner" id="mv-nohid" hidden style="margin-top:12px">This browser can't read USB controllers (WebHID). Open this file in Chrome or Edge.</div>
@@ -428,15 +428,15 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "DS4 mode, Motion tab of this page (Chrome or Edge): with no flips, do the 3D model and the bars match the configurator's Live input and your moves? Note anything reversed",
-    "Switch Pro mode, Motion tab: same check",
-    "If either mode is off: toggle flips in the configurator (Feel, DS4 / Switch Pro motion), Save & exit, recheck. Put the winning code (e.g. 'gyro +-+ accel +++') in the note",
-    "Then Steam gyro as mouse (Gyro Behavior 'As Mouse', always on): turn left = cursor left, tilt the top up = cursor up",
-    "DS4 mode, Back buttons on Auto, Steam Test Device Inputs: does a finger dot appear on the left half for GL and the right half for GR (the whole pad lighting up is the click)?",
-    "Switch Pro mode: rumble in a game or in Steam's controller test; the log shows 'rumble from the PC' lines when the PC sends any",
+    "Pick DualSense in the configurator (or cycle with BOOT: XInput, DS4, DualSense, Switch Pro, HID): Windows shows a 'DualSense Wireless Controller', and the Joy-Cons stay connected",
+    "DualSense mode: buttons and sticks right in Steam's controller test and a gamepad tester; C (GameChat) is the mute button",
+    "DualSense mode, Motion tab: the 3D model follows the controller like in DS4 mode",
+    "DualSense mode: rumble in Steam's controller test or a game (the PC's 'rumble emulation')",
+    "DualSense mode, Back buttons on Auto: GL / GR click the touchpad's left / right half",
     "Charging grip: take the Joy-Cons out of the grip and put them back while connected; within ~2 s the grip's GL / GR work again",
-    "Save & exit from the configurator several times (switch to DS4, Switch Pro and back): no crash ('assert failed' / reboot) in the log",
-    "Buttons, sticks, rumble and motion still work in all four modes",
+    "Save & exit from the configurator several times (switch between modes): no crash ('assert failed' / reboot) in the log",
+    "Switch Pro mode: rumble in a game or Steam; the log shows 'rumble from the PC' lines when the PC sends any",
+    "All other modes still work as before (buttons, sticks, rumble, motion)",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
@@ -581,7 +581,7 @@ __MD5_JS__
 
   // The dongle's USB identity depends on its output mode (generic HID,
   // XInput, DS4, Switch Pro); its log port is the same in every mode.
-  const DONGLE_IDS = ["303a:8243", "303a:8244", "303a:8245", "45e:28e", "54c:9cc", "57e:2009"];
+  const DONGLE_IDS = ["303a:8243", "303a:8244", "303a:8245", "45e:28e", "54c:9cc", "54c:ce6", "57e:2009"];
   function isDongle(info) {
     return info && info.usbVendorId !== undefined &&
       DONGLE_IDS.includes(info.usbVendorId.toString(16) + ":" + info.usbProductId.toString(16));
@@ -1084,6 +1084,33 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
     $("mv-cal").textContent = "DS4 calibration: gyro " + (1 / ds4cal[0][1]).toFixed(3) + " LSB per °/s, accel " +
       (1 / ds4cal[3][1]).toFixed(0) + " LSB per g (decoded as SDL does).";
   }
+  // ---- DualSense (054C:0CE6), SDL_hidapi_ps5.c ----
+  async function ds5Calibration() {
+    let dv;
+    try { dv = await dev.receiveFeatureReport(0x05); } catch (e) { $("mv-cal").textContent = "No calibration report (" + e.message + "); using SDL's defaults."; return; }
+    const o = dv.getUint8(0) === 0x05 && dv.byteLength >= 41 ? 1 : 0;
+    const r = (i) => s16(dv, o + i);
+    const bias = [r(0), r(2), r(4)];
+    const plus = [r(6), r(10), r(14)], minus = [r(8), r(12), r(16)];
+    const num = (r(18) + r(20)) * 1024;
+    const cal = [];
+    for (let i = 0; i < 3; i++) cal.push([bias[i], num / (plus[i] - minus[i])]);
+    for (let i = 0; i < 3; i++) {
+      const p = r(22 + 4 * i), m = r(24 + 4 * i), range = p - m;
+      cal.push([p - Math.trunc(range / 2), 2 * 8192 / range]);
+    }
+    const bad = cal.some(([b, sc], i) => Math.abs(b) > 1024 || Math.abs(1 - sc / (i < 3 ? 64 : 1)) > 0.5);
+    if (bad) { ds4cal = [[0, 64 / 1024], [0, 64 / 1024], [0, 64 / 1024], [0, 1 / 8192], [0, 1 / 8192], [0, 1 / 8192]];
+      $("mv-cal").textContent = "Calibration report rejected by SDL's sanity check; using defaults."; return; }
+    ds4cal = cal.map(([b, sc], i) => [b, sc / (i < 3 ? 1024 : 8192)]);
+    $("mv-cal").textContent = "DualSense calibration: gyro " + (1 / ds4cal[0][1]).toFixed(3) + " LSB per °/s, accel " +
+      (1 / ds4cal[3][1]).toFixed(0) + " LSB per g (decoded as SDL does).";
+  }
+  function ds5Report(e) {
+    if (e.reportId !== 0x01 || e.data.byteLength < 27) return;
+    const d = e.data, v = (i) => (s16(d, 15 + 2 * i) - ds4cal[i][0]) * ds4cal[i][1];
+    show([v(0), v(1), v(2)], [v(3), v(4), v(5)]);
+  }
   function ds4Report(e) {
     if (e.reportId !== 0x01 || e.data.byteLength < 24) return;
     const d = e.data, v = (i) => (s16(d, 12 + 2 * i) - ds4cal[i][0]) * ds4cal[i][1];
@@ -1151,15 +1178,16 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
 
   async function open(d) {
     dev = d;
+    ds4cal = [[0, 1 / 16], [0, 1 / 16], [0, 1 / 16], [0, 1 / 8192], [0, 1 / 8192], [0, 1 / 8192]];
     if (!dev.opened) await dev.open();
-    mode = dev.vendorId === 0x054c ? "ds4" : "switch";
+    mode = dev.vendorId === 0x057e ? "switch" : dev.productId === 0x0ce6 ? "ds5" : "ds4";
     gotData = false;
     resetView();
-    dev.addEventListener("inputreport", mode === "ds4" ? ds4Report : switchReport);
-    state(mode === "ds4" ? "DS4 mode: reading" : "Switch Pro mode: reading");
+    dev.addEventListener("inputreport", { ds4: ds4Report, ds5: ds5Report, switch: switchReport }[mode]);
+    state({ ds4: "DS4 mode: reading", ds5: "DualSense mode: reading", switch: "Switch Pro mode: reading" }[mode]);
     $("mv-connect").disabled = true;
     $("mv-disconnect").disabled = false;
-    if (mode === "ds4") await ds4Calibration(); else await switchSetup();
+    if (mode === "ds4") await ds4Calibration(); else if (mode === "ds5") await ds5Calibration(); else await switchSetup();
     clearTimeout(noDataTimer);
     noDataTimer = setTimeout(() => {
       if (!gotData && dev) state("Connected, but no motion reports yet. Is another tool holding the controller exclusively?");
@@ -1169,6 +1197,7 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
     clearTimeout(noDataTimer);
     if (dev) {
       dev.removeEventListener("inputreport", ds4Report);
+      dev.removeEventListener("inputreport", ds5Report);
       dev.removeEventListener("inputreport", switchReport);
       try { await dev.close(); } catch (_) {}
     }
@@ -1181,7 +1210,8 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
   $("mv-connect").addEventListener("click", async () => {
     try {
       const list = await navigator.hid.requestDevice({ filters: [
-        { vendorId: 0x054c, productId: 0x09cc }, { vendorId: 0x057e, productId: 0x2009 } ] });
+        { vendorId: 0x054c, productId: 0x09cc }, { vendorId: 0x054c, productId: 0x0ce6 },
+        { vendorId: 0x057e, productId: 0x2009 } ] });
       if (!list.length) return;
       await open(list[0]);
     } catch (e) { state("Couldn't open it: " + e.message); }
@@ -1191,7 +1221,8 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
   navigator.hid.addEventListener("disconnect", (e) => { if (e.device === dev) { close(); state("The dongle left (mode change?). Connect again."); } });
   navigator.hid.addEventListener("connect", async (e) => {
     const d = e.device;
-    const ours = (d.vendorId === 0x054c && d.productId === 0x09cc) || (d.vendorId === 0x057e && d.productId === 0x2009);
+    const ours = (d.vendorId === 0x054c && (d.productId === 0x09cc || d.productId === 0x0ce6)) ||
+      (d.vendorId === 0x057e && d.productId === 0x2009);
     if (!dev && ours) { try { await open(d); } catch (_) {} }
   });
 })();

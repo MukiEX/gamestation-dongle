@@ -167,7 +167,7 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <p class="hint" style="margin:6px 0 0">Not needed normally: motion is verified correct for Steam and SDL games.
         Only for a game that reads an axis backwards.</p>
       <div class="row">
-        <label>DS4 motion</label>
+        <label>DS4 / DualSense motion</label>
         <div class="seg flips" id="flipDs4"></div>
         <div class="hint" id="flipDs4Code"></div>
       </div>
@@ -269,7 +269,8 @@ function showSettings() {
   }
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
-  const auto = { ds4: "the touchpad's left / right half", hid: "its own buttons 20 / 21" }[settings.mode];
+  const auto = { ds4: "the touchpad's left / right half", ds5: "the touchpad's left / right half",
+    hid: "its own buttons 20 / 21" }[settings.mode];
   $("griphint").textContent = "Pro Controller 2, or Joy-Cons in the charging grip. Auto in this mode: " +
     (auto || "nothing (no spare buttons), so pick one here") + ".";
   $("rumble").value = settings.rumble;

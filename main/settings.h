@@ -12,8 +12,12 @@ typedef enum {
     OUT_MODE_DS4,          // DualShock 4
     OUT_MODE_SWITCH_PRO,   // Nintendo Switch Pro Controller
     OUT_MODE_HID,          // generic HID gamepad (step-1 mode)
+    OUT_MODE_DS5,          // DualSense (added last so stored modes keep their numbers)
     OUT_MODE_COUNT,
 } out_mode_t;
+
+// The order modes are cycled through and listed in.
+extern const out_mode_t SETTINGS_MODE_ORDER[OUT_MODE_COUNT];
 
 typedef enum {
     LAYOUT_POSITIONAL = 0,  // bottom face button = Xbox A / PS Cross, whatever its label

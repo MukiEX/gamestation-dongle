@@ -14,7 +14,7 @@ TommyWabg, so this project is **GPL-3.0**.
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
 | 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
 | 3 | Web configurator at 192.168.7.1, settings in flash | **done (0.3.4)** |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | gyro **done (0.4.3)**, back buttons; DualSense and Switch 2 Pro **next** |
+| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | gyro **done (0.4.3)**, back buttons; DualSense **this build (0.5.0)**; audio haptics and Switch 2 Pro **next** |
 | 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
 
 ### Controllers
@@ -57,13 +57,14 @@ whole time. Settings are stored on the dongle.
 |---|---|---|---|
 | **XInput** (default) | Xbox 360 controller (045E:028E) | yes | – |
 | **DualShock 4** | DS4 (054C:09CC) | yes | yes |
+| **DualSense** | DualSense (054C:0CE6) | yes (rumble emulation; audio haptics next) | yes |
 | **Switch Pro** | Switch Pro Controller (057E:2009) | yes (HD rumble, converted) | yes |
 | **Generic HID** | "Joy-Con 2 Dongle" HID gamepad (303A:8243) | no | – |
 
 **Changing mode:** pick it in the configurator, press **BOOT** briefly, or hold
 **−** and **+** together for 3 seconds. The dongle drops off USB for about a second and comes back as the
 next controller; the Bluetooth controllers stay connected. The mode is saved
-for the next power-up. The order is XInput → DS4 → Switch Pro → generic HID.
+for the next power-up. The order is XInput → DS4 → DualSense → Switch Pro → generic HID.
 
 Switch Pro mode only reads correctly in software that speaks the Pro
 Controller's USB protocol (Steam, SDL games, Chrome's gamepad support, a
@@ -78,16 +79,17 @@ the console log. Console use (a real Switch or PS4) is untested.
 Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
 B, whatever the label on the Nintendo controller says.
 
-| Switch 2 | XInput | DS4 | Switch Pro |
+| Switch 2 | XInput | DS4 / DualSense | Switch Pro |
 |---|---|---|---|
 | B (bottom) / A (right) / Y (left) / X (top) | A / B / X / Y | Cross / Circle / Square / Triangle | B / A / Y / X |
 | L / R | LB / RB | L1 / R1 | L / R |
 | ZL / ZR | LT / RT (full) | L2 / R2 (full) | ZL / ZR |
-| − / + | Back / Start | Share / Options | − / + |
+| − / + | Back / Start | Share / Options (DualSense: Create / Options) | − / + |
 | Home | Guide | PS | Home |
 | Capture | – | Touchpad click | Capture |
 | GL / GR (Pro Controller 2, Joy-Con 2 charging grip) | your choice | touchpad left / right half | your choice |
-| C, SL, SR | – | – | – |
+| C (GameChat) | – | DualSense: mute button | – |
+| SL, SR | – | – | – |
 
 **Back buttons (GL / GR)** on the Pro Controller 2 and on the Joy-Con 2
 Charging Grip. The grip's buttons reach the dongle through the Joy-Cons: the

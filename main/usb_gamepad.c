@@ -365,8 +365,8 @@ static void log_motion_flips(void)
 {
     char code[20];
     settings_t st = settings_get();
-    if (s_drv == &out_ds4) {
-        ESP_LOGI(TAG, "DS4 motion: %s", settings_flip_code(st.flip_ds4, code));
+    if (s_drv == &out_ds4 || s_drv == &out_ds5) {
+        ESP_LOGI(TAG, "%s motion: %s", s_drv == &out_ds4 ? "DS4" : "DualSense", settings_flip_code(st.flip_ds4, code));
     } else if (s_drv == &out_switchpro) {
         ESP_LOGI(TAG, "Switch Pro motion: %s", settings_flip_code(st.flip_switch, code));
     }
@@ -385,7 +385,7 @@ static uint32_t grip_target(grip_map_t m, bool left)
         [GRIP_TP_LEFT] = NS2_BTN_TP_LEFT, [GRIP_TP_RIGHT] = NS2_BTN_TP_RIGHT,
     };
     if (m == GRIP_AUTO) {
-        if (s_drv == &out_ds4) return left ? NS2_BTN_TP_LEFT : NS2_BTN_TP_RIGHT;
+        if (s_drv == &out_ds4 || s_drv == &out_ds5) return left ? NS2_BTN_TP_LEFT : NS2_BTN_TP_RIGHT;
         if (s_drv == &out_hid) return left ? NS2_BTN_GL : NS2_BTN_GR;  // its own buttons 20 / 21
         return 0;
     }
@@ -465,6 +465,7 @@ static const out_driver_t *driver_for(out_mode_t mode)
 {
     switch (mode) {
     case OUT_MODE_DS4:        return &out_ds4;
+    case OUT_MODE_DS5:        return &out_ds5;
     case OUT_MODE_SWITCH_PRO: return &out_switchpro;
     case OUT_MODE_HID:        return &out_hid;
     case OUT_MODE_XINPUT:
