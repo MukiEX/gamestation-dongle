@@ -190,6 +190,10 @@ footer a { color: inherit; }
 .mv-track i { position: absolute; top: 0; bottom: 0; background: var(--blue); }
 .mv-grav { font: 500 16px var(--font-mono); font-variant-numeric: tabular-nums; }
 .mv-checks { margin: 14px 0 0; padding-left: 20px; }
+.tp-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 14px; }
+.tp-box h3 { font-size: 14px; margin: 0 0 6px; font-weight: 600; }
+.tp-box canvas { width: 100%; aspect-ratio: 1; display: block; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.tp-stats { white-space: pre-line; font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); margin-top: 6px; line-height: 1.6; }
 .mv-checks li { margin: 3px 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -357,7 +361,7 @@ footer a { color: inherit; }
   <div class="tabpanel" id="tab-motion" role="tabpanel" aria-labelledby="tab-btn-motion" hidden>
     <section class="panel" aria-labelledby="mv-title">
       <h2 id="mv-title">Motion viewer</h2>
-      <p class="sub" style="margin-top:6px">Reads the dongle's controller output in <b>DS4</b>, <b>DualSense</b> or <b>Switch Pro</b> mode and decodes the gyro and accelerometer
+      <p class="sub" style="margin-top:6px">Reads the dongle's controller output in <b>DS4</b>, <b>DualSense</b>, <b>Switch Pro</b> or <b>Steam Controller</b> mode and decodes the gyro and accelerometer
         exactly the way SDL does (SDL's controller code comes from Steam's). If these readings match the configurator's Live input, the dongle's
         output is right; anything still odd in Steam is Steam's own handling.</p>
       <div class="banner" id="mv-nohid" hidden style="margin-top:12px">This browser can't read USB controllers (WebHID). Open this file in Chrome or Edge.</div>
@@ -367,6 +371,16 @@ footer a { color: inherit; }
         <span class="chip" id="mv-state">Not connected</span>
       </div>
       <p class="sub" id="mv-cal" style="margin-top:8px"></p>
+
+      <div id="tp-section" hidden>
+        <p class="sub" style="margin-top:12px">Steam Controller mode: the trackpads exactly as the dongle sends them to Steam. The trail shows the
+          last second; each dot is one report where the finger moved. Gaps between dots = coarse steps.</p>
+        <div class="tp-wrap">
+          <div class="tp-box"><h3>Left trackpad</h3><canvas id="tp-c0" width="480" height="480"></canvas><div class="tp-stats" id="tp-s0">–</div></div>
+          <div class="tp-box"><h3>Right trackpad</h3><canvas id="tp-c1" width="480" height="480"></canvas><div class="tp-stats" id="tp-s1">–</div></div>
+        </div>
+        <p class="sub" id="tp-rate" style="margin-top:8px"></p>
+      </div>
 
       <div class="mv-scene" aria-label="3D view of the controller"><div class="mv-cam"><div class="mv-body" id="mv-body"></div></div></div>
       <div class="row" style="margin-top:8px">
@@ -1146,6 +1160,76 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
     const d = e.data, v = (i) => (s16(d, 15 + 2 * i) - ds4cal[i][0]) * ds4cal[i][1];
     show([v(0), v(1), v(2)], [v(3), v(4), v(5)]);
   }
+  // ---- Steam Controller 2026 (28DE:1302), report 0x42 per SDL's Triton driver ----
+  // Report bytes (incl. ID): buttons 2..5, pads at 18 (L) and 24 (R): x, y, pressure;
+  // IMU at 30: timestamp, accel X/Y/Z, gyro X/Y/Z. WebHID data omits the ID byte.
+  const tp = [0, 1].map(() => ({ pts: [], last: null, moves: 0, steps: [], touch: false, x: 0, y: 0, p: 0 }));
+  let tpReports = 0, tpRateT = performance.now();
+  function steamReport(e) {
+    if (e.reportId !== 0x42 || e.data.byteLength < 45) return;
+    const d = e.data, now = performance.now();
+    const buttons = d.getUint32(1, true);
+    tpReports++;
+    for (let i = 0; i < 2; i++) {
+      const t = tp[i], o = 17 + 6 * i;
+      t.touch = (buttons & (i === 0 ? 0x02000000 : 0x00200000)) !== 0;
+      t.x = s16(d, o); t.y = s16(d, o + 2); t.p = d.getUint16(o + 4, true);
+      if (t.touch) {
+        if (t.last && (t.last.x !== t.x || t.last.y !== t.y)) {
+          t.moves++;
+          t.steps.push(Math.hypot(t.x - t.last.x, t.y - t.last.y));
+          if (t.steps.length > 200) t.steps.shift();
+        }
+        if (!t.last || t.last.x !== t.x || t.last.y !== t.y) t.pts.push({ x: t.x, y: t.y, t: now });
+        t.last = { x: t.x, y: t.y };
+      } else {
+        t.last = null;  // a lift: the next touch starts a new stroke
+        t.pts.push(null);
+      }
+    }
+    // IMU: SDL reads raw (X, Y, Z) as (X, Z, -Y); +-2000 deg/s, +-2 g full scale.
+    const G = 2000 / 32768, A = 2 / 32768;
+    show([s16(d, 39) * G, s16(d, 43) * G, -s16(d, 41) * G], [s16(d, 33) * A, s16(d, 37) * A, -s16(d, 35) * A]);
+    if (!tpDrawPending) { tpDrawPending = true; requestAnimationFrame(drawPads); }
+  }
+  let tpDrawPending = false;
+  window.__steamFeed = (u8) => { $("tp-section").hidden = false; steamReport({ reportId: 0x42, data: new DataView(u8.buffer) }); };
+  function drawPads() {
+    tpDrawPending = false;
+    const now = performance.now(), css = getComputedStyle(document.documentElement);
+    const ink = css.getPropertyValue("--blue").trim() || "#0a6fd8", acc = css.getPropertyValue("--accent").trim() || "#e4002b";
+    const line = css.getPropertyValue("--line").trim() || "#ccc";
+    for (let i = 0; i < 2; i++) {
+      const t = tp[i], c = $("tp-c" + i), g = c.getContext("2d"), W = c.width;
+      while (t.pts.length && (t.pts[0] === null || now - t.pts[0].t > 1000)) t.pts.shift();
+      g.clearRect(0, 0, W, W);
+      g.strokeStyle = line; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(W / 2, 0); g.lineTo(W / 2, W); g.moveTo(0, W / 2); g.lineTo(W, W / 2); g.stroke();
+      const px = (v) => (v / 32768 + 1) / 2 * W, py = (v) => (1 - (v / 32768 + 1) / 2) * W;
+      let prev = null;
+      g.lineWidth = 1.5;
+      for (const p of t.pts) {
+        if (!p) { prev = null; continue; }
+        const a = Math.max(0.15, 1 - (now - p.t) / 1000);
+        g.globalAlpha = a;
+        if (prev) { g.strokeStyle = ink; g.beginPath(); g.moveTo(px(prev.x), py(prev.y)); g.lineTo(px(p.x), py(p.y)); g.stroke(); }
+        g.fillStyle = ink; g.beginPath(); g.arc(px(p.x), py(p.y), 3, 0, 7); g.fill();
+        prev = p;
+      }
+      g.globalAlpha = 1;
+      if (t.touch) { g.fillStyle = acc; g.beginPath(); g.arc(px(t.x), py(t.y), 9, 0, 7); g.fill(); }
+      const st = t.steps.slice().sort((a, b) => a - b);
+      const med = st.length ? st[st.length >> 1] : 0, min = st.length ? st[0] : 0;
+      $("tp-s" + i).textContent = (t.touch ? "touching" : "not touching") + "   x " + t.x + "   y " + t.y + "   pressure " + t.p +
+        "\nstep (pad units): smallest " + min.toFixed(0) + ", typical " + med.toFixed(0) + "   (pad is 65536 wide)";
+    }
+    if (now - tpRateT > 1000) {
+      const secs = (now - tpRateT) / 1000;
+      $("tp-rate").textContent = "Reports: " + (tpReports / secs).toFixed(0) + "/s.   Finger moved in " +
+        (tp[0].moves / secs).toFixed(0) + " (left) / " + (tp[1].moves / secs).toFixed(0) + " (right) reports per second.";
+      tpReports = 0; tp[0].moves = 0; tp[1].moves = 0; tpRateT = now;
+    }
+  }
   function ds4Report(e) {
     if (e.reportId !== 0x01 || e.data.byteLength < 24) return;
     const d = e.data, v = (i) => (s16(d, 12 + 2 * i) - ds4cal[i][0]) * ds4cal[i][1];
@@ -1215,14 +1299,18 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
     dev = d;
     ds4cal = [[0, 1 / 16], [0, 1 / 16], [0, 1 / 16], [0, 1 / 8192], [0, 1 / 8192], [0, 1 / 8192]];
     if (!dev.opened) await dev.open();
-    mode = dev.vendorId === 0x057e ? "switch" : dev.productId === 0x0ce6 ? "ds5" : "ds4";
+    mode = dev.vendorId === 0x28de ? "steam" : dev.vendorId === 0x057e ? "switch" : dev.productId === 0x0ce6 ? "ds5" : "ds4";
+    $("tp-section").hidden = mode !== "steam";
     gotData = false;
     resetView();
-    dev.addEventListener("inputreport", { ds4: ds4Report, ds5: ds5Report, switch: switchReport }[mode]);
-    state({ ds4: "DS4 mode: reading", ds5: "DualSense mode: reading", switch: "Switch Pro mode: reading" }[mode]);
+    dev.addEventListener("inputreport", { ds4: ds4Report, ds5: ds5Report, switch: switchReport, steam: steamReport }[mode]);
+    state({ ds4: "DS4 mode: reading", ds5: "DualSense mode: reading", switch: "Switch Pro mode: reading",
+            steam: "Steam Controller mode: reading" }[mode]);
     $("mv-connect").disabled = true;
     $("mv-disconnect").disabled = false;
-    if (mode === "ds4") await ds4Calibration(); else if (mode === "ds5") await ds5Calibration(); else await switchSetup();
+    if (mode === "ds4") await ds4Calibration(); else if (mode === "ds5") await ds5Calibration();
+    else if (mode === "steam") $("mv-cal").textContent = "Steam Controller: IMU decoded as SDL does (+-2000 °/s, +-2 g).";
+    else await switchSetup();
     clearTimeout(noDataTimer);
     noDataTimer = setTimeout(() => {
       if (!gotData && dev) state("Connected, but no motion reports yet. Is another tool holding the controller exclusively?");
@@ -1233,6 +1321,7 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
     if (dev) {
       dev.removeEventListener("inputreport", ds4Report);
       dev.removeEventListener("inputreport", ds5Report);
+      dev.removeEventListener("inputreport", steamReport);
       dev.removeEventListener("inputreport", switchReport);
       try { await dev.close(); } catch (_) {}
     }
@@ -1246,7 +1335,7 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
     try {
       const list = await navigator.hid.requestDevice({ filters: [
         { vendorId: 0x054c, productId: 0x09cc }, { vendorId: 0x054c, productId: 0x0ce6 },
-        { vendorId: 0x057e, productId: 0x2009 } ] });
+        { vendorId: 0x057e, productId: 0x2009 }, { vendorId: 0x28de, productId: 0x1302 } ] });
       if (!list.length) return;
       await open(list[0]);
     } catch (e) { state("Couldn't open it: " + e.message); }
@@ -1257,7 +1346,7 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
   navigator.hid.addEventListener("connect", async (e) => {
     const d = e.device;
     const ours = (d.vendorId === 0x054c && (d.productId === 0x09cc || d.productId === 0x0ce6)) ||
-      (d.vendorId === 0x057e && d.productId === 0x2009);
+      (d.vendorId === 0x057e && d.productId === 0x2009) || (d.vendorId === 0x28de && d.productId === 0x1302);
     if (!dev && ours) { try { await open(d); } catch (_) {} }
   });
 })();
