@@ -53,8 +53,8 @@ CONFIG_ESP_COEX_SW_COEXIST_ENABLE=n
 CONFIG_TINYUSB_CDC_ENABLED=y
 CONFIG_TINYUSB_CDC_COUNT=1
 CONFIG_TINYUSB_HID_COUNT=1
-# Web configurator: USB network (CDC NCM) at 192.168.7.1.
-CONFIG_TINYUSB_NET_MODE_NCM=y
+# Web configurator: USB network (RNDIS, like GP2040-CE) at 192.168.7.1.
+CONFIG_TINYUSB_NET_MODE_ECM_RNDIS=y
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
 
 # Diagnostics (0.1.1): roomier stacks for tasks that log, and crash reports

@@ -504,7 +504,7 @@ __MD5_JS__
 
   // The dongle's USB identity depends on its output mode (generic HID,
   // XInput, DS4, Switch Pro); its log port is the same in every mode.
-  const DONGLE_IDS = ["303a:8243", "303a:8244", "45e:28e", "54c:9cc", "57e:2009"];
+  const DONGLE_IDS = ["303a:8243", "303a:8244", "303a:8245", "45e:28e", "54c:9cc", "57e:2009"];
   function isDongle(info) {
     return info && info.usbVendorId !== undefined &&
       DONGLE_IDS.includes(info.usbVendorId.toString(16) + ":" + info.usbProductId.toString(16));

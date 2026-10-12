@@ -1,5 +1,5 @@
-// Web configurator: in config mode the dongle is a USB network adapter (CDC
-// NCM) at 192.168.7.1 with a DHCP server, serving a single-page app and a
+// Web configurator: in config mode the dongle is a USB network adapter (RNDIS,
+// as GP2040-CE uses; Windows has the driver built in) at 192.168.7.1 with a DHCP server, serving a single-page app and a
 // small JSON API. The Bluetooth controllers stay connected, so the page can
 // show live input.
 //
@@ -18,7 +18,9 @@
 #include "esp_mac.h"
 #include "esp_netif.h"
 #include "lwip/esp_netif_net_stack.h"
-#include "tinyusb_net.h"
+#include "device/usbd_pvt.h"
+#include "freertos/event_groups.h"
+#include "tusb.h"
 
 #include "ble_central.h"
 #include "bonds.h"
@@ -41,8 +43,11 @@ static uint8_t s_host_mac[6];  // the PC side of the USB network link
 static char s_host_mac_str[13];
 
 // ---------------------------------------------------------------------------
-// USB network <-> lwIP glue (as in ESP-IDF's sta2eth example)
+// USB network (TinyUSB RNDIS) <-> lwIP glue
 // ---------------------------------------------------------------------------
+
+// The PC side's MAC, reported by RNDIS. TinyUSB expects the app to define it.
+uint8_t tud_network_mac_address[6];
 
 static void l2_free(void *h, void *buffer)
 {
@@ -50,30 +55,80 @@ static void l2_free(void *h, void *buffer)
     free(buffer);
 }
 
+// lwIP -> USB. TinyUSB may only be driven from its own task, so the packet is
+// handed over with usbd_defer_func() and this waits for the result. If the
+// endpoint is still busy with the previous packet, try again briefly.
+typedef struct {
+    const void *buf;
+    uint16_t len;
+    bool sent;
+} tx_job_t;
+
+static EventGroupHandle_t s_tx_done;
+static tx_job_t *volatile s_tx_job;
+
+static void tx_in_usb_task(void *arg)
+{
+    (void)arg;
+    tx_job_t *job = s_tx_job;
+    if (job == NULL) {
+        return;
+    }
+    job->sent = tud_network_can_xmit(job->len);
+    if (job->sent) {
+        tud_network_xmit(job, job->len);  // copies via tud_network_xmit_cb() right away
+    }
+    xEventGroupSetBits(s_tx_done, 1);
+}
+
+uint16_t tud_network_xmit_cb(uint8_t *dst, void *ref, uint16_t arg)
+{
+    tx_job_t *job = ref;
+    memcpy(dst, job->buf, job->len);
+    return arg;
+}
+
 static esp_err_t netif_transmit(void *h, void *buffer, size_t len)
 {
     (void)h;
-    if (tinyusb_net_send_sync(buffer, (uint16_t)len, NULL, pdMS_TO_TICKS(100)) != ESP_OK) {
+    if (!s_active || !tud_ready() || len > 0xFFFF) {
         s_tx_fail++;
-    } else {
-        s_tx_pkts++;
+        return ESP_OK;
     }
+    tx_job_t job = { .buf = buffer, .len = (uint16_t)len };
+    for (int attempt = 0; attempt < 20; attempt++) {
+        xEventGroupClearBits(s_tx_done, 1);
+        s_tx_job = &job;
+        usbd_defer_func(tx_in_usb_task, NULL, false);
+        EventBits_t bits = xEventGroupWaitBits(s_tx_done, 1, pdTRUE, pdTRUE, pdMS_TO_TICKS(50));
+        s_tx_job = NULL;
+        if ((bits & 1) && job.sent) {
+            s_tx_pkts++;
+            return ESP_OK;
+        }
+        vTaskDelay(1);
+    }
+    s_tx_fail++;
     return ESP_OK;
 }
 
-static esp_err_t usb_net_rx(void *buffer, uint16_t len, void *ctx)
+// USB -> lwIP (runs in the TinyUSB task).
+bool tud_network_recv_cb(const uint8_t *src, uint16_t size)
 {
-    (void)ctx;
     s_rx_pkts++;
-    if (s_netif == NULL) {
-        return ESP_OK;
+    if (s_netif && s_active && size) {
+        void *copy = malloc(size);
+        if (copy) {
+            memcpy(copy, src, size);
+            esp_netif_receive(s_netif, copy, size, NULL);
+        }
     }
-    void *copy = malloc(len);
-    if (copy == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-    memcpy(copy, buffer, len);
-    return esp_netif_receive(s_netif, copy, len, NULL);
+    tud_network_recv_renew();
+    return true;
+}
+
+void tud_network_init_cb(void)
+{
 }
 
 static void on_lease(void *arg, esp_event_base_t base, int32_t id, void *data)
@@ -109,6 +164,7 @@ static esp_err_t netif_create(void)
 {
     static bool once;
     if (!once) {
+        s_tx_done = xEventGroupCreate();
         ESP_ERROR_CHECK(esp_netif_init());
         esp_err_t err = esp_event_loop_create_default();
         if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
@@ -390,13 +446,12 @@ static void httpd_start_once(void)
 // The config-mode USB "driver"
 // ---------------------------------------------------------------------------
 
-#define EP_NCM_NOTIF 0x81
-#define EP_NCM_OUT   0x01
-#define EP_NCM_IN    0x84
+#define EP_NET_NOTIF 0x81
+#define EP_NET_OUT   0x01
+#define EP_NET_IN    0x84
 
 static const uint8_t itf_desc[] = {
-    TUD_CDC_NCM_DESCRIPTOR(0, 4, CONFIG_MAC_STRING_INDEX, EP_NCM_NOTIF, 64, EP_NCM_OUT, EP_NCM_IN, 64,
-                           CFG_TUD_NET_MTU),
+    TUD_RNDIS_DESCRIPTOR(0, 4, EP_NET_NOTIF, 8, EP_NET_OUT, EP_NET_IN, 64),
 };
 
 const char *config_server_host_mac_string(void)
@@ -420,13 +475,7 @@ const char *config_server_host_mac_string(void)
 static void cfg_started(void)
 {
     config_server_host_mac_string();
-    tinyusb_net_config_t net = {
-        .on_recv_callback = usb_net_rx,
-    };
-    memcpy(net.mac_addr, s_host_mac, 6);
-    if (tinyusb_net_init(&net) != ESP_OK) {
-        ESP_LOGE(TAG, "USB network init failed");
-    }
+    memcpy(tud_network_mac_address, s_host_mac, 6);
     if (s_netif == NULL && netif_create() != ESP_OK) {
         ESP_LOGE(TAG, "network interface failed to start");
         return;
@@ -439,7 +488,6 @@ static void cfg_started(void)
 static void cfg_stopping(void)
 {
     s_active = false;
-    tinyusb_net_deinit();
 }
 
 static bool cfg_send(const pad_out_t *o)
@@ -450,7 +498,7 @@ static bool cfg_send(const pad_out_t *o)
 
 const out_driver_t out_config = {
     .name = "web configurator",
-    .vid = 0x303A, .pid = 0x8244, .bcd_device = 0x0001,
+    .vid = 0x303A, .pid = 0x8245, .bcd_device = 0x0001,  // 0x8244 was the NCM version
     .manufacturer = "Joy-Con 2 Dongle",
     .product = "Joy-Con 2 Dongle Configurator",
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 2,
