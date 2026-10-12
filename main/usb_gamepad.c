@@ -67,7 +67,49 @@ static void usb_event(tinyusb_event_t *event, void *arg)
 static tusb_desc_device_t s_device_desc;
 static uint8_t s_config_desc[320];
 static char s_serial[13];
-static const char *s_strings[CONFIG_MAC_STRING_INDEX + 1];
+#define MOUSE_STRING_INDEX (CONFIG_MAC_STRING_INDEX + 1)
+static const char *s_strings[MOUSE_STRING_INDEX + 1];
+
+// Optional USB mouse next to the controller (Mouse setting): an extra HID
+// interface. TinyUSB numbers HID instances in interface order, so the mouse is
+// instance 1 after a HID controller, or 0 after XInput (not HID).
+#define EP_MOUSE_IN 0x84
+static bool s_with_mouse;
+static uint8_t s_mouse_inst;
+static const uint8_t s_mouse_report_desc[] = {
+    0x05, 0x01,        // Usage Page (Generic Desktop)
+    0x09, 0x02,        // Usage (Mouse)
+    0xA1, 0x01,        // Collection (Application)
+    0x09, 0x01,        //   Usage (Pointer)
+    0xA1, 0x00,        //   Collection (Physical)
+    0x05, 0x09,        //     Usage Page (Button)
+    0x19, 0x01,        //     Usage Minimum (1)
+    0x29, 0x03,        //     Usage Maximum (3)
+    0x15, 0x00,        //     Logical Minimum (0)
+    0x25, 0x01,        //     Logical Maximum (1)
+    0x95, 0x03,        //     Report Count (3)
+    0x75, 0x01,        //     Report Size (1)
+    0x81, 0x02,        //     Input (Data, Var, Abs)
+    0x95, 0x01,        //     Report Count (1)
+    0x75, 0x05,        //     Report Size (5)
+    0x81, 0x03,        //     Input (Const)
+    0x05, 0x01,        //     Usage Page (Generic Desktop)
+    0x09, 0x30,        //     Usage (X)
+    0x09, 0x31,        //     Usage (Y)
+    0x16, 0x01, 0x80,  //     Logical Minimum (-32767)
+    0x26, 0xFF, 0x7F,  //     Logical Maximum (32767)
+    0x75, 0x10,        //     Report Size (16)
+    0x95, 0x02,        //     Report Count (2)
+    0x81, 0x06,        //     Input (Data, Var, Rel)
+    0x09, 0x38,        //     Usage (Wheel)
+    0x15, 0x81,        //     Logical Minimum (-127)
+    0x25, 0x7F,        //     Logical Maximum (127)
+    0x75, 0x08,        //     Report Size (8)
+    0x95, 0x01,        //     Report Count (1)
+    0x81, 0x06,        //     Input (Data, Var, Rel)
+    0xC0,              //   End Collection
+    0xC0,              // End Collection
+};
 static bool s_with_cdc;  // the log port is part of the current USB device
 
 static void build_descriptors(void)
@@ -97,9 +139,15 @@ static void build_descriptors(void)
     uint8_t itf_cdc = s_drv->itf_count;
     const uint8_t cdc[] = { TUD_CDC_DESCRIPTOR(itf_cdc, 5, EP_CDC_NOTIF, 8, EP_CDC_OUT, EP_CDC_IN, 64) };
     uint16_t cdc_len = s_with_cdc ? sizeof(cdc) : 0;
-    uint16_t total = TUD_CONFIG_DESC_LEN + s_drv->itf_desc_len + cdc_len;
+    s_with_mouse = !s_drv->is_config && settings_get().pad_mouse;
+    s_mouse_inst = s_drv->hid_report_desc ? 1 : 0;
+    uint8_t itf_mouse = itf_cdc + (s_with_cdc ? 2 : 0);
+    const uint8_t mouse[] = { TUD_HID_DESCRIPTOR(itf_mouse, MOUSE_STRING_INDEX, HID_ITF_PROTOCOL_NONE,
+                                                 sizeof(s_mouse_report_desc), EP_MOUSE_IN, 8, 1) };
+    uint16_t mouse_len = s_with_mouse ? sizeof(mouse) : 0;
+    uint16_t total = TUD_CONFIG_DESC_LEN + s_drv->itf_desc_len + cdc_len + mouse_len;
     configASSERT(total <= sizeof(s_config_desc));
-    const uint8_t hdr[] = { TUD_CONFIG_DESCRIPTOR(1, itf_cdc + (s_with_cdc ? 2 : 0), 0, total,
+    const uint8_t hdr[] = { TUD_CONFIG_DESCRIPTOR(1, itf_mouse + (s_with_mouse ? 1 : 0), 0, total,
                                                   TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 500) };
     size_t n = 0;
     memcpy(s_config_desc + n, hdr, sizeof(hdr));
@@ -108,6 +156,10 @@ static void build_descriptors(void)
     n += s_drv->itf_desc_len;
     if (s_with_cdc) {
         memcpy(s_config_desc + n, cdc, sizeof(cdc));
+        n += sizeof(cdc);
+    }
+    if (s_with_mouse) {
+        memcpy(s_config_desc + n, mouse, sizeof(mouse));
     }
 
     s_strings[0] = (const char[]){ 0x09, 0x04 };  // English (0x0409)
@@ -117,25 +169,34 @@ static void build_descriptors(void)
     s_strings[4] = s_drv->product;   // gamepad interface (Windows shows this name)
     s_strings[5] = "Joy-Con 2 Dongle log";
     s_strings[CONFIG_MAC_STRING_INDEX] = config_server_host_mac_string();
+    s_strings[MOUSE_STRING_INDEX] = "Joy-Con 2 Dongle mouse";
+}
+
+static bool is_mouse(uint8_t instance)
+{
+    return s_with_mouse && instance == s_mouse_inst;
 }
 
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
 {
-    (void)instance;
-    return s_drv->hid_report_desc;
+    return is_mouse(instance) ? s_mouse_report_desc : s_drv->hid_report_desc;
 }
 
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t type,
                                uint8_t *buffer, uint16_t reqlen)
 {
-    (void)instance;
+    if (is_mouse(instance)) {
+        return 0;
+    }
     return s_drv->get_report ? s_drv->get_report(report_id, type, buffer, reqlen) : 0;
 }
 
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t type,
                            uint8_t const *buffer, uint16_t bufsize)
 {
-    (void)instance;
+    if (is_mouse(instance)) {
+        return;
+    }
     if (s_drv->set_report) {
         s_drv->set_report(report_id, type, buffer, bufsize);
     }
@@ -419,6 +480,39 @@ static void apply_layout(pad_out_t *o)
     o->buttons = b;
 }
 
+// The USB mouse: movement built up from the sensors, the borrowed buttons,
+// and the wheel from a stick (about 15 notches a second at full tilt).
+static void send_mouse(const pad_out_t *o)
+{
+    static uint8_t last_buttons;
+    static float wheel_acc;
+    static int64_t last_t;
+    int64_t now = esp_timer_get_time();
+    float dt = last_t ? (now - last_t) / 1e6f : 0.0f;
+    last_t = now;
+    if (!tud_hid_n_ready(s_mouse_inst)) {
+        return;  // movement keeps building up meanwhile
+    }
+    wheel_acc += o->mouse_wheel * 15.0f * (dt > 0.1f ? 0.1f : dt);
+    int wheel = (int)wheel_acc;
+    wheel_acc -= wheel;
+    if (o->mouse_wheel == 0.0f) wheel_acc = 0.0f;
+    int32_t dx, dy;
+    pad_mouse_take(&dx, &dy);
+    if (dx == 0 && dy == 0 && wheel == 0 && o->mouse_buttons == last_buttons) {
+        return;
+    }
+    if (dx > 32767) dx = 32767;
+    if (dx < -32767) dx = -32767;
+    if (dy > 32767) dy = 32767;
+    if (dy < -32767) dy = -32767;
+    uint8_t r[6] = { o->mouse_buttons, (uint8_t)dx, (uint8_t)((uint16_t)dx >> 8),
+                     (uint8_t)dy, (uint8_t)((uint16_t)dy >> 8), (uint8_t)(int8_t)wheel };
+    if (tud_hid_n_report(s_mouse_inst, 0, r, sizeof(r))) {
+        last_buttons = o->mouse_buttons;
+    }
+}
+
 static void report_task(void *arg)
 {
     (void)arg;
@@ -455,6 +549,9 @@ static void report_task(void *arg)
         apply_grips(&out);   // before the layout, so "A" swaps like the real A
         apply_layout(&out);
         bool done = s_drv->send(&out);
+        if (s_with_mouse) {
+            send_mouse(&out);
+        }
         wait = done ? pdMS_TO_TICKS(s_drv->period_ms) : pdMS_TO_TICKS(1);
     }
 }

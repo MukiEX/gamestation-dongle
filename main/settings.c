@@ -95,6 +95,7 @@ void settings_init(void)
         s.pad_lift = get_u8(h, "padlift", s.pad_lift, SETTINGS_PAD_LIFT_MAX);
         s.pad_grip = get_u8(h, "padgrip", s.pad_grip, 1);
         s.pad_ds_touch = get_u8(h, "padds", s.pad_ds_touch, 1);
+        s.pad_mouse = get_u8(h, "padmouse", s.pad_mouse, 1);
         s_cur = s;
         nvs_close(h);
     }
@@ -145,6 +146,7 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "padlift", s.pad_lift);
         nvs_set_u8(h, "padgrip", s.pad_grip);
         nvs_set_u8(h, "padds", s.pad_ds_touch);
+        nvs_set_u8(h, "padmouse", s.pad_mouse);
         nvs_commit(h);
         nvs_close(h);
     }

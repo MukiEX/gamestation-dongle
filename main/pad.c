@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "pad.h"
 
+#include "settings.h"
+
 #include <string.h>
 
 #include "esp_log.h"
@@ -181,6 +183,44 @@ static void map_single_right(const pad_side_t *s, pad_out_t *o)
     o->motion.gyro[2] = m->gyro[0];   o->motion.accel[2] = m->accel[0];
 }
 
+static float s_mouse_dx, s_mouse_dy;
+static portMUX_TYPE s_mouse_lock = portMUX_INITIALIZER_UNLOCKED;
+
+void pad_mouse_add(float dx, float dy)
+{
+    portENTER_CRITICAL(&s_mouse_lock);
+    s_mouse_dx += dx;
+    s_mouse_dy += dy;
+    portEXIT_CRITICAL(&s_mouse_lock);
+}
+
+void pad_mouse_take(int32_t *dx, int32_t *dy)
+{
+    portENTER_CRITICAL(&s_mouse_lock);
+    *dx = (int32_t)s_mouse_dx;  // whole pixels; the fraction waits for the next report
+    *dy = (int32_t)s_mouse_dy;
+    s_mouse_dx -= *dx;
+    s_mouse_dy -= *dy;
+    portEXIT_CRITICAL(&s_mouse_lock);
+}
+
+// Mouse setting: a Joy-Con lying on its rail side lends its shoulder (left
+// click), trigger (right click), stick press (middle) and stick up/down
+// (wheel) to the mouse; they leave the controller while it lies there.
+static void take_mouse_controls(pad_side_t *s, bool left, pad_out_t *o)
+{
+    uint32_t sh = left ? NS2_BTN_L : NS2_BTN_R, tr = left ? NS2_BTN_ZL : NS2_BTN_ZR;
+    uint32_t st = left ? NS2_BTN_LSTICK : NS2_BTN_RSTICK;
+    if (s->buttons & sh) o->mouse_buttons |= 0x01;
+    if (s->buttons & tr) o->mouse_buttons |= 0x02;
+    if (s->buttons & st) o->mouse_buttons |= 0x04;
+    s->buttons &= ~(sh | tr | st);
+    float y = left ? s->ly : s->ry;
+    if (y > 0.2f || y < -0.2f) o->mouse_wheel += y;
+    if (left) s->lx = s->ly = 0.0f;
+    else s->rx = s->ry = 0.0f;
+}
+
 void pad_get_output(pad_out_t *o)
 {
     pad_side_t side[PAD_ROLE_COUNT];
@@ -193,6 +233,14 @@ void pad_get_output(pad_out_t *o)
     portEXIT_CRITICAL(&s_lock);
 
     memset(o, 0, sizeof(*o));
+    if (settings_get().pad_mouse) {
+        if (present[PAD_ROLE_LEFT] && side[PAD_ROLE_LEFT].tp.mouse_pose) {
+            take_mouse_controls(&side[PAD_ROLE_LEFT], true, o);
+        }
+        if (present[PAD_ROLE_RIGHT] && side[PAD_ROLE_RIGHT].tp.mouse_pose) {
+            take_mouse_controls(&side[PAD_ROLE_RIGHT], false, o);
+        }
+    }
     if (present[PAD_ROLE_FULL]) {
         o->mode = PAD_MODE_FULL;
         o->buttons = side[PAD_ROLE_FULL].buttons;

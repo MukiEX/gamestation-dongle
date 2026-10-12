@@ -733,6 +733,22 @@ static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t
     tp->grip_mode = false;
     bool on = in->mouse_distance != 0 && in->mouse_distance < limit_dist[lvl] &&
               in->mouse_roughness < limit_rough[lvl];
+    if (st.pad_mouse) {
+        // Mouse setting: the sensor is a USB mouse while the Joy-Con lies on
+        // its rail side on a surface; no trackpad / touchpad finger at all.
+        // Speed 5 = one pixel per sensor count.
+        if (on && l->tp_on && l->tp_mouse_pose) {
+            int16_t dx = (int16_t)(in->mouse_x - l->tp_lx);
+            int16_t dy = (int16_t)(in->mouse_y - l->tp_ly);
+            pad_mouse_add(dx * gain / 40.0f, dy * gain / 40.0f);
+        }
+        l->tp_on = on;
+        l->tp_touch = false;
+        l->tp_lx = in->mouse_x;
+        l->tp_ly = in->mouse_y;
+        tp->touch = false;
+        return;
+    }
     if (!on) {
         l->tp_on = false;
         l->tp_touch = false;

@@ -175,9 +175,18 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="hint" id="griphint"></div>
     </div>
     <div class="row">
+      <label>Joy-Con mouse sensor</label>
+      <div class="seg" id="padMouse">
+        <button data-v="false">Controller</button><button data-v="true">USB mouse</button>
+      </div>
+      <div class="hint">USB mouse: in every mode, a Joy-Con lying on its rail side on a surface moves a real mouse pointer
+        (an extra USB device), and while it lies there its shoulder = left click, trigger = right click, stick press = middle,
+        stick up / down = wheel. Controller: the sensor feeds the trackpads / touchpad as below. Takes effect when you exit.</div>
+    </div>
+    <div class="row">
       <label for="padSpeed">Trackpad speed</label>
       <div class="rangeval"><input type="range" id="padSpeed" min="1" max="19" step="1"><output id="padSpeedOut"></output></div>
-      <div class="hint">Steam Controller mode: how far the virtual finger moves when you slide a Joy-Con on a surface (its mouse sensor). The left part of the slider is fine control: 0.1× to 0.9× of speed 1.</div>
+      <div class="hint">How far the virtual finger (or, with USB mouse, the pointer) moves when you slide a Joy-Con on a surface. The left part of the slider is fine control: 0.1× to 0.9× of speed 1.</div>
     </div>
     <div class="row">
       <label>Trackpad lift-off</label>
@@ -315,6 +324,7 @@ function showSettings() {
   seg("padLift", String(settings.padLift));
   seg("padGrip", String(!!settings.padGrip));
   seg("padDsTouch", String(settings.padDsTouch !== false));
+  seg("padMouse", String(!!settings.padMouse));
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
   const auto = { ds4: "the touchpad's left / right half", ds5: "the touchpad's left / right half",
@@ -382,6 +392,10 @@ for (const id of ["flipDs4", "flipSwitch"]) {
   });
 }
 $("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
+$("padMouse").addEventListener("click", (e) => {
+  const v = e.target.dataset && e.target.dataset.v;
+  if (v !== undefined) save({ padMouse: v === "true" });
+});
 $("padDsTouch").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
   if (v !== undefined) save({ padDsTouch: v === "true" });

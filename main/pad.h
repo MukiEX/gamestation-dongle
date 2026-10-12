@@ -72,7 +72,17 @@ typedef struct {
     float lx, ly, rx, ry;
     pad_motion_t motion;  // in the frame of the controller as the player holds it
     pad_trackpad_t tp[2]; // [0] left trackpad (left Joy-Con), [1] right (right Joy-Con)
+    // Mouse setting: a Joy-Con lying on its rail side is a mouse, and its
+    // shoulder, trigger and stick become the mouse's controls (taken out of
+    // the controller above).
+    uint8_t mouse_buttons;  // bit 0 left, 1 right, 2 middle
+    float mouse_wheel;      // -1..1, + = scroll up
 } pad_out_t;
+
+// Mouse movement from the Joy-Con sensors (Mouse setting), in pixels: the
+// Bluetooth side adds, the USB side takes what has built up.
+void pad_mouse_add(float dx, float dy);
+void pad_mouse_take(int32_t *dx, int32_t *dy);
 
 pad_role_t pad_role_for_pid(uint16_t pid);
 const char *pad_role_name(pad_role_t role);

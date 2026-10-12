@@ -92,6 +92,15 @@ B, whatever the label on the Nintendo controller says.
 | C (GameChat) | – | DualSense: mute button | – |
 | SL, SR | – | – | – |
 
+**Joy-Con mouse as a real USB mouse (optional, all modes):** set *Joy-Con mouse
+sensor* to *USB mouse* in the configurator and the dongle adds a standard USB
+mouse next to the controller. A Joy-Con lying on its rail side on a surface
+moves the pointer, and while it lies there its shoulder (L / R) is the left
+button, its trigger (ZL / ZR) the right button, its stick press the middle
+button and its stick up / down the wheel; those leave the controller meanwhile.
+Held normally it is a controller half as usual. The trackpads and touchpad then
+get nothing from the sensors. Some consoles may refuse the extra USB device.
+
 **Touchpad (DS4 and DualSense):** each Joy-Con's mouse sensor touches its half
 of the touchpad (left Joy-Con: left half) while the Joy-Con lies on its rail
 side on a surface, like a mouse; held normally or lifted, it doesn't. Same virtual finger,
