@@ -300,7 +300,7 @@ footer a { color: inherit; }
     </section>
 
     <section class="panel" aria-labelledby="tests-title">
-      <h2 id="tests-title">Step 2 tests</h2>
+      <h2 id="tests-title">Step 3 tests</h2>
       <p class="sub" style="margin-top:6px">Press <b>Start</b> on a test before doing it, so the log is labelled. Pick the result, add a note if anything was off, then save the report.</p>
       <ol class="tests" id="tests"></ol>
     </section>
@@ -348,18 +348,18 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "XInput (default mode): shows up as an Xbox 360 controller; log says 'USB started as XInput'",
-    "XInput: every button and both sticks correct in a gamepad tester (A = bottom face button)",
-    "XInput: rumble test in the gamepad tester buzzes the controller(s), and stops when it ends",
-    "Press BOOT briefly: dongle comes back as a DualShock 4 within ~2 s; the Joy-Cons stay connected",
-    "DS4: every button and both sticks correct (Capture = touchpad click, Home = PS)",
-    "DS4: rumble test works",
-    "Press BOOT: Switch Pro mode; log says 'host handshake done' (test with Steam closed, in Chrome)",
-    "Switch Pro: every button and both sticks correct in the Chrome gamepad tester (Steam fully closed)",
-    "Switch Pro: rumble test works",
-    "Press BOOT: generic HID mode works as in step 1",
-    "Hold - and + together for 3 s: switches to the next mode",
-    "Rumble with a Joy-Con pair: both halves buzz; with a lone Joy-Con: it buzzes too",
+    "Hold BOOT 2-3 s and release: the dongle becomes a network adapter and http://192.168.7.1 opens the configurator",
+    "Live input: every button and both sticks show up on the page; connected controllers show ~130 /s",
+    "Stick deadzone slider changes the sticks immediately; rumble strength 0 turns rumble off (check after exit)",
+    "Change controller type, Save & exit: dongle comes back in that mode, controllers still connected",
+    "Button layout 'Nintendo labels' in XInput: Nintendo A presses Xbox A (right face button)",
+    "Log port Off, Save & exit: the controller works but no log port appears (watch on the UART/COM port)",
+    "Forget one controller on the page: it disconnects and needs SYNC to pair again",
+    "Hold Capture + Home for 3 s: configurator opens; again (or BOOT short press): back to the controller",
+    "Hotkeys Off: - and + held for 3 s no longer switch modes",
+    "Settings survive unplugging and replugging the dongle",
+    "The PC keeps its normal internet connection while the configurator is open",
+    "Short BOOT press and 5 s BOOT hold still work as before (next mode / forget all)",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
@@ -504,7 +504,7 @@ __MD5_JS__
 
   // The dongle's USB identity depends on its output mode (generic HID,
   // XInput, DS4, Switch Pro); its log port is the same in every mode.
-  const DONGLE_IDS = ["303a:8243", "45e:28e", "54c:9cc", "57e:2009"];
+  const DONGLE_IDS = ["303a:8243", "303a:8244", "45e:28e", "54c:9cc", "57e:2009"];
   function isDongle(info) {
     return info && info.usbVendorId !== undefined &&
       DONGLE_IDS.includes(info.usbVendorId.toString(16) + ":" + info.usbProductId.toString(16));
@@ -584,7 +584,7 @@ __MD5_JS__
   // ---- Report ----
   function report() {
     const out = [];
-    out.push("Joy-Con 2 Dongle — step 2 test report");
+    out.push("Joy-Con 2 Dongle — step 3 test report");
     out.push("Saved: " + new Date().toString());
     out.push("Firmware: " + $("st-fw").textContent);
     out.push("Browser: " + navigator.userAgent);

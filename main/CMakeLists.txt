@@ -13,7 +13,9 @@ idf_component_register(
         "out_xinput.c"
         "out_ds4.c"
         "out_switchpro.c"
+        "config_server.c"
     INCLUDE_DIRS "."
+    EMBED_TXTFILES "web/index.html"
     REQUIRES
         bt
         nvs_flash
@@ -21,6 +23,11 @@ idf_component_register(
         esp_driver_gpio
         esp_tinyusb
         espcoredump
+        esp_netif
+        esp_event
+        esp_http_server
+        json
+        lwip
 )
 
 # Diagnostic build: `DONGLE_DIAG=1` in the environment when configuring.

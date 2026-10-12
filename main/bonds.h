@@ -15,3 +15,13 @@ uint16_t bonds_lookup(const uint8_t mac[6]);
 void bonds_remember(const uint8_t mac[6], uint16_t pid);
 void bonds_clear(void);
 int bonds_count(void);
+
+typedef struct {
+    uint8_t mac[6];  // little-endian, as in ble_addr_t.val
+    uint16_t pid;
+} bond_info_t;
+
+// Copies up to `max` remembered controllers, most recently paired first.
+int bonds_list(bond_info_t *out, int max);
+// Forgets one controller; returns false if it wasn't remembered.
+bool bonds_forget(const uint8_t mac[6]);

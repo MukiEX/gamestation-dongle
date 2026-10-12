@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Joy-Con 2 Dongle</title>
+<style>
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --ink: #1c1f24; --muted: #66707c; --line: #dde1e6;
+  --accent: #e4002b; --accent-ink: #ffffff; --ok: #1a7f37; --warn: #9a6700; --chip: #eef0f3;
+  --on: #e4002b; --off: #d5d9de;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121418; --card: #1b1e24; --ink: #e8eaed; --muted: #9aa3ad; --line: #2c3139;
+    --accent: #ff3b5c; --accent-ink: #ffffff; --ok: #3fb950; --warn: #d29922; --chip: #252a31;
+    --on: #ff3b5c; --off: #3a4049;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+  background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
+header .logo { width: 28px; height: 28px; border-radius: 8px; flex: none;
+  background: linear-gradient(90deg, #00b8e6 0 50%, #ff3b5c 50% 100%); }
+header h1 { font-size: 17px; margin: 0; font-weight: 650; }
+header .fw { color: var(--muted); font-size: 13px; }
+header .spacer { flex: 1; }
+main { max-width: 980px; margin: 0 auto; padding: 18px 16px 60px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+section.wide { grid-column: 1 / -1; }
+h2 { font-size: 15px; margin: 0 0 12px; font-weight: 650; }
+.row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; padding: 8px 0;
+  border-top: 1px solid var(--line); }
+.row:first-of-type { border-top: 0; }
+.row label { font-weight: 550; }
+.hint { color: var(--muted); font-size: 13px; grid-column: 2; margin-top: -4px; }
+select, input[type=range] { width: 100%; }
+input[type=range] { accent-color: var(--accent); }
+select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 9px; }
+.seg { justify-self: start; display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: inherit; font: inherit; padding: 6px 12px; cursor: pointer; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.rangeval { display: flex; gap: 10px; align-items: center; }
+.rangeval output { min-width: 3.5em; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+button.primary, button.ghost { font: inherit; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border: 0; font-weight: 600; }
+button.ghost { background: transparent; color: inherit; border: 1px solid var(--line); }
+button:disabled { opacity: .5; cursor: default; }
+.saved { color: var(--ok); font-size: 13px; opacity: 0; transition: opacity .3s; }
+.saved.show { opacity: 1; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.list li:first-child { border-top: 0; }
+.list .name { font-weight: 550; }
+.list .mac { color: var(--muted); font-size: 13px; font-family: ui-monospace, Consolas, monospace; }
+.list .grow { flex: 1; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.wait { background: var(--warn); }
+.empty { color: var(--muted); font-size: 14px; padding: 6px 0; }
+.btns { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; }
+.btns span { text-align: center; font-size: 12.5px; font-weight: 600; padding: 7px 2px; border-radius: 7px;
+  background: var(--chip); color: var(--muted); transition: background .05s; }
+.btns span.on { background: var(--on); color: #fff; }
+.sticks { display: flex; gap: 22px; margin: 14px 0 4px; align-items: center; }
+.stick { width: 110px; height: 110px; border-radius: 50%; border: 2px solid var(--line); position: relative; background: var(--chip); }
+.stick::before, .stick::after { content: ""; position: absolute; background: var(--line); }
+.stick::before { left: 50%; top: 6px; bottom: 6px; width: 1px; }
+.stick::after { top: 50%; left: 6px; right: 6px; height: 1px; }
+.stick i { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+  background: var(--accent); left: 50%; top: 50%; z-index: 1; }
+.stick b { position: absolute; bottom: -22px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); font-weight: 500; }
+.layoutnote { color: var(--muted); font-size: 13px; margin-left: auto; }
+.banner { grid-column: 1 / -1; padding: 12px 16px; border-radius: 10px; background: var(--chip); color: var(--muted); display: none; }
+.banner.show { display: block; }
+footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 16px 30px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" aria-hidden="true"></div>
+  <div>
+    <h1>Joy-Con 2 Dongle</h1>
+    <div class="fw" id="fw">connecting…</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="primary" id="exit">Save &amp; exit</button>
+</header>
+
+<main>
+  <div class="banner" id="banner"></div>
+
+  <section>
+    <h2>Output</h2>
+    <div class="row">
+      <label for="mode">Controller type</label>
+      <select id="mode"></select>
+      <div class="hint">What the PC or console sees. Takes effect when you exit.</div>
+    </div>
+    <div class="row">
+      <label>Button layout</label>
+      <div class="seg" id="layout">
+        <button data-v="positional">Positional</button><button data-v="labels">Nintendo labels</button>
+      </div>
+      <div class="hint" id="layouthint"></div>
+    </div>
+    <div class="row">
+      <label>Log port</label>
+      <div class="seg" id="logPort">
+        <button data-v="true">On</button><button data-v="false">Off</button>
+      </div>
+      <div class="hint">The serial port next to the controller. Turn it off for consoles.</div>
+    </div>
+    <div class="row">
+      <label>Hotkeys</label>
+      <div class="seg" id="hotkeys">
+        <button data-v="true">On</button><button data-v="false">Off</button>
+      </div>
+      <div class="hint">Hold − and + for 3 s: next controller type. Hold Capture and Home for 3 s: this page.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Feel</h2>
+    <div class="row">
+      <label for="rumble">Rumble strength</label>
+      <div class="rangeval"><input type="range" id="rumble" min="0" max="10" step="1"><output id="rumbleOut"></output></div>
+      <div class="hint">5 matches Switch2Connect's default. 0 turns rumble off.</div>
+    </div>
+    <div class="row">
+      <label for="deadzone">Stick deadzone</label>
+      <div class="rangeval"><input type="range" id="deadzone" min="0" max="30" step="1"><output id="deadzoneOut"></output></div>
+      <div class="hint">Applies immediately: watch the sticks under Live input.</div>
+    </div>
+    <div class="row" style="border-top:0">
+      <span></span><span class="saved" id="saved">Saved</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Connected now</h2>
+    <ul class="list" id="connected"></ul>
+  </section>
+
+  <section>
+    <h2>Paired controllers</h2>
+    <ul class="list" id="paired"></ul>
+    <div style="margin-top:10px; display:flex; gap:10px; align-items:center">
+      <button class="ghost" id="forgetAll">Forget all</button>
+      <span class="hint" style="margin:0">To pair another, hold its SYNC button.</span>
+    </div>
+  </section>
+
+  <section class="wide">
+    <h2 style="display:flex">Live input <span class="layoutnote" id="padmode"></span></h2>
+    <div class="btns" id="btns"></div>
+    <div class="sticks">
+      <div class="stick"><i id="ls"></i><b>Left stick</b></div>
+      <div class="stick"><i id="rs"></i><b>Right stick</b></div>
+    </div>
+    <p class="hint" style="margin:30px 0 0">Shows the merged controller before the button layout is applied, in Switch names.</p>
+  </section>
+</main>
+<footer>The controller is paused while this page is open. Save &amp; exit (or press BOOT) to go back to playing.</footer>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const BUTTONS = [
+  ["A", 0x00000008], ["B", 0x00000004], ["X", 0x00000002], ["Y", 0x00000001],
+  ["L", 0x00400000], ["R", 0x00000040], ["ZL", 0x00800000], ["ZR", 0x00000080],
+  ["−", 0x00000100], ["+", 0x00000200], ["L stick", 0x00000800], ["R stick", 0x00000400],
+  ["Up", 0x00020000], ["Down", 0x00010000], ["Left", 0x00080000], ["Right", 0x00040000],
+  ["Home", 0x00001000], ["Capture", 0x00002000], ["C", 0x00004000],
+  ["SL (L)", 0x00200000], ["SR (L)", 0x00100000], ["SL (R)", 0x00000020], ["SR (R)", 0x00000010],
+  ["GL", 0x02000000], ["GR", 0x01000000],
+];
+const PADMODE = { none: "No controller", pro: "Pro Controller", pair: "Joy-Con pair",
+  left: "Single Joy-Con L (sideways)", right: "Single Joy-Con R (sideways)" };
+
+let settings = null;
+let modesFilled = false;
+let saveTimer = 0;
+
+BUTTONS.forEach(([name]) => {
+  const s = document.createElement("span");
+  s.textContent = name;
+  $("btns").appendChild(s);
+});
+
+function seg(id, value) {
+  for (const b of $(id).querySelectorAll("button")) b.classList.toggle("on", b.dataset.v === String(value));
+}
+
+function layoutHint() {
+  const pos = settings.layout !== "labels";
+  $("layouthint").textContent = pos
+    ? "The bottom face button is Xbox A / PS Cross, whatever its label says."
+    : "Nintendo's A is Xbox A, B is B and so on (positions swap). Switch Pro mode always uses Nintendo labels.";
+}
+
+function showSettings() {
+  $("mode").value = settings.mode;
+  seg("layout", settings.layout);
+  seg("logPort", settings.logPort);
+  seg("hotkeys", settings.hotkeys);
+  $("rumble").value = settings.rumble;
+  $("rumbleOut").textContent = settings.rumble === 0 ? "off" : settings.rumble + " / 10";
+  $("deadzone").value = settings.deadzone;
+  $("deadzoneOut").textContent = settings.deadzone + " %";
+  layoutHint();
+}
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} :
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(path + ": " + r.status);
+  return r.json();
+}
+
+function save(patch) {
+  Object.assign(settings, patch);
+  showSettings();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      settings = await api("/api/settings", settings);
+      showSettings();
+      const s = $("saved");
+      s.classList.add("show");
+      setTimeout(() => s.classList.remove("show"), 1200);
+    } catch (e) { banner("Couldn't save: " + e.message); }
+  }, 150);
+}
+
+for (const id of ["layout", "logPort", "hotkeys"]) {
+  $(id).addEventListener("click", (e) => {
+    const v = e.target.dataset && e.target.dataset.v;
+    if (v === undefined) return;
+    save({ [id]: v === "true" ? true : v === "false" ? false : v });
+  });
+}
+$("mode").addEventListener("change", () => save({ mode: $("mode").value }));
+$("rumble").addEventListener("input", () => save({ rumble: +$("rumble").value }));
+$("deadzone").addEventListener("input", () => save({ deadzone: +$("deadzone").value }));
+
+$("forgetAll").addEventListener("click", async () => {
+  if (!confirmInline($("forgetAll"), "Really forget all?")) return;
+  await api("/api/forget", { all: true });
+});
+
+// Two-click confirm without a browser dialog.
+function confirmInline(btn, text) {
+  if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.label; return true; }
+  btn.dataset.label = btn.textContent;
+  btn.dataset.armed = "1";
+  btn.textContent = text;
+  setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.label; } }, 3000);
+  return false;
+}
+
+$("exit").addEventListener("click", async () => {
+  $("exit").disabled = true;
+  try { await api("/api/exit", {}); } catch (_) {}
+  stopped = true;
+  banner("Saved. The dongle is switching back to a controller; you can close this page.");
+});
+
+function banner(text) {
+  const b = $("banner");
+  b.textContent = text;
+  b.classList.add("show");
+}
+
+function renderLists(st) {
+  const c = $("connected");
+  c.innerHTML = "";
+  if (!st.connected.length) c.innerHTML = '<li class="empty">Nothing connected. Press a button on a paired controller.</li>';
+  for (const l of st.connected) {
+    const li = document.createElement("li");
+    li.innerHTML = '<span class="dot"></span><span class="grow"><span class="name"></span><br><span class="mac"></span></span><span class="mac"></span>';
+    li.querySelector(".dot").classList.add(l.ready ? "ok" : "wait");
+    li.querySelector(".name").textContent = l.role;
+    li.querySelectorAll(".mac")[0].textContent = l.mac;
+    li.querySelectorAll(".mac")[1].textContent = l.ready ? l.rate + " /s" : "connecting…";
+    c.appendChild(li);
+  }
+  const p = $("paired");
+  const key = JSON.stringify(st.paired);
+  if (p.dataset.key === key) return;  // don't rebuild under the mouse
+  p.dataset.key = key;
+  p.innerHTML = "";
+  if (!st.paired.length) p.innerHTML = '<li class="empty">None yet.</li>';
+  for (const b of st.paired) {
+    const li = document.createElement("li");
+    li.innerHTML = '<span class="grow"><span class="name"></span><br><span class="mac"></span></span><button class="ghost">Forget</button>';
+    li.querySelector(".name").textContent = b.type;
+    li.querySelector(".mac").textContent = b.mac;
+    const btn = li.querySelector("button");
+    btn.addEventListener("click", async () => {
+      if (!confirmInline(btn, "Sure?")) return;
+      await api("/api/forget", { mac: b.mac });
+    });
+    p.appendChild(li);
+  }
+}
+
+function renderInput(inp) {
+  const spans = $("btns").children;
+  BUTTONS.forEach(([, bit], i) => spans[i].classList.toggle("on", (inp.buttons & bit) !== 0));
+  const put = (el, x, y) => { el.style.left = (50 + x * 42) + "%"; el.style.top = (50 - y * 42) + "%"; };
+  put($("ls"), inp.lx, inp.ly);
+  put($("rs"), inp.rx, inp.ry);
+  $("padmode").textContent = PADMODE[inp.layout] || "";
+}
+
+let stopped = false;
+let failures = 0;
+async function poll() {
+  if (stopped) return;
+  try {
+    const st = await api("/api/state");
+    failures = 0;
+    $("fw").textContent = "Firmware " + st.firmware;
+    if (!modesFilled) {
+      for (const m of st.modes) {
+        const o = document.createElement("option");
+        o.value = m.key; o.textContent = m.name;
+        $("mode").appendChild(o);
+      }
+      modesFilled = true;
+    }
+    if (!settings) { settings = st.settings; showSettings(); }
+    renderLists(st);
+    renderInput(st.input);
+    $("banner").classList.remove("show");
+  } catch (e) {
+    if (++failures > 3) banner("Lost contact with the dongle. Is it still in configurator mode?");
+  }
+  setTimeout(poll, document.hidden ? 1000 : 80);
+}
+poll();
+</script>
+</body>
+</html>

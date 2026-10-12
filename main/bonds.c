@@ -127,3 +127,55 @@ int bonds_count(void)
 {
     return s_count;
 }
+
+int bonds_list(bond_info_t *out, int max)
+{
+    xSemaphoreTake(s_mtx, portMAX_DELAY);
+    bond_t sorted[BONDS_MAX];
+    int n = s_count;
+    memcpy(sorted, s_bonds, sizeof(bond_t) * n);
+    xSemaphoreGive(s_mtx);
+    for (int i = 1; i < n; i++) {  // newest first
+        bond_t b = sorted[i];
+        int j = i - 1;
+        while (j >= 0 && sorted[j].seq < b.seq) {
+            sorted[j + 1] = sorted[j];
+            j--;
+        }
+        sorted[j + 1] = b;
+    }
+    if (n > max) n = max;
+    for (int i = 0; i < n; i++) {
+        memcpy(out[i].mac, sorted[i].mac, 6);
+        out[i].pid = sorted[i].pid;
+    }
+    return n;
+}
+
+bool bonds_forget(const uint8_t mac[6])
+{
+    bool found = false;
+    xSemaphoreTake(s_mtx, portMAX_DELAY);
+    for (int i = 0; i < s_count; i++) {
+        if (memcmp(s_bonds[i].mac, mac, 6) == 0) {
+            s_bonds[i] = s_bonds[s_count - 1];
+            s_count--;
+            found = true;
+            break;
+        }
+    }
+    if (found) {
+        if (s_count > 0) {
+            save_locked();
+        } else {
+            nvs_handle_t h;
+            if (nvs_open(NVS_NS, NVS_READWRITE, &h) == ESP_OK) {
+                nvs_erase_key(h, NVS_KEY);
+                nvs_commit(h);
+                nvs_close(h);
+            }
+        }
+    }
+    xSemaphoreGive(s_mtx);
+    return found;
+}

@@ -33,6 +33,13 @@ typedef struct {
     void (*reset)(void);
     uint16_t period_ms;
 
+    // Optional hooks around the USB stack's (re)installation.
+    void (*started)(void);
+    void (*stopping)(void);
+    bool is_config;            // the web configurator, not a controller
+    // Device class for the descriptor when there is no log port (0 = per interface).
+    uint8_t dev_class, dev_subclass, dev_protocol;
+
     // HID GET_REPORT / SET_REPORT (and interrupt OUT) handlers; may be NULL.
     uint16_t (*get_report)(uint8_t report_id, hid_report_type_t type, uint8_t *buf, uint16_t len);
     void (*set_report)(uint8_t report_id, hid_report_type_t type, const uint8_t *buf, uint16_t len);
@@ -42,6 +49,7 @@ extern const out_driver_t out_xinput;
 extern const out_driver_t out_ds4;
 extern const out_driver_t out_switchpro;
 extern const out_driver_t out_hid;
+extern const out_driver_t out_config;
 
 // Shared helpers for the drivers.
 void usb_gamepad_poke(void);

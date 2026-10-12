@@ -6,6 +6,7 @@
 
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "settings.h"
 
 // Joy-Con 2 frequency codes are 9-bit, logarithmic: 256 codes per octave with
 // 0x0E1 = 160 Hz and 0x1E1 = 320 Hz (the controllers' default low/high bands).
@@ -18,6 +19,12 @@ static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static rumble_frame_t s_frame;
 static bool s_active;
 static int64_t s_expires;  // 0 = holds until changed
+
+// Rumble strength setting: 5 = Switch2Connect's default, 0 = off, 10 = double.
+static float strength(void)
+{
+    return settings_get().rumble_strength / 5.0f;
+}
 
 static uint16_t clamp_amp(float v)
 {
@@ -64,7 +71,12 @@ void rumble_set_motors(uint8_t strong, uint8_t weak)
         rumble_stop();
         return;
     }
-    float s = strong / 255.0f, w = weak / 255.0f;
+    float k = strength();
+    if (k <= 0.0f) {
+        rumble_stop();
+        return;
+    }
+    float s = strong / 255.0f * k, w = weak / 255.0f * k;
     // Switch2Connect, Xbox rumble mode, strength 5: source 800 * motor/256,
     // LF x0.84 (Joy-Con) / x2.0 (Pro), HF x1.0 with the HF mask 0.101 / 0.2.
     ns2_vib_t jc = { .lf_freq = JC_LF_DEFAULT, .lf_amp = clamp_amp(s * 800.0f * 0.84f),
@@ -109,6 +121,9 @@ static void hd_to_frames(const uint8_t b[4], ns2_vib_t *jc, ns2_vib_t *pro, bool
 {
     float hf_hz, hf_a, lf_hz, lf_a;
     hd_decode(b, &hf_hz, &hf_a, &lf_hz, &lf_a);
+    float k = strength();
+    hf_a *= k;
+    lf_a *= k;
     uint16_t lf_code = hz_to_code(lf_hz), hf_code = hz_to_code(hf_hz);
     *jc = (ns2_vib_t){ .lf_freq = lf_code, .lf_amp = clamp_amp(lf_a * 1023.0f * 0.6f),
                        .hf_freq = hf_code, .hf_amp = clamp_amp(hf_a * 1023.0f * 0.4f) };

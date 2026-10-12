@@ -7,14 +7,14 @@ A left and a right Joy-Con 2 automatically merge into a single controller.
 Based on [Switch2Connect](https://github.com/TommyWabg/Switch2Connect) by
 TommyWabg, so this project is **GPL-3.0**.
 
-## Status: step 2 of 5
+## Status: step 3 of 5
 
 | Step | What | State |
 |---|---|---|
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
 | 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
-| 3 | Web configurator at 192.168.7.1 (hold a button at boot), settings in flash | next |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | |
+| 3 | Web configurator at 192.168.7.1, settings in flash | **this build** |
+| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | next |
 | 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
 
 ### Controllers
@@ -32,6 +32,24 @@ TommyWabg, so this project is **GPL-3.0**.
 * Each controller gives a short buzz and shows the player-1 LED when ready.
 * **Forget all pairings:** hold the board's **BOOT** button for 5 seconds.
 
+### Web configurator
+
+Hold the board's **BOOT** button for 2–3 seconds and let go (or hold **Capture**
+and **Home** on the controller for 3 seconds). The dongle turns into a small
+USB network adapter; open **http://192.168.7.1** in any browser. The PC keeps
+its normal internet connection: the dongle hands out an address but no route.
+
+* **Output:** controller type, button layout (positional or Nintendo labels),
+  log port on/off, hotkeys on/off.
+* **Feel:** rumble strength (0–10, 5 = Switch2Connect's default), stick
+  deadzone (applies live).
+* **Controllers:** what is connected right now (with reports/s), the paired
+  list with Forget buttons, and a live view of every button and both sticks.
+
+**Save & exit** (or a short BOOT press, or Capture + Home again) turns the
+dongle back into a controller. The Bluetooth controllers stay connected the
+whole time. Settings are stored on the dongle.
+
 ### Output modes
 
 | Mode | Shows up as | Rumble |
@@ -41,8 +59,8 @@ TommyWabg, so this project is **GPL-3.0**.
 | **Switch Pro** | Switch Pro Controller (057E:2009) | yes (HD rumble, converted) |
 | **Generic HID** | "Joy-Con 2 Dongle" HID gamepad (303A:8243) | no |
 
-**Changing mode:** press **BOOT** briefly, or hold **−** and **+** together for
-3 seconds. The dongle drops off USB for about a second and comes back as the
+**Changing mode:** pick it in the configurator, press **BOOT** briefly, or hold
+**−** and **+** together for 3 seconds. The dongle drops off USB for about a second and comes back as the
 next controller; the Bluetooth controllers stay connected. The mode is saved
 for the next power-up. The order is XInput → DS4 → Switch Pro → generic HID.
 
@@ -51,9 +69,9 @@ Controller's USB protocol (Steam, SDL games, Chrome's gamepad support, a
 Switch). Windows' generic game-controller view shows nonsense for it, as it
 does for a real wired Pro Controller.
 
-Every mode also has the serial log port. Console use (a real Switch or PS4) is
-untested; consoles may refuse the extra port, and the configurator (step 3)
-will let you turn it off.
+Every mode also has the serial log port unless you turn it off in the
+configurator, which consoles may need. Console use (a real Switch or PS4) is
+untested.
 
 Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
 B, whatever the label on the Nintendo controller says.
@@ -137,7 +155,8 @@ local copies of `esp_tinyusb` and `tinyusb` in one folder, then set
 | `main/usb_gamepad.c` | USB start-up, descriptors for the selected mode, report task, log mirror to CDC |
 | `main/out_*.c` | Output modes: XInput, DS4, Switch Pro, generic HID |
 | `main/rumble.c` | Converts PC rumble (motors or Switch HD rumble) to Switch 2 rumble frames |
-| `main/settings.c` | Output mode setting (NVS) |
+| `main/settings.c` | Settings in NVS (mode, log port, rumble, layout, deadzone, hotkeys) |
+| `main/config_server.c`, `main/web/index.html` | Web configurator: USB network (NCM), DHCP, web server, JSON API, page |
 | `main/bonds.c` | Remembers paired controllers (MAC → product ID) in NVS |
 | `main/main.c` | Start-up, BOOT-button "forget all" |
 

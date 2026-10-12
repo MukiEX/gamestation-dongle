@@ -26,6 +26,7 @@
 #include "pad.h"
 #include "rumble.h"
 #include "settings.h"
+#include "config_server.h"
 
 static const char *TAG = "usb";
 
@@ -35,7 +36,7 @@ static const out_driver_t *s_drv;
 // reinstalls the stack.
 static volatile bool s_usb_up;
 static SemaphoreHandle_t s_usb_mtx;
-static volatile int s_switch_to = -1;  // pending output mode change
+static volatile int s_switch_to = -1;  // pending switch: an out_mode_t, or TARGET_CONFIG
 // Set when the host configures the device, cleared on unplug and whenever the
 // stack is reinstalled. TinyUSB's own tud_mounted() can report the previous
 // stack's state until the new stack's task has initialised, so it isn't used.
@@ -63,18 +64,23 @@ static void usb_event(tinyusb_event_t *event, void *arg)
 static tusb_desc_device_t s_device_desc;
 static uint8_t s_config_desc[320];
 static char s_serial[13];
-static const char *s_strings[6];
+static const char *s_strings[CONFIG_MAC_STRING_INDEX + 1];
+static bool s_with_cdc;  // the log port is part of the current USB device
 
 static void build_descriptors(void)
 {
+    // The log port is always there in the configurator, and in the controller
+    // modes unless it was switched off (some consoles reject extra interfaces).
+    s_with_cdc = s_drv->is_config || settings_get().log_port;
+    bool iad = s_with_cdc || s_drv->is_config;
     s_device_desc = (tusb_desc_device_t){
         .bLength = sizeof(tusb_desc_device_t),
         .bDescriptorType = TUSB_DESC_DEVICE,
         .bcdUSB = 0x0200,
-        // Interface Association Descriptor: needed for the CDC log port.
-        .bDeviceClass = TUSB_CLASS_MISC,
-        .bDeviceSubClass = MISC_SUBCLASS_COMMON,
-        .bDeviceProtocol = MISC_PROTOCOL_IAD,
+        // Interface Association Descriptors (CDC, NCM) need the "misc" class.
+        .bDeviceClass = iad ? TUSB_CLASS_MISC : s_drv->dev_class,
+        .bDeviceSubClass = iad ? MISC_SUBCLASS_COMMON : s_drv->dev_subclass,
+        .bDeviceProtocol = iad ? MISC_PROTOCOL_IAD : s_drv->dev_protocol,
         .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
         .idVendor = s_drv->vid,
         .idProduct = s_drv->pid,
@@ -87,15 +93,19 @@ static void build_descriptors(void)
 
     uint8_t itf_cdc = s_drv->itf_count;
     const uint8_t cdc[] = { TUD_CDC_DESCRIPTOR(itf_cdc, 5, EP_CDC_NOTIF, 8, EP_CDC_OUT, EP_CDC_IN, 64) };
-    uint16_t total = TUD_CONFIG_DESC_LEN + s_drv->itf_desc_len + sizeof(cdc);
+    uint16_t cdc_len = s_with_cdc ? sizeof(cdc) : 0;
+    uint16_t total = TUD_CONFIG_DESC_LEN + s_drv->itf_desc_len + cdc_len;
     configASSERT(total <= sizeof(s_config_desc));
-    const uint8_t hdr[] = { TUD_CONFIG_DESCRIPTOR(1, itf_cdc + 2, 0, total, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 500) };
+    const uint8_t hdr[] = { TUD_CONFIG_DESCRIPTOR(1, itf_cdc + (s_with_cdc ? 2 : 0), 0, total,
+                                                  TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 500) };
     size_t n = 0;
     memcpy(s_config_desc + n, hdr, sizeof(hdr));
     n += sizeof(hdr);
     memcpy(s_config_desc + n, s_drv->itf_desc, s_drv->itf_desc_len);
     n += s_drv->itf_desc_len;
-    memcpy(s_config_desc + n, cdc, sizeof(cdc));
+    if (s_with_cdc) {
+        memcpy(s_config_desc + n, cdc, sizeof(cdc));
+    }
 
     s_strings[0] = (const char[]){ 0x09, 0x04 };  // English (0x0409)
     s_strings[1] = s_drv->manufacturer;
@@ -103,6 +113,7 @@ static void build_descriptors(void)
     s_strings[3] = s_serial;
     s_strings[4] = s_drv->product;   // gamepad interface (Windows shows this name)
     s_strings[5] = "Joy-Con 2 Dongle log";
+    s_strings[CONFIG_MAC_STRING_INDEX] = config_server_host_mac_string();
 }
 
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
@@ -272,11 +283,25 @@ static void log_task(void *arg)
 // Report task
 // ---------------------------------------------------------------------------
 
-#define MODE_COMBO_US 3000000  // hold - and + this long to change the output mode
+#define COMBO_US 3000000  // hold a hotkey combination this long
+
+#define TARGET_NONE   (-1)
+#define TARGET_CONFIG 100
 
 static TaskHandle_t s_task;
-static void switch_mode(out_mode_t mode);
+static void switch_to(int target);
 static const out_driver_t *driver_for(out_mode_t mode);
+static const char *s_fw_version = "?";
+
+void usb_gamepad_set_firmware_version(const char *v)
+{
+    s_fw_version = v;
+}
+
+const char *usb_gamepad_firmware_version(void)
+{
+    return s_fw_version;
+}
 
 void usb_gamepad_poke(void)
 {
@@ -285,28 +310,67 @@ void usb_gamepad_poke(void)
     }
 }
 
-static void check_mode_combo(const pad_out_t *o)
+typedef struct {
+    uint32_t combo;
+    int64_t since;
+    bool armed;
+} hotkey_t;
+
+// True once when `combo` (and nothing else) has been held for COMBO_US.
+static bool hotkey(hotkey_t *h, uint32_t buttons)
 {
-    static int64_t since;
-    static bool armed = true;  // one switch per hold
-    const uint32_t combo = NS2_BTN_MINUS | NS2_BTN_PLUS;
-    if ((o->buttons & combo) == combo) {
+    if ((buttons & NS2_BTN_MASK) == h->combo) {
         int64_t now = esp_timer_get_time();
-        if (!armed) {
-            return;
+        if (!h->armed) {
+            return false;
         }
-        if (since == 0) {
-            since = now;
-        } else if (now - since >= MODE_COMBO_US) {
-            since = 0;
-            armed = false;
-            usb_gamepad_next_mode();
-            return;
+        if (h->since == 0) {
+            h->since = now;
+        } else if (now - h->since >= COMBO_US) {
+            h->since = 0;
+            h->armed = false;
+            return true;
         }
     } else {
-        since = 0;
-        armed = true;
+        h->since = 0;
+        h->armed = true;
     }
+    return false;
+}
+
+static void check_hotkeys(const pad_out_t *o)
+{
+    static hotkey_t mode = { .combo = NS2_BTN_MINUS | NS2_BTN_PLUS, .armed = true };
+    static hotkey_t config = { .combo = NS2_BTN_CAPT | NS2_BTN_HOME, .armed = true };
+    if (!settings_get().mode_hotkeys) {
+        return;
+    }
+    if (hotkey(&mode, o->buttons) && !s_drv->is_config) {
+        usb_gamepad_next_mode();
+    }
+    if (hotkey(&config, o->buttons)) {
+        if (s_drv->is_config) {
+            usb_gamepad_exit_config();
+        } else {
+            usb_gamepad_enter_config();
+        }
+    }
+}
+
+// "Label" layout: Nintendo's A/B/X/Y keep their names (Switch A -> Xbox A),
+// instead of their positions. The Switch Pro mode is labelled the same as the
+// controllers already, so it never swaps.
+static void apply_layout(pad_out_t *o)
+{
+    if (settings_get().layout != LAYOUT_LABELS || s_drv == &out_switchpro) {
+        return;
+    }
+    uint32_t b = o->buttons & ~(NS2_BTN_A | NS2_BTN_B | NS2_BTN_X | NS2_BTN_Y);
+    if (o->buttons & NS2_BTN_A) b |= NS2_BTN_B;
+    if (o->buttons & NS2_BTN_B) b |= NS2_BTN_A;
+    if (o->buttons & NS2_BTN_X) b |= NS2_BTN_Y;
+    if (o->buttons & NS2_BTN_Y) b |= NS2_BTN_X;
+    o->buttons = b;
 }
 
 static void report_task(void *arg)
@@ -317,10 +381,10 @@ static void report_task(void *arg)
     for (;;) {
         // Woken by every controller report, by the USB side, and at least every period.
         ulTaskNotifyTake(pdTRUE, wait);
-        if (s_switch_to >= 0) {
-            out_mode_t m = (out_mode_t)s_switch_to;
-            s_switch_to = -1;
-            switch_mode(m);
+        int target = s_switch_to;
+        if (target != TARGET_NONE) {
+            s_switch_to = TARGET_NONE;
+            switch_to(target);
             was_mounted = false;
             wait = pdMS_TO_TICKS(s_drv->period_ms);
             continue;
@@ -331,7 +395,7 @@ static void report_task(void *arg)
         }
         pad_out_t out;
         pad_get_output(&out);
-        check_mode_combo(&out);
+        check_hotkeys(&out);
         bool mounted = s_mounted;
         if (!mounted) {
             if (was_mounted) {
@@ -342,6 +406,7 @@ static void report_task(void *arg)
             continue;
         }
         was_mounted = true;
+        apply_layout(&out);
         bool done = s_drv->send(&out);
         wait = done ? pdMS_TO_TICKS(s_drv->period_ms) : pdMS_TO_TICKS(1);
     }
@@ -391,16 +456,19 @@ static esp_err_t usb_install(void)
         ESP_LOGE(TAG, "USB serial (log) port failed to start: %s", esp_err_to_name(err));
     }
     s_usb_up = true;
+    if (s_drv->started) {
+        s_drv->started();
+    }
     return ESP_OK;
 }
 
-// Re-enumerates as a different controller without restarting the dongle, so
-// the Bluetooth connections stay up: leave the bus, tear the USB stack down,
-// and bring it back with the new mode's descriptors.
-static void switch_mode(out_mode_t mode)
+// Re-enumerates as a different device without restarting the dongle, so the
+// Bluetooth connections stay up: leave the bus, tear the USB stack down, and
+// bring it back with the new descriptors.
+static void switch_to(int target)
 {
-    const out_driver_t *next = driver_for(mode);
-    ESP_LOGW(TAG, "switching USB output to %s", next->name);
+    const out_driver_t *next = target == TARGET_CONFIG ? &out_config : driver_for((out_mode_t)target);
+    ESP_LOGW(TAG, "switching USB to %s", next->name);
     vTaskDelay(pdMS_TO_TICKS(200));  // let that line reach the PC
     rumble_stop();
     xSemaphoreTake(s_usb_mtx, portMAX_DELAY);
@@ -408,6 +476,9 @@ static void switch_mode(out_mode_t mode)
     s_mounted = false;
     tud_disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));
+    if (s_drv->stopping) {
+        s_drv->stopping();
+    }
     tinyusb_cdcacm_deinit(TINYUSB_CDC_ACM_0);
     esp_err_t err = tinyusb_driver_uninstall();
     if (err != ESP_OK) {
@@ -425,18 +496,52 @@ static void switch_mode(out_mode_t mode)
         vTaskDelay(pdMS_TO_TICKS(200));
         esp_restart();
     }
-    ESP_LOGI(TAG, "USB started as %s (%04x:%04x); controllers stay connected",
-             s_drv->name, s_drv->vid, s_drv->pid);
+    ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s; controllers stay connected", s_drv->name, s_drv->vid,
+             s_drv->pid, s_with_cdc ? "" : ", log port off");
+}
+
+static void request(int target)
+{
+    if (s_task) {
+        s_switch_to = target;
+        usb_gamepad_poke();
+    } else {
+        ESP_LOGW(TAG, "USB is off in this build");
+    }
 }
 
 void usb_gamepad_next_mode(void)
 {
-    out_mode_t next = settings_next_out_mode();  // saved for the next power-up
-    if (s_task) {
-        s_switch_to = next;
-        usb_gamepad_poke();
-    } else {
-        ESP_LOGW(TAG, "USB is off in this build; %s applies after a restart", settings_out_mode_name(next));
+    if (s_drv && s_drv->is_config) {
+        usb_gamepad_exit_config();  // BOOT in the configurator = leave it
+        return;
+    }
+    request(settings_next_out_mode());  // saved for the next power-up too
+}
+
+void usb_gamepad_enter_config(void)
+{
+    if (s_drv && !s_drv->is_config) {
+        request(TARGET_CONFIG);
+    }
+}
+
+void usb_gamepad_exit_config(void)
+{
+    if (s_drv && s_drv->is_config) {
+        request(settings_out_mode());
+    }
+}
+
+bool usb_gamepad_in_config(void)
+{
+    return s_drv && s_drv->is_config;
+}
+
+void usb_gamepad_reapply(void)
+{
+    if (s_drv && !s_drv->is_config) {
+        request(settings_out_mode());
     }
 }
 
@@ -464,6 +569,7 @@ void usb_gamepad_start(void)
     s_log_ready = true;
 
     xTaskCreatePinnedToCore(report_task, "usb_report", 4096, NULL, 7, &s_task, 1);
-    ESP_LOGI(TAG, "USB started as %s (%04x:%04x); to change: press BOOT, or hold - and + for 3 s",
-             s_drv->name, s_drv->vid, s_drv->pid);
+    ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s. Change mode: press BOOT or hold - and + for 3 s. "
+                  "Configurator: hold BOOT 2 s or Capture + Home for 3 s",
+             s_drv->name, s_drv->vid, s_drv->pid, s_with_cdc ? "" : ", log port off");
 }

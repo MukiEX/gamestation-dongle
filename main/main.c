@@ -7,7 +7,8 @@
 // the log.
 //
 // BOOT button (GPIO0): short press = next output mode (USB re-enumerates,
-// controllers stay connected);
+// controllers stay connected); hold 2-5 s and release = web configurator at
+// http://192.168.7.1 (short press again to leave);
 // hold for 5 seconds = forget every paired controller.
 //
 // Based on Switch2Connect by TommyWabg (GPL-3.0).
@@ -33,13 +34,14 @@
 static const char *TAG = "main";
 
 #ifdef DONGLE_DIAG
-#define FW_VERSION       "0.2.4-step2-diag"
+#define FW_VERSION       "0.3.0-step3-diag"
 #else
-#define FW_VERSION       "0.2.4-step2"
+#define FW_VERSION       "0.3.0-step3"
 #endif
 #define BOOT_GPIO        GPIO_NUM_0
 #define FORGET_HOLD_US   5000000
 #define SHORT_PRESS_US   1000000
+#define CONFIG_HOLD_US   2000000
 
 static void init_nvs(void)
 {
@@ -76,9 +78,11 @@ static void button_task(void *arg)
                 diag_clear_crash();
             }
         } else {
-            if (pressed_since != 0 && !fired && now - pressed_since >= 50000 &&
-                now - pressed_since < SHORT_PRESS_US) {
-                usb_gamepad_next_mode();
+            int64_t held = pressed_since ? now - pressed_since : 0;
+            if (!fired && held >= 50000 && held < SHORT_PRESS_US) {
+                usb_gamepad_next_mode();     // in the configurator: leave it
+            } else if (!fired && held >= CONFIG_HOLD_US) {
+                usb_gamepad_enter_config();  // released between 2 and 5 s
             }
             pressed_since = 0;
             fired = false;
@@ -110,6 +114,7 @@ void app_main(void)
     settings_init();
     rumble_init();
     pad_init(usb_gamepad_poke);
+    usb_gamepad_set_firmware_version(FW_VERSION);
 #ifdef DONGLE_DIAG
     ESP_LOGW(TAG, "stage 2/5: DIAGNOSTIC BUILD - USB gamepad disabled, log on the built-in USB port");
 #else

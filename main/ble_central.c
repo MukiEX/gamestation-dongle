@@ -41,6 +41,7 @@
 #include "ns2_proto.h"
 #include "pad.h"
 #include "rumble.h"
+#include "settings.h"
 
 static const char *TAG = "ble";
 
@@ -52,7 +53,6 @@ static const char *TAG = "ble";
 #define CONNECT_TIMEOUT_MS 6000
 #define SETTLE_US          1000000
 #define JOYCON_STICK_GAIN  1.05f  // as Switch2Connect, for factory calibration
-#define STICK_DEADZONE     0.03f
 
 // 7.5 ms connection interval (BLE minimum); short connection events because
 // Switch 2 packets are tiny. Same parameters as Switch2Connect's bridge.
@@ -117,6 +117,7 @@ typedef enum {
     EV_GATT_READY,
     EV_LINK_GONE,
     EV_FORGET,
+    EV_FORGET_ONE,
 } ev_type_t;
 
 typedef struct {
@@ -129,6 +130,8 @@ typedef struct {
 } ev_t;
 
 static link_t s_links[MAX_LINKS];
+static volatile float s_deadzone = 0.03f;   // from settings, refreshed by ctrl_task
+static volatile uint16_t s_rate[MAX_LINKS]; // input reports/s over the last second
 static portMUX_TYPE s_links_mux = portMUX_INITIALIZER_UNLOCKED;
 static QueueHandle_t s_evq;
 static uint8_t s_own_addr_type;
@@ -603,6 +606,7 @@ static void handle_input(link_t *l, const uint8_t *data, size_t len)
                  (unsigned long)in.buttons);
     }
     pad_side_t s = { .buttons = in.buttons };
+    const float STICK_DEADZONE = s_deadzone;
     switch (l->role) {
     case PAD_ROLE_LEFT:
         ns2_cal_apply(&l->cal_a, in.ls_x, in.ls_y, JOYCON_STICK_GAIN, STICK_DEADZONE, &s.lx, &s.ly);
@@ -1128,6 +1132,19 @@ static void forget_all(void)
     }
 }
 
+static void forget_one(const uint8_t mac[6])
+{
+    char m[18];
+    fmt_mac(mac, m);
+    bool known = bonds_forget(mac);
+    ESP_LOGW(TAG, "%s %s", m, known ? "forgotten" : "was not remembered");
+    for (int i = 0; i < MAX_LINKS; i++) {
+        if (s_links[i].state >= LS_DISCOVERY && memcmp(s_links[i].addr.val, mac, 6) == 0) {
+            ble_gap_terminate(s_links[i].conn, BLE_ERR_REM_USER_CONN_TERM);
+        }
+    }
+}
+
 static void ctrl_task(void *arg)
 {
     (void)arg;
@@ -1140,12 +1157,26 @@ static void ctrl_task(void *arg)
             case EV_ADV:        handle_adv(&ev); break;
             case EV_GATT_READY: handle_gatt_ready(ev.link); break;
             case EV_FORGET:     forget_all(); break;
+            case EV_FORGET_ONE: forget_one(ev.addr.val); break;
             case EV_LINK_GONE:  break;
             }
         }
         scan_update();
 
         int64_t now = esp_timer_get_time();
+        s_deadzone = settings_get().deadzone_pct / 100.0f;
+        static int64_t last_rate_t;
+        static uint32_t rate_counts[MAX_LINKS];
+        if (now - last_rate_t >= 1000000) {
+            float secs = (now - last_rate_t) / 1e6f;
+            last_rate_t = now;
+            for (int i = 0; i < MAX_LINKS; i++) {
+                uint32_t c = s_links[i].input_count;
+                s_rate[i] = s_links[i].state == LS_READY
+                                ? (uint16_t)((c >= rate_counts[i] ? c - rate_counts[i] : c) / secs) : 0;
+                rate_counts[i] = c;
+            }
+        }
         if (now - last_stats >= 10000000) {
             float secs = (now - last_stats) / 1e6f;
             last_stats = now;
@@ -1281,4 +1312,29 @@ void ble_central_forget_all(void)
 {
     ev_t ev = { .type = EV_FORGET };
     post(&ev);
+}
+
+void ble_central_forget(const uint8_t mac[6])
+{
+    ev_t ev = { .type = EV_FORGET_ONE };
+    memcpy(ev.addr.val, mac, 6);
+    post(&ev);
+}
+
+int ble_central_links(ble_link_info_t *out, int max)
+{
+    int n = 0;
+    for (int i = 0; i < MAX_LINKS && n < max; i++) {
+        link_t *l = &s_links[i];
+        link_state_t st = l->state;
+        if (st == LS_FREE) {
+            continue;
+        }
+        memcpy(out[n].mac, l->addr.val, 6);
+        out[n].role = l->role != PAD_ROLE_NONE ? l->role : pad_role_for_pid(l->adv_pid);
+        out[n].ready = st == LS_READY;
+        out[n].rate = s_rate[i];
+        n++;
+    }
+    return n;
 }

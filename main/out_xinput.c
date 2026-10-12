@@ -217,6 +217,7 @@ const out_driver_t out_xinput = {
     .product = "Controller",
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 1,
     .hid_report_desc = NULL,
+    .dev_class = 0xFF, .dev_subclass = 0xFF, .dev_protocol = 0xFF,
     .send = send,
     .reset = reset,
     .period_ms = 100,
