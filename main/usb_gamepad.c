@@ -353,7 +353,10 @@ static esp_err_t usb_install(void)
     if (s_drv->reset) {
         s_drv->reset();
     }
-    tinyusb_config_t cfg = TINYUSB_DEFAULT_CONFIG();
+    // Static: esp_tinyusb keeps a pointer to the descriptor part and its task
+    // reads it after tinyusb_driver_install() returns.
+    static tinyusb_config_t cfg;
+    cfg = (tinyusb_config_t)TINYUSB_DEFAULT_CONFIG();
     cfg.descriptor.device = &s_device_desc;
     cfg.descriptor.string = s_strings;
     cfg.descriptor.string_count = sizeof(s_strings) / sizeof(s_strings[0]);
