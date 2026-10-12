@@ -30,7 +30,12 @@ idf_component_register(
         lwip
 )
 
-# Diagnostic build: `DONGLE_DIAG=1` in the environment when configuring.
+# Diagnostic build: `DONGLE_DIAG=1` in the environment when first configuring.
+# Kept in the CMake cache, so an automatic re-configure (new source files...)
+# without the variable doesn't silently turn it back into a normal build.
 if(DEFINED ENV{DONGLE_DIAG})
+    set(DONGLE_DIAG_BUILD ON CACHE BOOL "Diagnostic build" FORCE)
+endif()
+if(DONGLE_DIAG_BUILD)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE DONGLE_DIAG=1)
 endif()
