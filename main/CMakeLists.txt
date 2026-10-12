@@ -7,6 +7,12 @@ idf_component_register(
         "diag.c"
         "pad.c"
         "usb_gamepad.c"
+        "settings.c"
+        "rumble.c"
+        "out_hid.c"
+        "out_xinput.c"
+        "out_ds4.c"
+        "out_switchpro.c"
     INCLUDE_DIRS "."
     REQUIRES
         bt

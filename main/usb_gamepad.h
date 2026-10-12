@@ -1,6 +1,5 @@
-// Step-1 USB output: a generic HID gamepad plus a CDC serial port that mirrors
-// the firmware log. Later steps replace the gamepad with selectable modes
-// (XInput, DS4, DualSense, Switch Pro, Steam Controller...).
+// USB side of the dongle: one gamepad in the selected output mode (XInput,
+// DS4, Switch Pro or generic HID) plus a CDC serial port mirroring the log.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once

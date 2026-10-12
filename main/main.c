@@ -1,11 +1,13 @@
-// Joy-Con 2 Dongle — step 1 firmware.
+// Joy-Con 2 Dongle firmware.
 //
 // Connects Switch 2 Joy-Cons / Pro Controller 2 over BLE and exposes them to
-// the host as ONE USB gamepad (a left + right Joy-Con merge into a single
-// controller). A second USB interface is a serial port carrying the log.
+// the host as ONE USB controller (a left + right Joy-Con merge into a single
+// controller) in the selected output mode: XInput, DualShock 4, Switch Pro or
+// generic HID, with rumble. A second USB interface is a serial port carrying
+// the log.
 //
-// BOOT button (GPIO0): hold for 5 seconds while running to forget every paired
-// controller.
+// BOOT button (GPIO0): short press = next output mode (the dongle restarts);
+// hold for 5 seconds = forget every paired controller.
 //
 // Based on Switch2Connect by TommyWabg (GPL-3.0).
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -23,17 +25,20 @@
 #include "bonds.h"
 #include "diag.h"
 #include "pad.h"
+#include "rumble.h"
+#include "settings.h"
 #include "usb_gamepad.h"
 
 static const char *TAG = "main";
 
 #ifdef DONGLE_DIAG
-#define FW_VERSION       "0.1.5-step1-diag"
+#define FW_VERSION       "0.2.0-step2-diag"
 #else
-#define FW_VERSION       "0.1.5-step1"
+#define FW_VERSION       "0.2.0-step2"
 #endif
 #define BOOT_GPIO        GPIO_NUM_0
 #define FORGET_HOLD_US   5000000
+#define SHORT_PRESS_US   1000000
 
 static void init_nvs(void)
 {
@@ -70,6 +75,10 @@ static void button_task(void *arg)
                 diag_clear_crash();
             }
         } else {
+            if (pressed_since != 0 && !fired && now - pressed_since >= 50000 &&
+                now - pressed_since < SHORT_PRESS_US) {
+                settings_cycle_out_mode();  // restarts
+            }
             pressed_since = 0;
             fired = false;
         }
@@ -97,6 +106,8 @@ void app_main(void)
     ESP_LOGI(TAG, "Joy-Con 2 Dongle %s starting", FW_VERSION);
     ESP_LOGI(TAG, "stage 1/5: storage");
     init_nvs();
+    settings_init();
+    rumble_init();
     pad_init(usb_gamepad_poke);
 #ifdef DONGLE_DIAG
     ESP_LOGW(TAG, "stage 2/5: DIAGNOSTIC BUILD - USB gamepad disabled, log on the built-in USB port");

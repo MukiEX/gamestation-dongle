@@ -7,37 +7,67 @@ A left and a right Joy-Con 2 automatically merge into a single controller.
 Based on [Switch2Connect](https://github.com/TommyWabg/Switch2Connect) by
 TommyWabg, so this project is **GPL-3.0**.
 
-## Status: step 1 of 5
+## Status: step 2 of 5
 
 | Step | What | State |
 |---|---|---|
-| 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | **this build** |
-| 2 | XInput, DS4, Switch Pro output modes + rumble | next |
-| 3 | Web configurator at 192.168.7.1 (hold a button at boot), settings in flash | |
+| 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
+| 2 | XInput, DS4, Switch Pro output modes + rumble | **this build** |
+| 3 | Web configurator at 192.168.7.1 (hold a button at boot), settings in flash | next |
 | 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | |
 | 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
 
-### What step 1 does
+### Controllers
 
-* Scans for Switch 2 controllers. Supported: **Joy-Con 2 (L)**, **Joy-Con 2 (R)**,
-  **Pro Controller 2**. (NSO GameCube controller: not yet.)
-* **Pairing:** a controller in SYNC mode (hold the small sync button) is
-  connected and paired to the dongle. After that, pressing any button on it
-  reconnects to the dongle.
+* Supported: **Joy-Con 2 (L)**, **Joy-Con 2 (R)**, **Pro Controller 2**.
+  (NSO GameCube controller: not yet.)
+* **Pairing:** hold the small SYNC button on the controller; it connects and
+  pairs to the dongle. After that, pressing any button reconnects it.
 * **Merging:** one left + one right Joy-Con become one controller. A pair stays a
   pair until both halves are gone; if one half drops, its inputs read neutral
   and it rejoins when it reconnects.
 * **One controller per role:** a second Joy-Con of the same side, or any Joy-Con
   while a Pro Controller is connected, is ignored.
 * **Lone Joy-Con:** used sideways as a mini-controller.
-* Each controller gives a short buzz and shows player-1 LED when ready.
-* **Forget all pairings:** hold the board's **BOOT** button for 5 seconds while
-  it is running.
+* Each controller gives a short buzz and shows the player-1 LED when ready.
+* **Forget all pairings:** hold the board's **BOOT** button for 5 seconds.
 
-### USB output (step 1)
+### Output modes
 
-A generic HID gamepad (VID:PID `303A:8243`, "Joy-Con 2 Dongle") plus a
-serial port that mirrors the log.
+| Mode | Shows up as | Rumble |
+|---|---|---|
+| **XInput** (default) | Xbox 360 controller (045E:028E) | yes |
+| **DualShock 4** | DS4 (054C:09CC) | yes |
+| **Switch Pro** | Switch Pro Controller (057E:2009) | yes (HD rumble, converted) |
+| **Generic HID** | "Joy-Con 2 Dongle" HID gamepad (303A:8243) | no |
+
+**Changing mode:** press **BOOT** briefly, or hold **−** and **+** together for
+3 seconds. The dongle saves the next mode and restarts; press a button on your
+controller to reconnect it. The order is XInput → DS4 → Switch Pro → generic HID.
+
+Every mode also has the serial log port. Console use (a real Switch or PS4) is
+untested; consoles may refuse the extra port, and the configurator (step 3)
+will let you turn it off.
+
+Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
+B, whatever the label on the Nintendo controller says.
+
+| Switch 2 | XInput | DS4 | Switch Pro |
+|---|---|---|---|
+| B (bottom) / A (right) / Y (left) / X (top) | A / B / X / Y | Cross / Circle / Square / Triangle | B / A / Y / X |
+| L / R | LB / RB | L1 / R1 | L / R |
+| ZL / ZR | LT / RT (full) | L2 / R2 (full) | ZL / ZR |
+| − / + | Back / Start | Share / Options | − / + |
+| Home | Guide | PS | Home |
+| Capture | – | Touchpad click | Capture |
+| C, GL, GR, SL, SR | – | – | – |
+
+**Rumble** follows Switch2Connect's defaults (strength 5, frequency 10): the
+large motor drives the low band and the small motor the high band. Switch HD
+rumble keeps its frequencies. With a Joy-Con pair each half plays its own
+side; a lone Joy-Con plays both.
+
+The generic HID mode is the step-1 layout:
 
 | HID button | Controller | | HID button | Controller |
 |---|---|---|---|---|
@@ -49,9 +79,6 @@ serial port that mirrors the log.
 | 7 / 8 | ZL / ZR | | 18 / 19 | SL / SR (right Joy-Con) |
 | 9 / 10 | − / + | | 20 / 21 | GL / GR (Pro 2 back buttons) |
 | 11 | L stick click | | | |
-
-D-pad = hat switch. Left stick = X/Y, right stick = Z/Rz. ZL/ZR also appear as
-Rx/Ry axes (0 or 255; Joy-Con triggers are digital).
 
 ## Flashing
 
@@ -68,30 +95,17 @@ Prebuilt images are in `dist/`. You need [esptool](https://github.com/espressif/
    (Or the separate files: `0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 joycon2_dongle.bin`.)
 3. Unplug and replug the OTG port (no BOOT this time).
 
-## Testing step 1
+## Testing
 
-1. Open the dongle's **serial port** (the new COM port / `/dev/ttyACM*`) in any
-   terminal at any baud rate. You should see
-   `Joy-Con 2 Dongle 0.1.5-step1` and `dongle BLE address ...`.
-   Logs also come out of the board's **UART/COM** USB-C port at 115200 baud,
-   which is useful if the dongle crashes before USB starts.
-2. Hold **SYNC** on a Joy-Con 2. Expect, in order:
-   `connecting to Joy-Con L ... (pairing)`, `connected`, `MTU`, `product 2067`,
-   `paired to this dongle`, a buzz, then `Joy-Con L connected`.
-3. Repeat with the other Joy-Con → `Joy-Con pair merged into one controller`.
-4. Check the inputs in a gamepad tester: Windows *Set up USB game controllers*
-   (`joy.cpl`), `jstest-gtk`/`evtest` on Linux, or <https://hardwaretester.com/gamepad>.
-5. Every 10 s the log prints `input reports/s` per controller. ~133/s is the
-   target; please report what you see.
-6. Turn the Joy-Cons off, then press a button: they should reconnect without SYNC.
+`dist/joycon2-dongle-tool.html` is a standalone page (Chrome/Edge) that flashes
+the firmware and, on its Logs tab, captures the dongle's log while you work
+through the step's test list, then saves a report. The log port is also
+readable with any serial terminal; boot messages go to the board's UART/COM
+port at 115200 baud as well.
 
-**Please send back the log** (from power-on through connecting) whenever
-something doesn't work. Things worth checking specifically:
-
-* stick directions (especially a single sideways Joy-Con — the rotation and
-  face-button mapping are derived, not yet verified on hardware);
-* whether reconnect-by-button-press works after unplugging the dongle;
-* the reports/s figure with one and with two Joy-Cons connected.
+A gamepad tester such as <https://hardwaretester.com/gamepad> shows buttons,
+sticks and has a rumble test for each mode. Every 10 s the log prints the input
+reports/s per controller (~133/s is the target).
 
 ## Building
 
@@ -114,7 +128,10 @@ local copies of `esp_tinyusb` and `tinyusb` in one folder, then set
 | `main/ble_central.c` | Scan, connect, GATT setup, Switch 2 init sequence, pairing, input |
 | `main/ns2_proto.c/.h` | Protocol constants, input report parsing, stick calibration, rumble encoding |
 | `main/pad.c/.h` | Roles, L+R merge, sideways single Joy-Con mapping |
-| `main/usb_gamepad.c` | USB descriptors, HID report, log mirror to CDC |
+| `main/usb_gamepad.c` | USB start-up, descriptors for the selected mode, report task, log mirror to CDC |
+| `main/out_*.c` | Output modes: XInput, DS4, Switch Pro, generic HID |
+| `main/rumble.c` | Converts PC rumble (motors or Switch HD rumble) to Switch 2 rumble frames |
+| `main/settings.c` | Output mode setting (NVS) |
 | `main/bonds.c` | Remembers paired controllers (MAC → product ID) in NVS |
 | `main/main.c` | Start-up, BOOT-button "forget all" |
 
@@ -122,4 +139,6 @@ local copies of `esp_tinyusb` and `tinyusb` in one folder, then set
 
 Protocol knowledge comes from Switch2Connect (TommyWabg), Nadeflore/switch2-controllers,
 ndeadly/switch2_controller_research, german77/JoyconDriver, TheFrano/joycon2py
-and darthcloud/BlueRetro. The web configurator approach follows GP2040-CE.
+and darthcloud/BlueRetro. The XInput, DS4 and Switch Pro descriptors and protocol
+handling follow [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE) (MIT);
+the web configurator approach follows GP2040-CE too.

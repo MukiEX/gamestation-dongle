@@ -117,12 +117,14 @@ void ns2_vib_encode(const ns2_vib_t *v, uint8_t out[5])
     }
 }
 
-size_t ns2_build_rumble(uint8_t *out, uint8_t packet_id, bool is_pro, const ns2_vib_t frames[3])
+size_t ns2_build_rumble(uint8_t *out, uint8_t packet_id, bool is_pro, const ns2_vib_t left[3],
+                        const ns2_vib_t right[3])
 {
     size_t n = 0;
     out[n++] = 0x00;
-    int motors = is_pro ? 2 : 1;  // Pro Controller: same waveform on both motors
+    int motors = is_pro ? 2 : 1;
     for (int m = 0; m < motors; m++) {
+        const ns2_vib_t *frames = (m == 1 && right) ? right : left;
         out[n++] = (uint8_t)(0x50 | (packet_id & 0x0F));
         for (int f = 0; f < 3; f++) {
             ns2_vib_encode(&frames[f], &out[n]);

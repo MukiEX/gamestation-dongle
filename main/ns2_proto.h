@@ -121,6 +121,7 @@ typedef struct {
 void ns2_vib_encode(const ns2_vib_t *v, uint8_t out[5]);
 
 // Builds a rumble packet: 17 bytes for a Joy-Con, 33 for a Pro Controller.
-// `frames` holds three consecutive time-samples (~20 ms of playback in total).
+// Each frame array holds three consecutive time-samples (~15 ms of playback).
+// `right` is only used for the Pro Controller's right motor (NULL = same as left).
 size_t ns2_build_rumble(uint8_t *out, uint8_t packet_id, bool is_pro,
-                        const ns2_vib_t frames[3]);
+                        const ns2_vib_t left[3], const ns2_vib_t right[3]);

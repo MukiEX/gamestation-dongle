@@ -289,6 +289,7 @@ footer a { color: inherit; }
       </div>
       <div class="stats" style="margin-top:14px" aria-label="Live readings from the log">
         <div class="stat"><b>Firmware</b><span id="st-fw">–</span></div>
+        <div class="stat"><b>USB mode</b><span id="st-mode">–</span></div>
         <div class="stat"><b>Controllers</b><span id="st-ctl">none</span></div>
         <div class="stat"><b>Joy-Con L</b><span id="st-l">– /s</span></div>
         <div class="stat"><b>Joy-Con R</b><span id="st-r">– /s</span></div>
@@ -299,7 +300,7 @@ footer a { color: inherit; }
     </section>
 
     <section class="panel" aria-labelledby="tests-title">
-      <h2 id="tests-title">Step 1 tests</h2>
+      <h2 id="tests-title">Step 2 tests</h2>
       <p class="sub" style="margin-top:6px">Press <b>Start</b> on a test before doing it, so the log is labelled. Pick the result, add a note if anything was off, then save the report.</p>
       <ol class="tests" id="tests"></ol>
     </section>
@@ -347,18 +348,18 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Dongle shows up as a gamepad + serial port; log shows version and BLE address",
-    "Joy-Con L pairs from SYNC: buzz, player-1 LED, 'Joy-Con L connected'",
-    "Joy-Con R pairs; log says the pair merged",
-    "Every button and both sticks read correctly in a gamepad tester",
-    "Input rate with one Joy-Con connected (wait for a reports/s line)",
-    "Input rate with both Joy-Cons connected (wait for a reports/s line)",
-    "Power a Joy-Con off, press a button: reconnects without SYNC and its buttons work in the tester",
-    "Unplug and replug the dongle, press a button: reconnects",
-    "Lone Joy-Con held sideways (turn the other one off first): stick and face buttons point the right way",
-    "Second Joy-Con of the same side is ignored",
-    "Pro Controller 2 pairs and blocks Joy-Cons",
-    "Hold BOOT 5 s, then press buttons on both Joy-Cons: they do NOT reconnect (log says forgotten)",
+    "XInput (default mode): shows up as an Xbox 360 controller; log says 'USB started as XInput'",
+    "XInput: every button and both sticks correct in a gamepad tester (A = bottom face button)",
+    "XInput: rumble test in the gamepad tester buzzes the controller(s), and stops when it ends",
+    "Press BOOT briefly: dongle restarts as DualShock 4 (press a controller button to reconnect)",
+    "DS4: every button and both sticks correct (Capture = touchpad click, Home = PS)",
+    "DS4: rumble test works",
+    "Press BOOT: Switch Pro Controller mode; log says 'host handshake done' when a tester or Steam opens it",
+    "Switch Pro: every button and both sticks correct",
+    "Switch Pro: rumble test works",
+    "Press BOOT: generic HID mode works as in step 1",
+    "Hold - and + together for 3 s: switches to the next mode",
+    "Rumble with a Joy-Con pair: both halves buzz; with a lone Joy-Con: it buzzes too",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
@@ -437,6 +438,7 @@ __MD5_JS__
       $(id).textContent = m[2] + " /s";
     }
     if ((m = text.match(/interval ([\d.]+) ms/))) $("st-itvl").textContent = m[1] + " ms";
+    if ((m = text.match(/USB started as (.+?) \(/))) { const e = $("st-mode"); if (e) e.textContent = m[1]; }
     if ((m = text.match(/last reset: ([^;]+); crashes in a row: (\d+)(.*)/))) {
       $("st-reset").textContent = m[1] + (m[2] !== "0" ? " (×" + m[2] + ")" : "") + (/SAFE MODE/.test(m[3]) ? ", safe mode" : "");
     }
@@ -500,6 +502,14 @@ __MD5_JS__
     await openPort(p, false);
   }
 
+  // The dongle's USB identity depends on its output mode (generic HID,
+  // XInput, DS4, Switch Pro); its log port is the same in every mode.
+  const DONGLE_IDS = ["303a:8243", "45e:28e", "54c:9cc", "57e:2009"];
+  function isDongle(info) {
+    return info && info.usbVendorId !== undefined &&
+      DONGLE_IDS.includes(info.usbVendorId.toString(16) + ":" + info.usbProductId.toString(16));
+  }
+
   // Which port to reopen automatically when it reappears (after a restart).
   let wanted = null;
   let kind = "";  // "uart" | "builtin" | "dongle"
@@ -509,7 +519,7 @@ __MD5_JS__
     // Espressif's VID: 0x1001 is the chip's built-in USB port (bootloader,
     // diagnostic build, download mode); anything else from Espressif is the
     // dongle's own log port. Other vendors are the board's UART bridge chip.
-    kind = info.usbVendorId !== 0x303a ? "uart" : info.usbProductId === 0x1001 ? "builtin" : "dongle";
+    kind = isDongle(info) ? "dongle" : info.usbVendorId === 0x303a && info.usbProductId === 0x1001 ? "builtin" : "uart";
     isUart = kind !== "dongle";
     try {
       await p.open({ baudRate: 115200, bufferSize: 65536 });
@@ -569,12 +579,13 @@ __MD5_JS__
   // ---- Report ----
   function report() {
     const out = [];
-    out.push("Joy-Con 2 Dongle — step 1 test report");
+    out.push("Joy-Con 2 Dongle — step 2 test report");
     out.push("Saved: " + new Date().toString());
     out.push("Firmware: " + $("st-fw").textContent);
     out.push("Browser: " + navigator.userAgent);
     out.push("");
     out.push("Last reset: " + $("st-reset").textContent);
+    out.push("USB mode: " + (($("st-mode") || {}).textContent || "–"));
     out.push("Readings: Joy-Con L " + $("st-l").textContent + ", Joy-Con R " + $("st-r").textContent +
              ", Pro " + $("st-p").textContent + ", interval " + $("st-itvl").textContent);
     out.push("");
@@ -633,7 +644,8 @@ __MD5_JS__
       const p = e.target;
       const info = p.getInfo ? p.getInfo() : {};
       if (!port && wanted && $("mon-auto").checked &&
-          info.usbVendorId === wanted.vid && info.usbProductId === wanted.pid) {
+          ((info.usbVendorId === wanted.vid && info.usbProductId === wanted.pid) ||
+           (isDongle(info) && isDongle({ usbVendorId: wanted.vid, usbProductId: wanted.pid })))) {
         await new Promise((r) => setTimeout(r, 150));
         if (!port) await openPort(p, true);
       }

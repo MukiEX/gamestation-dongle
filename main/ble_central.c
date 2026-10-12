@@ -40,6 +40,7 @@
 #include "bonds.h"
 #include "ns2_proto.h"
 #include "pad.h"
+#include "rumble.h"
 
 static const char *TAG = "ble";
 
@@ -106,6 +107,7 @@ typedef struct {
     bool logged_press;  // first button press after connecting has been logged
     int64_t settle_deadline;
     uint8_t rumble_id;
+    uint8_t rumble_tail;  // silent packets still to send after rumble stops
     volatile uint32_t input_count;
     bool cmd_answered;  // last cmd_exchange got a reply (even a rejection)
 } link_t;
@@ -907,7 +909,7 @@ static void send_rumble(link_t *l, const ns2_vib_t frames[3])
         return;
     }
     uint8_t pkt[40];
-    size_t n = ns2_build_rumble(pkt, ++l->rumble_id, l->role == PAD_ROLE_FULL, frames);
+    size_t n = ns2_build_rumble(pkt, ++l->rumble_id, l->role == PAD_ROLE_FULL, frames, NULL);
     gatt_write(l, l->h_rumble, l->rumble_no_rsp, pkt, n);
 }
 
@@ -1190,6 +1192,66 @@ static void host_task(void *param)
     nimble_port_freertos_deinit();
 }
 
+// ---------------------------------------------------------------------------
+// Rumble from the PC
+// ---------------------------------------------------------------------------
+
+#define RUMBLE_PERIOD_MS 15  // each packet carries three samples (~5 ms each)
+
+static ns2_vib_t vib_max(ns2_vib_t a, ns2_vib_t b)
+{
+    // A lone sideways Joy-Con plays both sides: keep the stronger of each band.
+    ns2_vib_t r = a;
+    if (b.lf_amp > r.lf_amp) { r.lf_amp = b.lf_amp; r.lf_freq = b.lf_freq; }
+    if (b.hf_amp > r.hf_amp) { r.hf_amp = b.hf_amp; r.hf_freq = b.hf_freq; }
+    return r;
+}
+
+static void rumble_task(void *arg)
+{
+    (void)arg;
+    const ns2_vib_t silent[3] = { NS2_VIB_SILENT, NS2_VIB_SILENT, NS2_VIB_SILENT };
+    TickType_t wake = xTaskGetTickCount();
+    for (;;) {
+        vTaskDelayUntil(&wake, pdMS_TO_TICKS(RUMBLE_PERIOD_MS));
+        rumble_frame_t f;
+        bool active = rumble_get(&f);
+        pad_out_t po;
+        pad_get_output(&po);
+        for (int i = 0; i < MAX_LINKS; i++) {
+            link_t *l = &s_links[i];
+            if (l->state != LS_READY || l->h_rumble == 0) {
+                continue;
+            }
+            if (!active) {
+                if (l->rumble_tail > 0) {
+                    l->rumble_tail--;
+                    send_rumble(l, silent);
+                }
+                continue;
+            }
+            l->rumble_tail = 3;
+            uint8_t pkt[40];
+            size_t n;
+            if (l->role == PAD_ROLE_FULL) {
+                ns2_vib_t lf[3] = { f.pro[0], f.pro[0], f.pro[0] };
+                ns2_vib_t rf[3] = { f.pro[1], f.pro[1], f.pro[1] };
+                n = ns2_build_rumble(pkt, ++l->rumble_id, true, lf, rf);
+            } else {
+                ns2_vib_t v;
+                if (po.mode == PAD_MODE_PAIR) {
+                    v = l->role == PAD_ROLE_LEFT ? f.jc[0] : f.jc[1];
+                } else {
+                    v = vib_max(f.jc[0], f.jc[1]);
+                }
+                ns2_vib_t fr[3] = { v, v, v };
+                n = ns2_build_rumble(pkt, ++l->rumble_id, false, fr, NULL);
+            }
+            gatt_write(l, l->h_rumble, l->rumble_no_rsp, pkt, n);
+        }
+    }
+}
+
 void ble_central_start(void)
 {
     s_evq = xQueueCreate(16, sizeof(ev_t));
@@ -1212,6 +1274,7 @@ void ble_central_start(void)
     nimble_port_freertos_init(host_task);
 
     xTaskCreatePinnedToCore(ctrl_task, "ble_ctrl", 6144, NULL, 6, NULL, 1);
+    xTaskCreatePinnedToCore(rumble_task, "ble_rumble", 4096, NULL, 5, NULL, 1);
 }
 
 void ble_central_forget_all(void)
