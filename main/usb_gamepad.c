@@ -138,9 +138,9 @@ static char s_serial[13];
 static const char *string_desc[] = {
     (const char[]){ 0x09, 0x04 },  // 0: English (0x0409)
     "Joy-Con 2 Dongle",            // 1: manufacturer
-    "Joy-Con 2 Dongle (dev)",      // 2: product
+    "Joy-Con 2 Dongle",            // 2: product
     s_serial,                      // 3: serial (BLE MAC)
-    "Gamepad",                     // 4: HID interface
+    "Joy-Con 2 Dongle",            // 4: HID interface (Windows shows this name)
     "Debug log",                   // 5: CDC interface
 };
 

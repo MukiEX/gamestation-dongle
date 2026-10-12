@@ -36,7 +36,7 @@ TommyWabg, so this project is **GPL-3.0**.
 
 ### USB output (step 1)
 
-A generic HID gamepad (VID:PID `303A:8243`, "Joy-Con 2 Dongle (dev)") plus a
+A generic HID gamepad (VID:PID `303A:8243`, "Joy-Con 2 Dongle") plus a
 serial port that mirrors the log.
 
 | HID button | Controller | | HID button | Controller |
@@ -62,7 +62,7 @@ Prebuilt images are in `dist/`. You need [esptool](https://github.com/espressif/
 2. Flash the single merged image:
 
    ```
-   esptool.py --chip esp32s3 -p <PORT> -b 921600 write_flash 0x0 dist/joycon2-dongle-0.1.3-merged.bin
+   esptool.py --chip esp32s3 -p <PORT> -b 921600 write_flash 0x0 dist/joycon2-dongle-0.1.4-merged.bin
    ```
 
    (Or the separate files: `0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 joycon2_dongle.bin`.)
@@ -72,7 +72,7 @@ Prebuilt images are in `dist/`. You need [esptool](https://github.com/espressif/
 
 1. Open the dongle's **serial port** (the new COM port / `/dev/ttyACM*`) in any
    terminal at any baud rate. You should see
-   `Joy-Con 2 Dongle 0.1.3-step1` and `dongle BLE address ...`.
+   `Joy-Con 2 Dongle 0.1.4-step1` and `dongle BLE address ...`.
    Logs also come out of the board's **UART/COM** USB-C port at 115200 baud,
    which is useful if the dongle crashes before USB starts.
 2. Hold **SYNC** on a Joy-Con 2. Expect, in order:

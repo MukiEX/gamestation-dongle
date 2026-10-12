@@ -28,9 +28,9 @@
 static const char *TAG = "main";
 
 #ifdef DONGLE_DIAG
-#define FW_VERSION       "0.1.3-step1-diag"
+#define FW_VERSION       "0.1.4-step1-diag"
 #else
-#define FW_VERSION       "0.1.3-step1"
+#define FW_VERSION       "0.1.4-step1"
 #endif
 #define BOOT_GPIO        GPIO_NUM_0
 #define FORGET_HOLD_US   5000000

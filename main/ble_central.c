@@ -106,6 +106,7 @@ typedef struct {
     int64_t settle_deadline;
     uint8_t rumble_id;
     volatile uint32_t input_count;
+    bool cmd_answered;  // last cmd_exchange got a reply (even a rejection)
 } link_t;
 
 typedef enum {
@@ -352,6 +353,19 @@ static void on_disc(const struct ble_gap_disc_desc *d)
             char mac[18];
             fmt_mac(d->addr.val, mac);
             ESP_LOGI(TAG, "%s (%s) is paired to another device; hold its SYNC button to pair it to this dongle",
+                     pad_role_name(pad_role_for_pid(pid)), mac);
+        }
+        return;
+    }
+    if (!pairing && bonds_lookup(d->addr.val) == 0) {
+        // Still bonded to this dongle, but the dongle forgot it (BOOT held 5 s).
+        static int64_t last_forgot;
+        int64_t now = esp_timer_get_time();
+        if (now - last_forgot > 5000000) {
+            last_forgot = now;
+            char mac[18];
+            fmt_mac(d->addr.val, mac);
+            ESP_LOGI(TAG, "%s (%s) was forgotten; hold its SYNC button to pair it again",
                      pad_role_name(pad_role_for_pid(pid)), mac);
         }
         return;
@@ -775,6 +789,7 @@ static bool cmd_exchange(link_t *l, uint8_t cmd, uint8_t sub, const uint8_t *dat
         memcpy(&buf[8], data, len);
     }
 
+    l->cmd_answered = false;
     for (int attempt = 0; attempt < 2; attempt++) {
         xQueueReset(l->ackq);
         int rc = gatt_write(l, l->h_cmd, l->cmd_no_rsp, buf, 8 + len);
@@ -800,8 +815,11 @@ static bool cmd_exchange(link_t *l, uint8_t cmd, uint8_t sub, const uint8_t *dat
                 continue;  // stale reply to something else
             }
             if (a.len < 8 || a.data[1] != 0x01) {
-                ESP_LOGW(TAG, "link %d: cmd %02x:%02x rejected (status=%02x)", link_index(l), cmd, sub,
-                         a.len > 1 ? a.data[1] : 0xFF);
+                // Some init commands are not supported by every controller
+                // (Switch2Connect sends them too); the link is fine.
+                ESP_LOGI(TAG, "link %d: cmd %02x:%02x not supported (status=%02x), continuing", link_index(l),
+                         cmd, sub, a.len > 1 ? a.data[1] : 0xFF);
+                l->cmd_answered = true;
                 return false;
             }
             if (out && out_len) {
@@ -931,7 +949,7 @@ static bool link_init(link_t *l)
     int consecutive_fail = 0;
     for (size_t i = 0; i < sizeof(INIT_SEQUENCE) / sizeof(INIT_SEQUENCE[0]); i++) {
         const init_cmd_t *c = &INIT_SEQUENCE[i];
-        if (cmd_exchange(l, c->cmd, c->sub, c->data, c->len, NULL, NULL)) {
+        if (cmd_exchange(l, c->cmd, c->sub, c->data, c->len, NULL, NULL) || l->cmd_answered) {
             consecutive_fail = 0;
         } else if (!link_alive(l) || ++consecutive_fail >= 3) {
             ESP_LOGW(TAG, "link %d: init sequence aborted at %02x:%02x", idx, c->cmd, c->sub);
@@ -995,7 +1013,10 @@ static bool link_init(link_t *l)
         .itvl_min = CONN_ITVL, .itvl_max = CONN_ITVL, .latency = 0,
         .supervision_timeout = CONN_SUPERV_TO, .min_ce_len = 0, .max_ce_len = CONN_MAX_CE,
     };
-    ble_gap_update_params(l->conn, &upd);
+    struct ble_gap_conn_desc cd;
+    if (ble_gap_conn_find(l->conn, &cd) == 0 && cd.conn_itvl != CONN_ITVL) {
+        ble_gap_update_params(l->conn, &upd);
+    }
 
     connection_buzz(l);
     return link_alive(l);
@@ -1123,7 +1144,7 @@ static void ctrl_task(void *arg)
                 uint32_t c = s_links[i].input_count;
                 if (s_links[i].state == LS_READY) {
                     ESP_LOGI(TAG, "link %d (%s): %.0f input reports/s", i, pad_role_name(s_links[i].role),
-                             (c - last_counts[i]) / secs);
+                             (c >= last_counts[i] ? c - last_counts[i] : c) / secs);
                 }
                 last_counts[i] = c;
             }
