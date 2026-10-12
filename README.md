@@ -173,6 +173,12 @@ The generic HID mode is the step-1 layout:
 Prebuilt images are in `dist/`. You need [esptool](https://github.com/espressif/esptool)
 (`pip install esptool`) or Espressif's web flasher.
 
+The tool page (`dist/joycon2-dongle-tool.html`) flashes from the browser and
+carries the exact source of the firmware it contains: **Download source** on
+its Flash tab saves a zip of the commit the images were built from.
+`tools/flasher/build.py` makes that page and refuses to run with uncommitted
+changes, so the two always match.
+
 1. Hold **BOOT**, plug the board's **USB/OTG** port into the PC, release BOOT.
 2. Flash the single merged image:
 
