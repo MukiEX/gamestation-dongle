@@ -232,6 +232,11 @@ footer a { color: inherit; }
       <div><dt>Size</dt><dd id="fw-size">__FW_SIZE__</dd></div>
       <div><dt>Write at</dt><dd id="fw-addr">0x0</dd></div>
       <div><dt>MD5</dt><dd id="fw-md5">__FW_MD5__</dd></div>
+      <div class="wide"><dt>Source code</dt><dd>
+        <span class="mono">__SRC_NAME__</span> (__SRC_SIZE__, commit <span class="mono">__SRC_COMMIT__</span>)
+        <button id="src-dl" style="margin-left:8px;padding:4px 10px;font-size:13px">Download source</button>
+        <small style="display:block;color:var(--muted);margin-top:4px">The exact source both images were built from (GPL-3.0), including this page's template and build script.</small>
+      </dd></div>
     </dl>
   </section>
 
@@ -418,6 +423,22 @@ footer a { color: inherit; }
 
 <script>
 __MD5_JS__
+</script>
+<script>
+// ---- Source download -------------------------------------------------------
+(function () {
+  const SRC_B64 = "__SRC_B64__";
+  document.getElementById("src-dl").addEventListener("click", () => {
+    const bin = atob(SRC_B64), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([u8], { type: "application/zip" }));
+    a.download = "__SRC_NAME__";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  });
+})();
 </script>
 <script>
 // ---- Tabs ------------------------------------------------------------------
