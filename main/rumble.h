@@ -32,5 +32,13 @@ void rumble_set_hd(const uint8_t left[4], const uint8_t right[4]);
 
 void rumble_stop(void);
 
+// Short feedback buzz played by the dongle itself (not the PC), e.g. when the
+// configurator opens. Overrides PC rumble while it plays.
+typedef enum {
+    RUMBLE_CUE_DOUBLE,  // two short pulses: entering the configurator
+    RUMBLE_CUE_SINGLE,  // one short pulse: leaving it
+} rumble_cue_t;
+void rumble_cue(rumble_cue_t cue);
+
 // Current frame; false when nothing should be playing.
 bool rumble_get(rumble_frame_t *out);

@@ -47,6 +47,9 @@ static void usb_event(tinyusb_event_t *event, void *arg)
     (void)arg;
     if (event->id == TINYUSB_EVENT_ATTACHED) {
         s_mounted = true;
+        if (s_drv && s_drv->is_config) {
+            ESP_LOGI(TAG, "PC accepted the configurator's USB network device");
+        }
         usb_gamepad_poke();
     } else if (event->id == TINYUSB_EVENT_DETACHED) {
         s_mounted = false;
@@ -469,7 +472,7 @@ static void switch_to(int target)
 {
     const out_driver_t *next = target == TARGET_CONFIG ? &out_config : driver_for((out_mode_t)target);
     ESP_LOGW(TAG, "switching USB to %s", next->name);
-    vTaskDelay(pdMS_TO_TICKS(200));  // let that line reach the PC
+    vTaskDelay(pdMS_TO_TICKS(250));  // let that line reach the PC, and a rumble cue play
     rumble_stop();
     xSemaphoreTake(s_usb_mtx, portMAX_DELAY);
     s_usb_up = false;
@@ -522,6 +525,7 @@ void usb_gamepad_next_mode(void)
 void usb_gamepad_enter_config(void)
 {
     if (s_drv && !s_drv->is_config) {
+        rumble_cue(RUMBLE_CUE_DOUBLE);  // felt before USB goes away
         request(TARGET_CONFIG);
     }
 }
@@ -529,6 +533,7 @@ void usb_gamepad_enter_config(void)
 void usb_gamepad_exit_config(void)
 {
     if (s_drv && s_drv->is_config) {
+        rumble_cue(RUMBLE_CUE_SINGLE);
         request(settings_out_mode());
     }
 }

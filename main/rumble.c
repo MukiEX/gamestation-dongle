@@ -148,10 +148,48 @@ void rumble_set_hd(const uint8_t left[4], const uint8_t right[4])
     publish(&f, true, esp_timer_get_time() + HD_HOLD_US);
 }
 
+static int64_t s_cue_start;
+static rumble_cue_t s_cue;
+
+void rumble_cue(rumble_cue_t cue)
+{
+    portENTER_CRITICAL(&s_mux);
+    s_cue = cue;
+    s_cue_start = esp_timer_get_time();
+    portEXIT_CRITICAL(&s_mux);
+}
+
+// The cue is the dongle's own "click" (the connection buzz): on 80 ms, off
+// 60 ms, on 80 ms for the double pulse.
+static bool cue_frame(rumble_frame_t *out)
+{
+    if (s_cue_start == 0) {
+        return false;
+    }
+    int64_t t = (esp_timer_get_time() - s_cue_start) / 1000;
+    int64_t len = s_cue == RUMBLE_CUE_DOUBLE ? 220 : 90;
+    if (t >= len) {
+        s_cue_start = 0;
+        return false;
+    }
+    bool on = t < 80 || (s_cue == RUMBLE_CUE_DOUBLE && t >= 140);
+    ns2_vib_t v = on ? (ns2_vib_t){ .lf_freq = 0x0E1, .lf_amp = 0x030, .hf_freq = 0x1E2, .hf_amp = 0x300 }
+                     : NS2_VIB_SILENT;
+    ns2_vib_t p = on ? (ns2_vib_t){ .lf_freq = 0x0E1, .lf_amp = 0x080, .hf_freq = 0x1E2, .hf_amp = 0x300 }
+                     : NS2_VIB_SILENT;
+    out->jc[0] = out->jc[1] = v;
+    out->pro[0] = out->pro[1] = p;
+    return true;
+}
+
 bool rumble_get(rumble_frame_t *out)
 {
     bool active;
     portENTER_CRITICAL(&s_mux);
+    if (cue_frame(out)) {
+        portEXIT_CRITICAL(&s_mux);
+        return true;
+    }
     if (s_active && s_expires != 0 && esp_timer_get_time() > s_expires) {
         s_active = false;
     }

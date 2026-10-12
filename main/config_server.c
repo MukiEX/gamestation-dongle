@@ -34,6 +34,8 @@ extern const char web_index_html_start[] asm("_binary_index_html_start");
 extern const char web_index_html_end[] asm("_binary_index_html_end");
 
 static esp_netif_t *s_netif;
+static volatile uint32_t s_rx_pkts, s_tx_pkts, s_tx_fail;
+static volatile bool s_active;  // in config mode
 static httpd_handle_t s_httpd;
 static uint8_t s_host_mac[6];  // the PC side of the USB network link
 static char s_host_mac_str[13];
@@ -52,7 +54,9 @@ static esp_err_t netif_transmit(void *h, void *buffer, size_t len)
 {
     (void)h;
     if (tinyusb_net_send_sync(buffer, (uint16_t)len, NULL, pdMS_TO_TICKS(100)) != ESP_OK) {
-        ESP_LOGD(TAG, "USB network send failed");
+        s_tx_fail++;
+    } else {
+        s_tx_pkts++;
     }
     return ESP_OK;
 }
@@ -60,6 +64,7 @@ static esp_err_t netif_transmit(void *h, void *buffer, size_t len)
 static esp_err_t usb_net_rx(void *buffer, uint16_t len, void *ctx)
 {
     (void)ctx;
+    s_rx_pkts++;
     if (s_netif == NULL) {
         return ESP_OK;
     }
@@ -71,6 +76,35 @@ static esp_err_t usb_net_rx(void *buffer, uint16_t len, void *ctx)
     return esp_netif_receive(s_netif, copy, len, NULL);
 }
 
+static void on_lease(void *arg, esp_event_base_t base, int32_t id, void *data)
+{
+    const ip_event_ap_staipassigned_t *e = data;
+    ESP_LOGI(TAG, "PC got address " IPSTR " from the dongle", IP2STR(&e->ip));
+}
+
+// While the configurator is open, report what the USB network link is doing
+// every 5 s, so a page that won't load can be narrowed down from the log.
+static void stats_task(void *arg)
+{
+    (void)arg;
+    uint32_t last_rx = 0, last_tx = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        if (!s_active) {
+            continue;
+        }
+        if (s_rx_pkts != last_rx || s_tx_pkts != last_tx || s_tx_fail) {
+            ESP_LOGI(TAG, "network: %lu packets from the PC, %lu to it, %lu failed sends",
+                     (unsigned long)s_rx_pkts, (unsigned long)s_tx_pkts, (unsigned long)s_tx_fail);
+        } else {
+            ESP_LOGW(TAG, "network: nothing from the PC yet (check Device Manager for the "
+                          "'Joy-Con 2 Dongle Configurator' network adapter)");
+        }
+        last_rx = s_rx_pkts;
+        last_tx = s_tx_pkts;
+    }
+}
+
 static esp_err_t netif_create(void)
 {
     static bool once;
@@ -80,6 +114,8 @@ static esp_err_t netif_create(void)
         if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
             return err;
         }
+        esp_event_handler_register(IP_EVENT, IP_EVENT_AP_STAIPASSIGNED, on_lease, NULL);
+        xTaskCreatePinnedToCore(stats_task, "cfg_stats", 3072, NULL, 2, NULL, 1);
         once = true;
     }
 
@@ -194,6 +230,7 @@ static cJSON *read_json(httpd_req_t *req)
 
 static esp_err_t h_index(httpd_req_t *req)
 {
+    ESP_LOGI(TAG, "page requested");
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     return httpd_resp_send(req, web_index_html_start, web_index_html_end - web_index_html_start - 1);  // minus the NUL
@@ -395,11 +432,13 @@ static void cfg_started(void)
         return;
     }
     httpd_start_once();
+    s_active = true;
     ESP_LOGI(TAG, "configurator ready: open http://192.168.7.1 (press BOOT to leave)");
 }
 
 static void cfg_stopping(void)
 {
+    s_active = false;
     tinyusb_net_deinit();
 }
 
