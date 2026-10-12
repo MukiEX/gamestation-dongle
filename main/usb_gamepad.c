@@ -299,6 +299,13 @@ static void report_task(void *arg)
 // Start-up
 // ---------------------------------------------------------------------------
 
+void usb_gamepad_detach(void)
+{
+    if (s_task) {
+        tud_disconnect();
+    }
+}
+
 static const out_driver_t *driver_for(out_mode_t mode)
 {
     switch (mode) {

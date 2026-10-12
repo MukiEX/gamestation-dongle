@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs.h"
+#include "usb_gamepad.h"
 
 static const char *TAG = "settings";
 
@@ -52,5 +53,9 @@ void settings_cycle_out_mode(void)
     ESP_LOGW(TAG, "switching output mode to %s; restarting (press a button on your controller "
                   "afterwards to reconnect it)", settings_out_mode_name(next));
     vTaskDelay(pdMS_TO_TICKS(300));  // let the log reach the PC
+    // Leave the bus for a moment first: without a visible unplug the PC can
+    // keep using the old device's drivers after the restart.
+    usb_gamepad_detach();
+    vTaskDelay(pdMS_TO_TICKS(700));
     esp_restart();
 }

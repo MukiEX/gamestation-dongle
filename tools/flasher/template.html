@@ -562,6 +562,10 @@ __MD5_JS__
     const waiting = lost && wanted && $("mon-auto").checked;
     setState(lost ? (waiting ? "Port gone · waiting for it to come back" : "Port closed (unplugged or restarted)") : "Not connected", lost ? "warn" : "");
     mark(lost ? "port lost (board restarted or unplugged)" : "disconnected");
+    if (lost && kind === "dongle") {
+      addLine("[After a mode change the dongle comes back as a different USB device: click Connect and pick its port. " +
+              "To follow restarts without reconnecting, use the board's UART/COM port instead.]", "e");
+    }
   }
 
   async function restartBoard() {
