@@ -52,6 +52,7 @@ typedef struct {
     bool grip;    // grip-sense mode: the sensor sees the hand holding this Joy-Con
     bool grip_mode;  // grip-sense mode is active (held normally, setting on)
     bool mouse_pose; // lying on its rail side, as a mouse
+    uint16_t dist, rough;  // raw sensor readings (for the configurator)
 } pad_trackpad_t;
 
 // Input from one physical controller, after stick calibration. Motion is in

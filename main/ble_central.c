@@ -698,6 +698,11 @@ static void motion_update(link_t *l, const ns2_input_t *in, pad_motion_t *m)
 #define TP_LAND_COUNTS  6       // movement needed before the finger goes down
 #define TP_EDGE         28000
 
+static float speed_gain(uint8_t step)
+{
+    return step >= 10 ? 8.0f * (step - 9) : 0.8f * step;
+}
+
 static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t *m, pad_trackpad_t *tp)
 {
     static const uint16_t limit_dist[3] = { 1000, 1500, 3000 };
@@ -707,9 +712,11 @@ static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t
     // Pad units per sensor count: steps 10..19 are speeds 1..10 (8 units per
     // step), steps 1..9 are 0.1..0.9 of speed 1. The finger position is kept
     // as a float, so fractions of a unit add up instead of being lost.
-    float gain = st.pad_speed >= 10 ? 8.0f * (st.pad_speed - 9) : 0.8f * st.pad_speed;
+    float gain = speed_gain(st.pad_speed);
 
     tp->valid = true;
+    tp->dist = in->mouse_distance;
+    tp->rough = in->mouse_roughness;
     // Mouse use = lying on the rail side: gravity along the Joy-Con's own
     // left-right axis (X). Hysteresis so it doesn't flicker at the boundary.
     if (m->valid) {
@@ -733,14 +740,15 @@ static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t
     tp->grip_mode = false;
     bool on = in->mouse_distance != 0 && in->mouse_distance < limit_dist[lvl] &&
               in->mouse_roughness < limit_rough[lvl];
-    if (st.pad_mouse) {
+    if (st.pad_mouse != PAD_MOUSE_OFF) {
         // Mouse setting: the sensor is a USB mouse while the Joy-Con lies on
         // its rail side on a surface; no trackpad / touchpad finger at all.
-        // Speed 5 = one pixel per sensor count.
+        // Mouse speed 5 = one pixel per sensor count.
         if (on && l->tp_on && l->tp_mouse_pose) {
             int16_t dx = (int16_t)(in->mouse_x - l->tp_lx);
             int16_t dy = (int16_t)(in->mouse_y - l->tp_ly);
-            pad_mouse_add(dx * gain / 40.0f, dy * gain / 40.0f);
+            float mg = speed_gain(st.mouse_speed) / 40.0f;
+            pad_mouse_add(dx * mg, dy * mg);
         }
         l->tp_on = on;
         l->tp_touch = false;

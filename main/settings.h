@@ -54,14 +54,20 @@ typedef struct {
     uint8_t flip_ds4;
     uint8_t flip_switch;
     // Joy-Con optical sensor as a trackpad (Steam Controller mode).
-    uint8_t pad_speed;       // 1..19: 1..9 = 0.1..0.9 x the old slowest, 10..19 = speeds 1..10 (14 = default 5)
+    uint8_t pad_speed;       // 1..19: 1..9 = 0.1..0.9 x speed 1, 10..19 = speeds 1..10 (default 3 = 0.3x)
     uint8_t pad_lift;        // 0..2: how far off the surface still counts as touching
     bool pad_grip;           // held normally (not on its rail side): sensor = grip sensor
     bool pad_ds_touch;       // DS4 / DualSense: the mouse sensors drive the touchpad
-    bool pad_mouse;          // the mouse sensors drive a USB mouse instead (all modes)
+    uint8_t mouse_speed;     // USB mouse speed, same 1..19 steps (default 14 = speed 5 = 1 pixel per count)
+    uint8_t pad_mouse;       // PAD_MOUSE_*: the mouse sensors drive a USB mouse instead (all modes)
 } settings_t;
 
 #define SETTINGS_PAD_SPEED_MAX 19
+
+#define PAD_MOUSE_OFF     0  // sensors feed the controller (trackpads / touchpad)
+#define PAD_MOUSE_FULL    1  // USB mouse; the Joy-Con lying there lends its buttons as clicks / wheel
+#define PAD_MOUSE_POINTER 2  // USB mouse pointer only; every button stays on the controller
+#define PAD_MOUSE_MAX     2
 #define SETTINGS_PAD_LIFT_MAX  2
 
 #define MOTION_FLIP_GX 0x01  // gyro pitch (X)

@@ -233,7 +233,8 @@ void pad_get_output(pad_out_t *o)
     portEXIT_CRITICAL(&s_lock);
 
     memset(o, 0, sizeof(*o));
-    if (settings_get().pad_mouse) {
+    // Pointer-only mouse setting: every button stays on the controller.
+    if (settings_get().pad_mouse == PAD_MOUSE_FULL) {
         if (present[PAD_ROLE_LEFT] && side[PAD_ROLE_LEFT].tp.mouse_pose) {
             take_mouse_controls(&side[PAD_ROLE_LEFT], true, o);
         }

@@ -351,7 +351,8 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddNumberToObject(o, "padLift", s->pad_lift);
     cJSON_AddBoolToObject(o, "padGrip", s->pad_grip);
     cJSON_AddBoolToObject(o, "padDsTouch", s->pad_ds_touch);
-    cJSON_AddBoolToObject(o, "padMouse", s->pad_mouse);
+    cJSON_AddNumberToObject(o, "padMouse", s->pad_mouse);
+    cJSON_AddNumberToObject(o, "mouseSpeed", s->mouse_speed);
     return o;
 }
 
@@ -424,6 +425,9 @@ static esp_err_t h_state(httpd_req_t *req)
     if (o.tp[0].valid || o.tp[1].valid) {
         const int tv[6] = { tp_state(&o.tp[0]), o.tp[0].x, o.tp[0].y, tp_state(&o.tp[1]), o.tp[1].x, o.tp[1].y };
         cJSON_AddItemToObject(in, "tp", cJSON_CreateIntArray(tv, 6));
+        // Raw sensor readings: lift-off distance, roughness, lying on its rail side.
+        const int rv[6] = { o.tp[0].dist, o.tp[0].rough, o.tp[0].mouse_pose, o.tp[1].dist, o.tp[1].rough, o.tp[1].mouse_pose };
+        cJSON_AddItemToObject(in, "tpRaw", cJSON_CreateIntArray(rv, 6));
     }
     return send_json(req, root);
 }
@@ -457,7 +461,8 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "padLift")) && cJSON_IsNumber(v)) s.pad_lift = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "padGrip")) && cJSON_IsBool(v)) s.pad_grip = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "padDsTouch")) && cJSON_IsBool(v)) s.pad_ds_touch = cJSON_IsTrue(v);
-    if ((v = cJSON_GetObjectItem(j, "padMouse")) && cJSON_IsBool(v)) s.pad_mouse = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "padMouse")) && cJSON_IsNumber(v)) s.pad_mouse = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "mouseSpeed")) && cJSON_IsNumber(v)) s.mouse_speed = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);
         if (g < GRIP_COUNT) s.grip_gl = g;

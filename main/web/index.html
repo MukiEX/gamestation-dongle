@@ -84,13 +84,14 @@ button:disabled { opacity: .5; cursor: default; }
 .stick::before, .stick::after { content: ""; position: absolute; background: var(--line); }
 .stick::before { left: 50%; top: 6px; bottom: 6px; width: 1px; }
 .stick::after { top: 50%; left: 6px; right: 6px; height: 1px; }
-#pads { flex-wrap: wrap; row-gap: 34px; margin-top: 34px; }
+#pads { flex-wrap: wrap; row-gap: 64px; margin-top: 34px; margin-bottom: 40px; }
 .pad { width: 110px; height: 110px; border-radius: 12px; border: 2px solid var(--line); position: relative; background: var(--chip); }
 .pad i { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
   background: var(--accent); left: 50%; top: 50%; opacity: 0; transition: opacity .1s; }
 .pad i.on { opacity: 1; }
 .pad.grip { border-style: dashed; }
 .pad.held { border: 2px solid var(--ok); background: color-mix(in srgb, var(--ok) 18%, var(--chip)); }
+.pad small { position: absolute; top: 134px; left: -20px; right: -20px; text-align: center; font-size: 11px; color: var(--muted); white-space: pre-line; }
 .pad b { position: absolute; top: 116px; left: 0; right: 0; text-align: center; font-weight: 500; font-size: 13px; color: var(--muted); }
 .motion { display: flex; gap: 22px; margin-top: 30px; align-items: flex-start; flex-wrap: wrap; }
 .motion .stick i { background: var(--ok); }
@@ -177,16 +178,22 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
     <div class="row">
       <label>Joy-Con mouse sensor</label>
       <div class="seg" id="padMouse">
-        <button data-v="false">Controller</button><button data-v="true">USB mouse</button>
+        <button data-v="0">Controller</button><button data-v="1">USB mouse</button><button data-v="2">Pointer only</button>
       </div>
       <div class="hint">USB mouse: in every mode, a Joy-Con lying on its rail side on a surface moves a real mouse pointer
         (an extra USB device), and while it lies there its shoulder = left click, trigger = right click, stick press = middle,
-        stick up / down = wheel. Controller: the sensor feeds the trackpads / touchpad as below. Takes effect when you exit.</div>
+        stick up / down = wheel. Pointer only: the same pointer, but every button stays on the controller.
+        Controller: the sensor feeds the trackpads / touchpad as below. Takes effect when you exit.</div>
+    </div>
+    <div class="row">
+      <label for="mouseSpeed">Mouse speed</label>
+      <div class="rangeval"><input type="range" id="mouseSpeed" min="1" max="19" step="1"><output id="mouseSpeedOut"></output></div>
+      <div class="hint">USB mouse / Pointer only: how far the pointer moves. Speed 5 = one pixel per sensor step.</div>
     </div>
     <div class="row">
       <label for="padSpeed">Trackpad speed</label>
       <div class="rangeval"><input type="range" id="padSpeed" min="1" max="19" step="1"><output id="padSpeedOut"></output></div>
-      <div class="hint">How far the virtual finger (or, with USB mouse, the pointer) moves when you slide a Joy-Con on a surface. The left part of the slider is fine control: 0.1× to 0.9× of speed 1.</div>
+      <div class="hint">How far the virtual finger (Steam Controller trackpads, DS4 / DualSense touchpad) moves when you slide a Joy-Con on a surface. The left part of the slider is fine control: 0.1× to 0.9× of speed 1. Default 0.3×.</div>
     </div>
     <div class="row">
       <label>Trackpad lift-off</label>
@@ -200,7 +207,7 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="seg" id="padGrip">
         <button data-v="false">Trackpad</button><button data-v="true">Grip sense</button>
       </div>
-      <div class="hint">Grip sense: a Joy-Con lying on its rail side is a trackpad; held normally, its sensor tells Steam whether your hand is on that grip.</div>
+      <div class="hint">Grip sense: a Joy-Con lying on its rail side is a trackpad; held normally, its sensor tells Steam whether your hand is on that grip (Live input below shows "grip: hand" / "grip: free"). Off by default: Steam then sees both grips as held. The sensor sits on the rail side, so in the charging grip it sees the grip itself.</div>
     </div>
     <div class="row">
       <label>DS4 / DualSense touchpad</label>
@@ -251,9 +258,10 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="stick"><i id="rs"></i><b>Right stick</b></div>
     </div>
     <div class="sticks" id="pads" style="display:none">
-      <div class="pad"><i id="tp0"></i><b>Left trackpad</b></div>
-      <div class="pad"><i id="tp1"></i><b>Right trackpad</b></div>
-      <span class="hint" style="margin:0;align-self:center">Slide a Joy-Con on a table (sensor down): its finger appears and moves.</span>
+      <div class="pad"><i id="tp0"></i><b>Left trackpad</b><small id="tpr0"></small></div>
+      <div class="pad"><i id="tp1"></i><b>Right trackpad</b><small id="tpr1"></small></div>
+      <span class="hint" style="margin:0;align-self:center">Optical sensors. Slide a Joy-Con on a table (rail side down): its finger appears and moves.
+        Under each: lift-off distance (0 = nothing seen; on a surface below about 1000 / 1500 / 3000 for Strict / Medium / Loose), surface roughness, and whether it lies on its rail side.</span>
     </div>
     <div class="motion" id="motion">
       <div class="stick"><i id="tilt"></i><b>Tilt</b></div>
@@ -324,7 +332,9 @@ function showSettings() {
   seg("padLift", String(settings.padLift));
   seg("padGrip", String(!!settings.padGrip));
   seg("padDsTouch", String(settings.padDsTouch !== false));
-  seg("padMouse", String(!!settings.padMouse));
+  seg("padMouse", String(+settings.padMouse || 0));
+  $("mouseSpeed").value = settings.mouseSpeed;
+  $("mouseSpeedOut").textContent = padSpeedName(settings.mouseSpeed);
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
   const auto = { ds4: "the touchpad's left / right half", ds5: "the touchpad's left / right half",
@@ -392,9 +402,10 @@ for (const id of ["flipDs4", "flipSwitch"]) {
   });
 }
 $("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
+$("mouseSpeed").addEventListener("input", () => save({ mouseSpeed: +$("mouseSpeed").value }));
 $("padMouse").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
-  if (v !== undefined) save({ padMouse: v === "true" });
+  if (v !== undefined) save({ padMouse: +v });
 });
 $("padDsTouch").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
@@ -487,7 +498,7 @@ function renderInput(inp) {
   put($("rs"), inp.rx, inp.ry);
   $("padmode").textContent = PADMODE[inp.layout] || "";
   renderMotion(inp.motion);
-  renderPads(inp.tp);
+  renderPads(inp.tp, inp.tpRaw);
 }
 
 // Trackpad speed steps: 1..9 = 0.1..0.9 x speed 1, 10..19 = speeds 1..10.
@@ -495,7 +506,7 @@ function padSpeedName(v) { return v >= 10 ? String(v - 9) : "0." + v + "×"; }
 
 // Optical-sensor trackpads: [state0, x0, y0, state1, x1, y1]; state -1 no sensor,
 // 0 / 1 finger up / down, 2 / 3 grip-sense mode without / with a hand.
-function renderPads(tp) {
+function renderPads(tp, raw) {
   $("pads").style.display = tp ? "flex" : "none";
   if (!tp) return;
   for (let i = 0; i < 2; i++) {
@@ -508,6 +519,8 @@ function renderPads(tp) {
     dot.style.left = (50 + tp[i * 3 + 1] / 32767 * 46) + "%";
     dot.style.top = (50 - tp[i * 3 + 2] / 32767 * 46) + "%";
     dot.parentElement.style.opacity = t < 0 ? 0.35 : 1;
+    $("tpr" + i).textContent = t < 0 || !raw ? "no sensor" :
+      "distance " + raw[i * 3] + " · rough " + raw[i * 3 + 1] + "\n" + (raw[i * 3 + 2] ? "on its rail side" : "upright / held");
   }
 }
 

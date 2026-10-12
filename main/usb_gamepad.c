@@ -112,8 +112,27 @@ static const uint8_t s_mouse_report_desc[] = {
 };
 static bool s_with_cdc;  // the log port is part of the current USB device
 
+static const out_driver_t *driver_for(out_mode_t mode);
+
+// Each output mode gets its own identity (USB serial, controller MAC): Steam
+// remembers a controller's type by its serial, so one shared identity made it
+// show every mode as whichever it met first. XInput keeps the plain MAC.
+static uint8_t drv_tag(void)
+{
+    for (int m = 0; m < OUT_MODE_COUNT; m++) {
+        if (driver_for((out_mode_t)m) == s_drv) return (uint8_t)m;
+    }
+    return 0x0F;  // configurator
+}
+
 static void build_descriptors(void)
 {
+    uint8_t mac[6] = { 0 };
+    esp_read_mac(mac, ESP_MAC_BASE);
+    mac[5] ^= (uint8_t)(drv_tag() << 4);
+    snprintf(s_serial, sizeof(s_serial), "%02X%02X%02X%02X%02X%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
     // The log port is always there in the configurator, and in the controller
     // modes unless it was switched off (some consoles reject extra interfaces).
     s_with_cdc = s_drv->is_config || settings_get().log_port;
@@ -139,7 +158,7 @@ static void build_descriptors(void)
     uint8_t itf_cdc = s_drv->itf_count;
     const uint8_t cdc[] = { TUD_CDC_DESCRIPTOR(itf_cdc, 5, EP_CDC_NOTIF, 8, EP_CDC_OUT, EP_CDC_IN, 64) };
     uint16_t cdc_len = s_with_cdc ? sizeof(cdc) : 0;
-    s_with_mouse = !s_drv->is_config && settings_get().pad_mouse;
+    s_with_mouse = !s_drv->is_config && settings_get().pad_mouse != PAD_MOUSE_OFF;
     s_mouse_inst = s_drv->hid_report_desc ? 1 : 0;
     uint8_t itf_mouse = itf_cdc + (s_with_cdc ? 2 : 0);
     const uint8_t mouse[] = { TUD_HID_DESCRIPTOR(itf_mouse, MOUSE_STRING_INDEX, HID_ITF_PROTOCOL_NONE,
@@ -205,6 +224,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
 void out_get_mac(uint8_t mac[6])
 {
     esp_read_mac(mac, ESP_MAC_BT);
+    mac[5] ^= (uint8_t)(drv_tag() << 4);
 }
 
 uint8_t out_hat(uint32_t b)
@@ -699,11 +719,8 @@ void usb_gamepad_start(void)
     s_drv = driver_for(settings_out_mode());
     s_usb_mtx = xSemaphoreCreateMutex();
 
-    // Serial number = the dongle's factory MAC, so multiple dongles are distinct.
-    uint8_t mac[6] = { 0 };
-    esp_read_mac(mac, ESP_MAC_BASE);
-    snprintf(s_serial, sizeof(s_serial), "%02X%02X%02X%02X%02X%02X",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    // Serial number = the dongle's factory MAC (per mode, see drv_tag), so
+    // multiple dongles are distinct; set in build_descriptors.
 
     esp_err_t err = usb_install();
     if (err != ESP_OK) {

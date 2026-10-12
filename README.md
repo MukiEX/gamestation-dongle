@@ -98,8 +98,14 @@ mouse next to the controller. A Joy-Con lying on its rail side on a surface
 moves the pointer, and while it lies there its shoulder (L / R) is the left
 button, its trigger (ZL / ZR) the right button, its stick press the middle
 button and its stick up / down the wheel; those leave the controller meanwhile.
-Held normally it is a controller half as usual. The trackpads and touchpad then
+Held normally it is a controller half as usual. *Pointer only* gives the same
+pointer but leaves every button on the controller. *Mouse speed* sets the
+pointer speed (5 = one pixel per sensor step). The trackpads and touchpad then
 get nothing from the sensors. Some consoles may refuse the extra USB device.
+
+Each output mode has its own USB serial number and controller MAC, so Steam
+(which remembers a controller's type by its serial) sees DS4, DualSense,
+Switch Pro and Steam Controller as different controllers.
 
 **Touchpad (DS4 and DualSense):** each Joy-Con's mouse sensor touches its half
 of the touchpad (left Joy-Con: left half) while the Joy-Con lies on its rail
@@ -146,13 +152,15 @@ trackpads.
   starts at the pad's centre and, at the edge, lifts for one report and lands
   at the centre again; Steam reads trackpads as relative motion, so the
   movement continues. *Trackpad speed* (with fine steps from 0.1× to 0.9× of
-  speed 1) and *Trackpad lift-off* are in the configurator, which also shows
-  both trackpads live.
+  speed 1; default 0.3×) and *Trackpad lift-off* are in the configurator, which
+  also shows both trackpads live with each sensor's raw distance and roughness.
 * **Grip sense (optional):** with *Sensor when held* set to *Grip sense*, a
   Joy-Con lying on its rail side (as a mouse) is a trackpad, and one held
   normally reports through its sensor whether your hand is on that grip
   (Steam's grip-touch); while it lies on its rail side its grip reads as
-  free. The accelerometer tells the two apart.
+  free. The accelerometer tells the two apart. It is off by default (Steam
+  then sees both grips as held); the configurator's live view shows
+  "grip: hand" / "grip: free" once it's on.
 * **Buttons:** Home = Steam button, Capture = quick access (…), − / + = the
   left / right centre buttons (Back / Start in SDL), GL / GR = L4 / R4; on the Joy-Con rails, left SL = L4, left SR = L5,
   right SR = R4, right SL = R5. ZL / ZR are full
