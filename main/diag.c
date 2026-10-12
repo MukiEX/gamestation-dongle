@@ -101,11 +101,17 @@ bool diag_boot(void)
     return s_safe_mode;
 }
 
+
 static void print_status(void)
 {
     ESP_LOGI(TAG, "last reset: %s; crashes in a row: %lu%s", reason_name(s_reason),
              (unsigned long)s_crash_count, s_safe_mode ? " -> SAFE MODE (Bluetooth off)" : "");
-    if (s_have_dump) {
+    if (s_have_dump && !is_crash(s_reason)) {
+        // A dump from an earlier crash, already seen on that boot: say so once
+        // and clear it, so it doesn't look like a new crash in later logs.
+        ESP_LOGI(TAG, "old crash report (from before this power-on): %s", s_report);
+        diag_clear_crash();
+    } else if (s_have_dump) {
         ESP_LOGW(TAG, "stored crash report: %s", s_report);
     } else if (s_report[0]) {
         ESP_LOGI(TAG, "%s", s_report);
