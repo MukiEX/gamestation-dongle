@@ -1050,7 +1050,6 @@ static const init_cmd_t INIT_SEQUENCE[] = {
     { 0x10, 0x01, 0,  { 0 } },
     { 0x01, 0x0c, 0,  { 0 } },
     { 0x01, 0x01, 4,  { 0x00, 0x00, 0x00, 0x00 } },
-    { 0x09, 0x07, 8,  { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
 };
 
 // Joy-Con 2 Charging Grip: its GL / GR buttons reach the console through the
@@ -1147,7 +1146,10 @@ static bool link_init(link_t *l)
     }
     bonds_remember(l->addr.val, l->pid);
 
-    // (The player-1 LED was already set by the last init command, 09:07.)
+    // Player-1 LED only now that the controller is accepted, so a lit
+    // controller is one that is in use (an ignored one stays dark).
+    static const uint8_t led[8] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    cmd_exchange(l, 0x09, 0x07, led, sizeof(led), NULL, NULL);
 
     // Re-assert 7.5 ms in case the controller negotiated something slower.
     struct ble_gap_upd_params upd = {
@@ -1299,11 +1301,26 @@ static void ctrl_task(void *arg)
         if (now - last_rate_t >= 1000000) {
             float secs = (now - last_rate_t) / 1e6f;
             last_rate_t = now;
+            static uint8_t silent[MAX_LINKS];
             for (int i = 0; i < MAX_LINKS; i++) {
                 uint32_t c = s_links[i].input_count;
                 s_rate[i] = s_links[i].state == LS_READY
                                 ? (uint16_t)((c >= rate_counts[i] ? c - rate_counts[i] : c) / secs) : 0;
                 rate_counts[i] = c;
+                // Controllers stream input constantly (~125/s), even untouched.
+                // A ready link with none for 3 s is stuck: drop it so it can
+                // reconnect cleanly instead of sitting there lit but dead.
+                if (s_links[i].state == LS_READY && s_rate[i] == 0) {
+                    if (++silent[i] >= 3) {
+                        silent[i] = 0;
+                        ESP_LOGW(TAG, "link %d (%s): connected but no input for 3 s (%lu reports in total); "
+                                      "dropping it so it reconnects", i, pad_role_name(s_links[i].role),
+                                 (unsigned long)c);
+                        fail_link(&s_links[i], "no input");
+                    }
+                } else {
+                    silent[i] = 0;
+                }
             }
         }
         if (now - last_stats >= 10000000) {
