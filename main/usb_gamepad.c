@@ -11,6 +11,7 @@
 
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -29,6 +30,12 @@
 static const char *TAG = "usb";
 
 static const out_driver_t *s_drv;
+// TinyUSB may only be touched while it is installed; the log task and the
+// report task check this, and a mode switch takes s_usb_mtx while it
+// reinstalls the stack.
+static volatile bool s_usb_up;
+static SemaphoreHandle_t s_usb_mtx;
+static volatile int s_switch_to = -1;  // pending output mode change
 
 // ---------------------------------------------------------------------------
 // Descriptors (built at start-up from the selected mode)
@@ -215,6 +222,13 @@ static void log_task(void *arg)
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
         // Only send while the host has the port open (DTR raised); until then
         // the ring keeps the most recent lines.
+        if (!s_usb_up || xSemaphoreTake(s_usb_mtx, 0) != pdTRUE) {
+            continue;
+        }
+        if (!s_usb_up) {
+            xSemaphoreGive(s_usb_mtx);
+            continue;
+        }
         while (tud_mounted() && tud_cdc_n_connected(0)) {
             size_t space = tud_cdc_n_write_available(0);
             if (space == 0) {
@@ -235,6 +249,7 @@ static void log_task(void *arg)
         if (tud_mounted() && tud_cdc_n_connected(0)) {
             tinyusb_cdcacm_write_flush(TINYUSB_CDC_ACM_0, 0);
         }
+        xSemaphoreGive(s_usb_mtx);
     }
 }
 
@@ -245,6 +260,8 @@ static void log_task(void *arg)
 #define MODE_COMBO_US 3000000  // hold - and + this long to change the output mode
 
 static TaskHandle_t s_task;
+static void switch_mode(out_mode_t mode);
+static const out_driver_t *driver_for(out_mode_t mode);
 
 void usb_gamepad_poke(void)
 {
@@ -256,16 +273,24 @@ void usb_gamepad_poke(void)
 static void check_mode_combo(const pad_out_t *o)
 {
     static int64_t since;
+    static bool armed = true;  // one switch per hold
     const uint32_t combo = NS2_BTN_MINUS | NS2_BTN_PLUS;
     if ((o->buttons & combo) == combo) {
         int64_t now = esp_timer_get_time();
+        if (!armed) {
+            return;
+        }
         if (since == 0) {
             since = now;
         } else if (now - since >= MODE_COMBO_US) {
-            settings_cycle_out_mode();
+            since = 0;
+            armed = false;
+            usb_gamepad_next_mode();
+            return;
         }
     } else {
         since = 0;
+        armed = true;
     }
 }
 
@@ -277,6 +302,18 @@ static void report_task(void *arg)
     for (;;) {
         // Woken by every controller report, by the USB side, and at least every period.
         ulTaskNotifyTake(pdTRUE, wait);
+        if (s_switch_to >= 0) {
+            out_mode_t m = (out_mode_t)s_switch_to;
+            s_switch_to = -1;
+            switch_mode(m);
+            was_mounted = false;
+            wait = pdMS_TO_TICKS(s_drv->period_ms);
+            continue;
+        }
+        if (!s_usb_up) {
+            wait = pdMS_TO_TICKS(100);
+            continue;
+        }
         pad_out_t out;
         pad_get_output(&out);
         check_mode_combo(&out);
@@ -299,13 +336,6 @@ static void report_task(void *arg)
 // Start-up
 // ---------------------------------------------------------------------------
 
-void usb_gamepad_detach(void)
-{
-    if (s_task) {
-        tud_disconnect();
-    }
-}
-
 static const out_driver_t *driver_for(out_mode_t mode)
 {
     switch (mode) {
@@ -317,17 +347,12 @@ static const out_driver_t *driver_for(out_mode_t mode)
     }
 }
 
-void usb_gamepad_start(void)
+static esp_err_t usb_install(void)
 {
-    s_drv = driver_for(settings_out_mode());
-
-    // Serial number = the dongle's factory MAC, so multiple dongles are distinct.
-    uint8_t mac[6] = { 0 };
-    esp_read_mac(mac, ESP_MAC_BASE);
-    snprintf(s_serial, sizeof(s_serial), "%02X%02X%02X%02X%02X%02X",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     build_descriptors();
-
+    if (s_drv->reset) {
+        s_drv->reset();
+    }
     tinyusb_config_t cfg = TINYUSB_DEFAULT_CONFIG();
     cfg.descriptor.device = &s_device_desc;
     cfg.descriptor.string = s_strings;
@@ -336,18 +361,81 @@ void usb_gamepad_start(void)
     cfg.task.xCoreID = 1;
     esp_err_t err = tinyusb_driver_install(&cfg);
     if (err != ESP_OK) {
-        // Keep running: the UART log still works, and Bluetooth can still be
-        // debugged even if USB never comes up.
-        ESP_LOGE(TAG, "USB stack failed to start (%s); continuing without USB", esp_err_to_name(err));
-        return;
+        return err;
     }
-
     tinyusb_config_cdcacm_t cdc = {
         .cdc_port = TINYUSB_CDC_ACM_0,
     };
     err = tinyusb_cdcacm_init(&cdc);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "USB serial (log) port failed to start: %s", esp_err_to_name(err));
+    }
+    s_usb_up = true;
+    return ESP_OK;
+}
+
+// Re-enumerates as a different controller without restarting the dongle, so
+// the Bluetooth connections stay up: leave the bus, tear the USB stack down,
+// and bring it back with the new mode's descriptors.
+static void switch_mode(out_mode_t mode)
+{
+    const out_driver_t *next = driver_for(mode);
+    ESP_LOGW(TAG, "switching USB output to %s", next->name);
+    vTaskDelay(pdMS_TO_TICKS(200));  // let that line reach the PC
+    rumble_stop();
+    xSemaphoreTake(s_usb_mtx, portMAX_DELAY);
+    s_usb_up = false;
+    tud_disconnect();
+    vTaskDelay(pdMS_TO_TICKS(100));
+    tinyusb_cdcacm_deinit(TINYUSB_CDC_ACM_0);
+    esp_err_t err = tinyusb_driver_uninstall();
+    if (err != ESP_OK) {
+        xSemaphoreGive(s_usb_mtx);
+        ESP_LOGE(TAG, "couldn't stop USB (%s); restarting instead", esp_err_to_name(err));
+        vTaskDelay(pdMS_TO_TICKS(200));
+        esp_restart();
+    }
+    vTaskDelay(pdMS_TO_TICKS(500));  // long enough for the PC to see an unplug
+    s_drv = next;
+    err = usb_install();
+    xSemaphoreGive(s_usb_mtx);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "USB restart failed (%s); restarting the dongle", esp_err_to_name(err));
+        vTaskDelay(pdMS_TO_TICKS(200));
+        esp_restart();
+    }
+    ESP_LOGI(TAG, "USB started as %s (%04x:%04x); controllers stay connected",
+             s_drv->name, s_drv->vid, s_drv->pid);
+}
+
+void usb_gamepad_next_mode(void)
+{
+    out_mode_t next = settings_next_out_mode();  // saved for the next power-up
+    if (s_task) {
+        s_switch_to = next;
+        usb_gamepad_poke();
+    } else {
+        ESP_LOGW(TAG, "USB is off in this build; %s applies after a restart", settings_out_mode_name(next));
+    }
+}
+
+void usb_gamepad_start(void)
+{
+    s_drv = driver_for(settings_out_mode());
+    s_usb_mtx = xSemaphoreCreateMutex();
+
+    // Serial number = the dongle's factory MAC, so multiple dongles are distinct.
+    uint8_t mac[6] = { 0 };
+    esp_read_mac(mac, ESP_MAC_BASE);
+    snprintf(s_serial, sizeof(s_serial), "%02X%02X%02X%02X%02X%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    esp_err_t err = usb_install();
+    if (err != ESP_OK) {
+        // Keep running: the UART log still works, and Bluetooth can still be
+        // debugged even if USB never comes up.
+        ESP_LOGE(TAG, "USB stack failed to start (%s); continuing without USB", esp_err_to_name(err));
+        return;
     }
     s_fmt_mtx = xSemaphoreCreateMutex();
     xTaskCreatePinnedToCore(log_task, "usb_log", 3072, NULL, 2, &s_log_task, 1);

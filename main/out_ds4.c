@@ -406,6 +406,12 @@ static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, u
     }
 }
 
+static void reset(void)
+{
+    s_have_last = false;
+    s_counter = 0;
+}
+
 const out_driver_t out_ds4 = {
     .name = "DualShock 4",
     .vid = 0x054C, .pid = 0x09CC, .bcd_device = 0x0100,
@@ -414,6 +420,7 @@ const out_driver_t out_ds4 = {
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 1,
     .hid_report_desc = report_desc,
     .send = send,
+    .reset = reset,
     .period_ms = 4,
     .get_report = get_report,
     .set_report = set_report,

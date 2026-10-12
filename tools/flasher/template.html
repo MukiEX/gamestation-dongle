@@ -351,11 +351,11 @@ __MD5_JS__
     "XInput (default mode): shows up as an Xbox 360 controller; log says 'USB started as XInput'",
     "XInput: every button and both sticks correct in a gamepad tester (A = bottom face button)",
     "XInput: rumble test in the gamepad tester buzzes the controller(s), and stops when it ends",
-    "Press BOOT briefly: dongle restarts as DualShock 4 (press a controller button to reconnect)",
+    "Press BOOT briefly: dongle comes back as a DualShock 4 within ~2 s; the Joy-Cons stay connected",
     "DS4: every button and both sticks correct (Capture = touchpad click, Home = PS)",
     "DS4: rumble test works",
-    "Press BOOT: Switch Pro Controller mode; log says 'host handshake done' when a tester or Steam opens it",
-    "Switch Pro: every button and both sticks correct",
+    "Press BOOT: Switch Pro mode; log says 'host handshake done' (test with Steam closed, in Chrome)",
+    "Switch Pro: every button and both sticks correct in the Chrome gamepad tester (Steam fully closed)",
     "Switch Pro: rumble test works",
     "Press BOOT: generic HID mode works as in step 1",
     "Hold - and + together for 3 s: switches to the next mode",
@@ -563,7 +563,8 @@ __MD5_JS__
     setState(lost ? (waiting ? "Port gone · waiting for it to come back" : "Port closed (unplugged or restarted)") : "Not connected", lost ? "warn" : "");
     mark(lost ? "port lost (board restarted or unplugged)" : "disconnected");
     if (lost && kind === "dongle") {
-      addLine("[After a mode change the dongle comes back as a different USB device: click Connect and pick its port. " +
+      addLine("[After a mode change the dongle comes back as a different USB device: click Connect and pick its port " +
+              "(Chrome asks once per mode). " +
               "To follow restarts without reconnecting, use the board's UART/COM port instead.]", "e");
     }
   }

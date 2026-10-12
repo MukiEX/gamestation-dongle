@@ -6,7 +6,8 @@
 // generic HID, with rumble. A second USB interface is a serial port carrying
 // the log.
 //
-// BOOT button (GPIO0): short press = next output mode (the dongle restarts);
+// BOOT button (GPIO0): short press = next output mode (USB re-enumerates,
+// controllers stay connected);
 // hold for 5 seconds = forget every paired controller.
 //
 // Based on Switch2Connect by TommyWabg (GPL-3.0).
@@ -32,9 +33,9 @@
 static const char *TAG = "main";
 
 #ifdef DONGLE_DIAG
-#define FW_VERSION       "0.2.1-step2-diag"
+#define FW_VERSION       "0.2.2-step2-diag"
 #else
-#define FW_VERSION       "0.2.1-step2"
+#define FW_VERSION       "0.2.2-step2"
 #endif
 #define BOOT_GPIO        GPIO_NUM_0
 #define FORGET_HOLD_US   5000000
@@ -77,7 +78,7 @@ static void button_task(void *arg)
         } else {
             if (pressed_since != 0 && !fired && now - pressed_since >= 50000 &&
                 now - pressed_since < SHORT_PRESS_US) {
-                settings_cycle_out_mode();  // restarts
+                usb_gamepad_next_mode();
             }
             pressed_since = 0;
             fired = false;

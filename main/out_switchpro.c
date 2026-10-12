@@ -372,8 +372,9 @@ static void handle_subcommand(const uint8_t *d, uint16_t n)
 static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, uint16_t len)
 {
     (void)type;
-    if (id != 0 && len > 0 && buf[0] != id) {
-        // Control-pipe SET_REPORT with the ID stripped: put it back.
+    if (id != 0) {
+        // Control-pipe SET_REPORT: TinyUSB strips the report ID; put it back.
+        // (Interrupt OUT data arrives with id 0 and the ID as the first byte.)
         static uint8_t tmp[64];
         if (len > 63) len = 63;
         tmp[0] = id;
@@ -419,6 +420,16 @@ static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, u
     }
 }
 
+static void reset(void)
+{
+    portENTER_CRITICAL(&s_q_mux);
+    s_q_head = s_q_count = 0;
+    portEXIT_CRITICAL(&s_q_mux);
+    s_ready = false;
+    s_sent_hello = false;
+    s_timer = 0;
+}
+
 const out_driver_t out_switchpro = {
     .name = "Switch Pro Controller",
     .vid = 0x057E, .pid = 0x2009, .bcd_device = 0x0210,
@@ -427,6 +438,7 @@ const out_driver_t out_switchpro = {
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 1,
     .hid_report_desc = report_desc,
     .send = send,
+    .reset = reset,
     .period_ms = 8,
     .set_report = set_report,
 };

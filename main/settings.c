@@ -2,11 +2,9 @@
 #include "settings.h"
 
 #include "esp_log.h"
-#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs.h"
-#include "usb_gamepad.h"
 
 static const char *TAG = "settings";
 
@@ -41,7 +39,7 @@ const char *settings_out_mode_name(out_mode_t mode)
     }
 }
 
-void settings_cycle_out_mode(void)
+out_mode_t settings_next_out_mode(void)
 {
     out_mode_t next = (out_mode_t)((s_mode + 1) % OUT_MODE_COUNT);
     nvs_handle_t h;
@@ -50,12 +48,6 @@ void settings_cycle_out_mode(void)
         nvs_commit(h);
         nvs_close(h);
     }
-    ESP_LOGW(TAG, "switching output mode to %s; restarting (press a button on your controller "
-                  "afterwards to reconnect it)", settings_out_mode_name(next));
-    vTaskDelay(pdMS_TO_TICKS(300));  // let the log reach the PC
-    // Leave the bus for a moment first: without a visible unplug the PC can
-    // keep using the old device's drivers after the restart.
-    usb_gamepad_detach();
-    vTaskDelay(pdMS_TO_TICKS(700));
-    esp_restart();
+    s_mode = next;
+    return next;
 }

@@ -17,6 +17,5 @@ void settings_init(void);           // call after nvs_flash_init()
 out_mode_t settings_out_mode(void);
 const char *settings_out_mode_name(out_mode_t mode);
 
-// Saves the next output mode and restarts the dongle so the PC sees the new
-// USB device. Does not return.
-void settings_cycle_out_mode(void);
+// Saves the next output mode in the cycle and returns it.
+out_mode_t settings_next_out_mode(void);

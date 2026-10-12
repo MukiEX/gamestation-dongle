@@ -125,6 +125,11 @@ static bool send(const pad_out_t *o)
     return true;
 }
 
+static void reset(void)
+{
+    s_have_last = false;
+}
+
 const out_driver_t out_hid = {
     .name = "generic HID gamepad",
     .vid = 0x303A, .pid = 0x8243, .bcd_device = 0x0001,
@@ -133,5 +138,6 @@ const out_driver_t out_hid = {
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 1,
     .hid_report_desc = report_desc,
     .send = send,
+    .reset = reset,
     .period_ms = 100,
 };

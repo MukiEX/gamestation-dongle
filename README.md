@@ -42,8 +42,14 @@ TommyWabg, so this project is **GPL-3.0**.
 | **Generic HID** | "Joy-Con 2 Dongle" HID gamepad (303A:8243) | no |
 
 **Changing mode:** press **BOOT** briefly, or hold **−** and **+** together for
-3 seconds. The dongle saves the next mode and restarts; press a button on your
-controller to reconnect it. The order is XInput → DS4 → Switch Pro → generic HID.
+3 seconds. The dongle drops off USB for about a second and comes back as the
+next controller; the Bluetooth controllers stay connected. The mode is saved
+for the next power-up. The order is XInput → DS4 → Switch Pro → generic HID.
+
+Switch Pro mode only reads correctly in software that speaks the Pro
+Controller's USB protocol (Steam, SDL games, Chrome's gamepad support, a
+Switch). Windows' generic game-controller view shows nonsense for it, as it
+does for a real wired Pro Controller.
 
 Every mode also has the serial log port. Console use (a real Switch or PS4) is
 untested; consoles may refuse the extra port, and the configurator (step 3)

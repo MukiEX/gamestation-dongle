@@ -29,6 +29,8 @@ typedef struct {
     // changed and at least every `period_ms`. Returns false if the endpoint
     // was busy and the call should be repeated shortly.
     bool (*send)(const pad_out_t *o);
+    // Clears per-connection state before the mode (re)starts; may be NULL.
+    void (*reset)(void);
     uint16_t period_ms;
 
     // HID GET_REPORT / SET_REPORT (and interrupt OUT) handlers; may be NULL.

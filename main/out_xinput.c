@@ -204,6 +204,12 @@ static bool send(const pad_out_t *o)
     return true;
 }
 
+static void reset(void)
+{
+    s_have_last = false;
+    s_ep_in = s_ep_out = 0;
+}
+
 const out_driver_t out_xinput = {
     .name = "XInput (Xbox 360)",
     .vid = 0x045E, .pid = 0x028E, .bcd_device = 0x0114,
@@ -212,5 +218,6 @@ const out_driver_t out_xinput = {
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 1,
     .hid_report_desc = NULL,
     .send = send,
+    .reset = reset,
     .period_ms = 100,
 };

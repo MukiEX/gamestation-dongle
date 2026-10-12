@@ -9,6 +9,6 @@ void usb_gamepad_start(void);
 // Wakes the report task; safe to call from any task (not from an ISR).
 void usb_gamepad_poke(void);
 
-// Drops off the USB bus (as if unplugged) so the PC re-enumerates the dongle
-// cleanly after a restart into another output mode.
-void usb_gamepad_detach(void);
+// Switches to the next output mode (saved for the next power-up too). The
+// dongle re-enumerates over USB; Bluetooth connections stay up.
+void usb_gamepad_next_mode(void);
