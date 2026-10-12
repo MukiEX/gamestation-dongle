@@ -93,7 +93,8 @@ B, whatever the label on the Nintendo controller says.
 | SL, SR | – | – | – |
 
 **Touchpad (DS4 and DualSense):** each Joy-Con's mouse sensor touches its half
-of the touchpad (left Joy-Con: left half), with the same virtual finger,
+of the touchpad (left Joy-Con: left half) while the Joy-Con lies on its rail
+side on a surface, like a mouse; held normally or lifted, it doesn't. Same virtual finger,
 speed and lift-off settings as Steam Controller mode; turn it off in the
 configurator (*DS4 / DualSense touchpad*) if a game reacts to stray touches.
 

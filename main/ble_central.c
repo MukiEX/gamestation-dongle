@@ -717,6 +717,7 @@ static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t
         if (ax > 0.75f) l->tp_mouse_pose = true;
         else if (ax < 0.55f) l->tp_mouse_pose = false;
     }
+    tp->mouse_pose = l->tp_mouse_pose;
     if (st.pad_grip && !l->tp_mouse_pose) {
         // Held normally: the sensor faces the palm, so "something close" = a
         // hand on the grip (the loosest thresholds; a palm is no table).

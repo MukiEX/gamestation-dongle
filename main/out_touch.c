@@ -2,8 +2,9 @@
 // touchpad half-clicks (GL / GR on Auto).
 //
 // The pad holds two fingers: the left half belongs to the left Joy-Con, the
-// right half to the right one. A half's finger is down while that Joy-Con's
-// sensor touches a surface (it then follows the sensor, the same virtual
+// right half to the right one. A half's finger is down while that Joy-Con lies
+// on its rail side and its sensor touches a surface (it then follows the
+// sensor, the same virtual
 // finger as Steam Controller mode) or while that half is clicked (resting at
 // the half's centre). Active fingers are packed first and every new touch gets
 // a new finger ID, as on a real controller.
@@ -32,7 +33,9 @@ bool out_touchpad(const pad_out_t *o, uint16_t w, uint16_t h, uint8_t fingers[8]
     uint16_t x[2], y[2];
     for (int i = 0; i < 2; i++) {
         bool clicked = (o->buttons & (i == 0 ? NS2_BTN_TP_LEFT : NS2_BTN_TP_RIGHT)) != 0;
-        bool sensor = sensors && o->tp[i].valid && o->tp[i].touch;
+        // Only a Joy-Con lying on its rail side (mouse use) touches the pad:
+        // held normally its sensor sees the palm, not a surface.
+        bool sensor = sensors && o->tp[i].valid && o->tp[i].mouse_pose && o->tp[i].touch;
         click |= clicked;
         down[i] = clicked || sensor;
         float cx = i == 0 ? w / 4.0f : w * 3.0f / 4.0f, cy = h / 2.0f;
