@@ -36,6 +36,21 @@ static const out_driver_t *s_drv;
 static volatile bool s_usb_up;
 static SemaphoreHandle_t s_usb_mtx;
 static volatile int s_switch_to = -1;  // pending output mode change
+// Set when the host configures the device, cleared on unplug and whenever the
+// stack is reinstalled. TinyUSB's own tud_mounted() can report the previous
+// stack's state until the new stack's task has initialised, so it isn't used.
+static volatile bool s_mounted;
+
+static void usb_event(tinyusb_event_t *event, void *arg)
+{
+    (void)arg;
+    if (event->id == TINYUSB_EVENT_ATTACHED) {
+        s_mounted = true;
+        usb_gamepad_poke();
+    } else if (event->id == TINYUSB_EVENT_DETACHED) {
+        s_mounted = false;
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Descriptors (built at start-up from the selected mode)
@@ -229,7 +244,7 @@ static void log_task(void *arg)
             xSemaphoreGive(s_usb_mtx);
             continue;
         }
-        while (tud_mounted() && tud_cdc_n_connected(0)) {
+        while (s_mounted && tud_cdc_n_connected(0)) {
             size_t space = tud_cdc_n_write_available(0);
             if (space == 0) {
                 tud_cdc_n_write_flush(0);
@@ -246,7 +261,7 @@ static void log_task(void *arg)
                 break;
             }
         }
-        if (tud_mounted() && tud_cdc_n_connected(0)) {
+        if (s_mounted && tud_cdc_n_connected(0)) {
             tinyusb_cdcacm_write_flush(TINYUSB_CDC_ACM_0, 0);
         }
         xSemaphoreGive(s_usb_mtx);
@@ -317,7 +332,7 @@ static void report_task(void *arg)
         pad_out_t out;
         pad_get_output(&out);
         check_mode_combo(&out);
-        bool mounted = tud_mounted();
+        bool mounted = s_mounted;
         if (!mounted) {
             if (was_mounted) {
                 rumble_stop();  // the PC went away: never leave a motor running
@@ -362,6 +377,8 @@ static esp_err_t usb_install(void)
     cfg.descriptor.string_count = sizeof(s_strings) / sizeof(s_strings[0]);
     cfg.descriptor.full_speed_config = s_config_desc;
     cfg.task.xCoreID = 1;
+    cfg.event_cb = usb_event;
+    s_mounted = false;
     esp_err_t err = tinyusb_driver_install(&cfg);
     if (err != ESP_OK) {
         return err;
@@ -388,6 +405,7 @@ static void switch_mode(out_mode_t mode)
     rumble_stop();
     xSemaphoreTake(s_usb_mtx, portMAX_DELAY);
     s_usb_up = false;
+    s_mounted = false;
     tud_disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));
     tinyusb_cdcacm_deinit(TINYUSB_CDC_ACM_0);
