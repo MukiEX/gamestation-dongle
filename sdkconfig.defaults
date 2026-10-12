@@ -21,18 +21,24 @@ CONFIG_ESP_CONSOLE_UART_DEFAULT=y
 CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 
-# Bluetooth: NimBLE, central only. Switch 2 controllers use a plain
-# (unencrypted, un-bonded) BLE link plus Nintendo's application-level pairing,
-# so no security manager or bond storage is needed.
+# Bluetooth: NimBLE configured like Switch2Connect's known-working bridge.
+# The dongle only acts as a central, but the GATT server, peripheral role and
+# security support stay enabled as they are there: a central with no ATT server
+# leaves the controller's own ATT requests unanswered. Switch 2 controllers use
+# Nintendo's application-level pairing, so SMP is never started by us.
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
 CONFIG_BT_NIMBLE_ROLE_CENTRAL=y
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=y
-CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=n
-CONFIG_BT_NIMBLE_ROLE_BROADCASTER=n
-CONFIG_BT_NIMBLE_MAX_CONNECTIONS=3
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
+CONFIG_BT_NIMBLE_GATT_SERVER=y
+CONFIG_BT_NIMBLE_SECURITY_ENABLE=y
+CONFIG_BT_NIMBLE_EXT_SCAN=n
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=8
+CONFIG_BT_NIMBLE_MAX_BONDS=8
+CONFIG_BT_NIMBLE_MAX_CCCDS=24
 CONFIG_BT_NIMBLE_NVS_PERSIST=n
-CONFIG_BT_NIMBLE_SECURITY_ENABLE=n
 CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=256
 # Bigger mbuf pool / more concurrent GATT procedures: two Joy-Cons at 7.5 ms plus
 # rumble writes exhaust the defaults (learned the hard way by Switch2Connect).

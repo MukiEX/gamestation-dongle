@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "esp_bt.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -33,6 +34,8 @@
 #include "host/util/util.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
+#include "services/gap/ble_svc_gap.h"
+#include "services/gatt/ble_svc_gatt.h"
 
 #include "bonds.h"
 #include "ns2_proto.h"
@@ -43,7 +46,7 @@ static const char *TAG = "ble";
 #define MAX_LINKS          2      // at most L + R (or one Pro) at a time
 #define MAX_CHRS           48
 #define ACK_MAX            96
-#define CMD_TIMEOUT_MS     800
+#define CMD_TIMEOUT_MS     2000   // Switch2Connect uses 2 s
 #define ADV_STALE_US       400000 // ignore adverts queued longer than this
 #define CONNECT_TIMEOUT_MS 6000
 #define SETTLE_US          1000000
@@ -397,6 +400,9 @@ static int on_subscribed(uint16_t conn, const struct ble_gatt_error *err, struct
     }
     if (err->status != 0) {
         ESP_LOGW(TAG, "link %d: subscribe step %d status=%d", link_index(l), l->sub_step, err->status);
+    } else {
+        ESP_LOGI(TAG, "link %d: subscribed to %s (CCCD 0x%04x)", link_index(l),
+                 l->sub_step == 0 ? "command replies" : "input", l->sub_step == 0 ? l->h_ack_cccd : l->h_input_cccd);
     }
     l->sub_step++;
     subscribe_next(l);
@@ -526,6 +532,8 @@ static int on_chr(uint16_t conn, const struct ble_gatt_error *err, const struct 
         fail_link(l, "not a Switch 2 controller (missing characteristics)");
         return 0;
     }
+    ESP_LOGI(TAG, "link %d: %d characteristics; input 0x%04x, reply 0x%04x, command 0x%04x%s, rumble 0x%04x",
+             link_index(l), l->n_chrs, l->h_input, l->h_ack, l->h_cmd, l->cmd_no_rsp ? " (no-rsp)" : "", l->h_rumble);
     l->dsc_step = 0;
     discover_next_cccd(l);
     return 0;
@@ -613,6 +621,10 @@ static void handle_notify(const struct ble_gap_event *event)
         ack_t a = { .len = (uint8_t)len };
         memcpy(a.data, buf, len);
         xQueueSend(l->ackq, &a, 0);
+    } else if (l->state != LS_READY) {
+        ESP_LOGI(TAG, "link %d: notify on handle 0x%04x, %u bytes: %02x %02x %02x %02x",
+                 link_index(l), attr, len, len > 0 ? buf[0] : 0, len > 1 ? buf[1] : 0,
+                 len > 2 ? buf[2] : 0, len > 3 ? buf[3] : 0);
     }
 }
 
@@ -732,6 +744,12 @@ static int gatt_write(link_t *l, uint16_t handle, bool no_rsp, const uint8_t *da
     if (!link_alive(l) || handle == 0) {
         return BLE_HS_ENOTCONN;
     }
+    // A write on a link that is going down makes NimBLE assert, so check the
+    // connection still exists right before writing.
+    struct ble_gap_conn_desc desc;
+    if (ble_gap_conn_find(l->conn, &desc) != 0) {
+        return BLE_HS_ENOTCONN;
+    }
     return no_rsp ? ble_gattc_write_no_rsp_flat(l->conn, handle, data, len)
                   : ble_gattc_write_flat(l->conn, handle, data, len, NULL, NULL);
 }
@@ -799,8 +817,14 @@ static bool cmd_exchange(link_t *l, uint8_t cmd, uint8_t sub, const uint8_t *dat
         if (!link_alive(l)) {
             return false;
         }
-        ESP_LOGW(TAG, "link %d: cmd %02x:%02x timed out%s", link_index(l), cmd, sub,
-                 attempt == 0 ? ", retrying" : "");
+        struct ble_gap_conn_desc d;
+        uint8_t txp = 0, rxp = 0;
+        bool have = ble_gap_conn_find(l->conn, &d) == 0;
+        ble_gap_read_le_phy(l->conn, &txp, &rxp);
+        ESP_LOGW(TAG, "link %d: cmd %02x:%02x timed out%s (conn %s, itvl %.2f ms, phy %u/%u, hci %s)",
+                 link_index(l), cmd, sub, attempt == 0 ? ", retrying" : "",
+                 have ? "up" : "gone", have ? d.conn_itvl * 1.25f : 0.0f, txp, rxp,
+                 esp_vhci_host_check_send_available() ? "ready" : "BLOCKED");
     }
     return false;
 }
@@ -1040,6 +1064,8 @@ static void handle_gatt_ready(int idx)
     if (l->state != LS_INIT) {
         return;
     }
+    // Switch2Connect waits 300 ms between connecting and the first command.
+    vTaskDelay(pdMS_TO_TICKS(300));
     if (!link_init(l)) {
         if (link_alive(l)) {
             ble_gap_terminate(l->conn, BLE_ERR_REM_USER_CONN_TERM);
@@ -1152,6 +1178,9 @@ void ble_central_start(void)
     }
     ble_hs_cfg.reset_cb = on_reset;
     ble_hs_cfg.sync_cb = on_sync;
+    ble_svc_gap_init();
+    ble_svc_gatt_init();
+    ble_svc_gap_device_name_set("Joy-Con 2 Dongle");
     nimble_port_freertos_init(host_task);
 
     xTaskCreatePinnedToCore(ctrl_task, "ble_ctrl", 6144, NULL, 6, NULL, 1);
