@@ -12,7 +12,7 @@ TommyWabg, so this project is **GPL-3.0**.
 | Step | What | State |
 |---|---|---|
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
-| 2 | XInput, DS4, Switch Pro output modes + rumble | **this build** |
+| 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
 | 3 | Web configurator at 192.168.7.1 (hold a button at boot), settings in flash | next |
 | 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | |
 | 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
