@@ -350,6 +350,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddNumberToObject(o, "padSpeed", s->pad_speed);
     cJSON_AddNumberToObject(o, "padLift", s->pad_lift);
     cJSON_AddBoolToObject(o, "padGrip", s->pad_grip);
+    cJSON_AddBoolToObject(o, "padDsTouch", s->pad_ds_touch);
     return o;
 }
 
@@ -454,6 +455,7 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "padSpeed")) && cJSON_IsNumber(v)) s.pad_speed = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "padLift")) && cJSON_IsNumber(v)) s.pad_lift = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "padGrip")) && cJSON_IsBool(v)) s.pad_grip = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "padDsTouch")) && cJSON_IsBool(v)) s.pad_ds_touch = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);
         if (g < GRIP_COUNT) s.grip_gl = g;

@@ -193,6 +193,13 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       </div>
       <div class="hint">Grip sense: a Joy-Con lying on its rail side is a trackpad; held normally, its sensor tells Steam whether your hand is on that grip.</div>
     </div>
+    <div class="row">
+      <label>DS4 / DualSense touchpad</label>
+      <div class="seg" id="padDsTouch">
+        <button data-v="true">Joy-Con mouse</button><button data-v="false">Off</button>
+      </div>
+      <div class="hint">Sliding a Joy-Con on a surface touches its half of the touchpad (left Joy-Con: left half). Off: only the GL / GR clicks.</div>
+    </div>
     <details class="adv" id="adv">
       <summary>Advanced: motion axis flips</summary>
       <p class="hint" style="margin:6px 0 0">Not needed normally: motion is verified correct for Steam and SDL games.
@@ -307,6 +314,7 @@ function showSettings() {
   $("padSpeedOut").textContent = padSpeedName(settings.padSpeed);
   seg("padLift", String(settings.padLift));
   seg("padGrip", String(!!settings.padGrip));
+  seg("padDsTouch", String(settings.padDsTouch !== false));
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
   const auto = { ds4: "the touchpad's left / right half", ds5: "the touchpad's left / right half",
@@ -374,6 +382,10 @@ for (const id of ["flipDs4", "flipSwitch"]) {
   });
 }
 $("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
+$("padDsTouch").addEventListener("click", (e) => {
+  const v = e.target.dataset && e.target.dataset.v;
+  if (v !== undefined) save({ padDsTouch: v === "true" });
+});
 $("padGrip").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
   if (v !== undefined) save({ padGrip: v === "true" });

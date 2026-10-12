@@ -22,6 +22,7 @@ static settings_t s_cur = {
     .grip_gr = GRIP_AUTO,
     .pad_speed = 14,
     .pad_lift = 0,
+    .pad_ds_touch = true,
 };
 
 static const struct { const char *key, *name; } s_grips[GRIP_COUNT] = {
@@ -93,6 +94,7 @@ void settings_init(void)
         if (s.pad_speed == 0) s.pad_speed = 1;
         s.pad_lift = get_u8(h, "padlift", s.pad_lift, SETTINGS_PAD_LIFT_MAX);
         s.pad_grip = get_u8(h, "padgrip", s.pad_grip, 1);
+        s.pad_ds_touch = get_u8(h, "padds", s.pad_ds_touch, 1);
         s_cur = s;
         nvs_close(h);
     }
@@ -142,6 +144,7 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "padspd2", s.pad_speed);
         nvs_set_u8(h, "padlift", s.pad_lift);
         nvs_set_u8(h, "padgrip", s.pad_grip);
+        nvs_set_u8(h, "padds", s.pad_ds_touch);
         nvs_commit(h);
         nvs_close(h);
     }

@@ -73,3 +73,9 @@ static inline void out_motion_flipped(const pad_motion_t *m, uint8_t flips, floa
         a[i] = (flips & (8u << i)) ? -m->accel[i] : m->accel[i];
     }
 }
+
+// DS4 / DualSense touchpad: fills the two 4-byte finger slots (left half from
+// the left Joy-Con's mouse sensor or the left half-click, right likewise) and
+// returns whether the pad is clicked. w x h is the pad's resolution.
+bool out_touchpad(const pad_out_t *o, uint16_t w, uint16_t h, uint8_t fingers[8]);
+void out_touchpad_reset(void);

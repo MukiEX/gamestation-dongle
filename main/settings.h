@@ -57,6 +57,7 @@ typedef struct {
     uint8_t pad_speed;       // 1..19: 1..9 = 0.1..0.9 x the old slowest, 10..19 = speeds 1..10 (14 = default 5)
     uint8_t pad_lift;        // 0..2: how far off the surface still counts as touching
     bool pad_grip;           // held normally (not on its rail side): sensor = grip sensor
+    bool pad_ds_touch;       // DS4 / DualSense: the mouse sensors drive the touchpad
 } settings_t;
 
 #define SETTINGS_PAD_SPEED_MAX 19

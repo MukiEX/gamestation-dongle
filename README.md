@@ -92,6 +92,11 @@ B, whatever the label on the Nintendo controller says.
 | C (GameChat) | – | DualSense: mute button | – |
 | SL, SR | – | – | – |
 
+**Touchpad (DS4 and DualSense):** each Joy-Con's mouse sensor touches its half
+of the touchpad (left Joy-Con: left half), with the same virtual finger,
+speed and lift-off settings as Steam Controller mode; turn it off in the
+configurator (*DS4 / DualSense touchpad*) if a game reacts to stray touches.
+
 **Back buttons (GL / GR)** on the Pro Controller 2 and on the Joy-Con 2
 Charging Grip. The grip's buttons reach the dongle through the Joy-Cons: the
 dongle sends each Joy-Con the "enable charging grip buttons" command (08:02)

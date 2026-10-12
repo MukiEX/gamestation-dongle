@@ -208,37 +208,6 @@ static void put32(uint8_t *d, uint32_t v)
     d[0] = (uint8_t)v; d[1] = (uint8_t)(v >> 8); d[2] = (uint8_t)(v >> 16); d[3] = (uint8_t)(v >> 24);
 }
 
-// Touchpad (1920 x 1080): GL / GR on Auto click its left / right half, as in
-// DS4 mode; each new touch gets a new finger ID.
-static void put_finger(uint8_t *f, uint8_t id, bool down, uint16_t x, uint16_t y)
-{
-    f[0] = (uint8_t)((id & 0x7F) | (down ? 0x00 : 0x80));
-    f[1] = (uint8_t)x;
-    f[2] = (uint8_t)(((x >> 8) & 0x0F) | ((y & 0x0F) << 4));
-    f[3] = (uint8_t)(y >> 4);
-}
-
-static void touchpad(uint32_t b, uint8_t *fingers, uint8_t *buttons2)
-{
-    static uint8_t ids[2];
-    static bool was[2];
-    static uint16_t pos[2];
-    static uint8_t next_id;
-    bool left = (b & NS2_BTN_TP_LEFT) != 0, right = (b & NS2_BTN_TP_RIGHT) != 0;
-    bool down[2] = { left || right, left && right };
-    uint16_t want[2] = { left ? 480 : 1440, 1440 };
-    for (int i = 0; i < 2; i++) {
-        if (down[i] && (!was[i] || pos[i] != want[i])) {
-            ids[i] = next_id++ & 0x7F;
-            pos[i] = want[i];
-        }
-        was[i] = down[i];
-    }
-    if (left || right) *buttons2 |= 0x02;  // touchpad click
-    put_finger(&fingers[0], ids[0], down[0], pos[0], 540);
-    put_finger(&fingers[4], ids[1], down[1], pos[1], 540);
-}
-
 static bool send(const pad_out_t *o)
 {
     if (!tud_hid_ready()) {
@@ -288,7 +257,10 @@ static bool send(const pad_out_t *o)
     int64_t now = esp_timer_get_time();
     put32(&p[27], (uint32_t)((now - s_ts_base) * 3));  // sensor timestamp, 1/3 us units
     p[31] = 0x1F;                                     // temperature
-    touchpad(b, &p[32], &p[9]);
+    // Touchpad (1920 x 1080): Joy-Con mouse sensors and GL / GR half-clicks.
+    if (out_touchpad(o, 1920, 1080, &p[32])) {
+        p[9] |= 0x02;  // touchpad click
+    }
     put32(&p[48], (uint32_t)((now - s_ts_base) * 3));
     p[52] = 0x2A;  // battery: full (0x2_), level 10
     p[53] = 0x08;  // connected over USB
@@ -367,6 +339,7 @@ static void reset(void)
 {
     s_counter = 0;
     s_seq = 0;
+    out_touchpad_reset();
 }
 
 const out_driver_t out_ds5 = {

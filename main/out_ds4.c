@@ -1,6 +1,7 @@
 // DualShock 4 output (Sony 054C:09CC). Report descriptor, feature reports and
 // report layout follow GP2040-CE (MIT). Gyro and accelerometer are passed
-// through from the controller; the touchpad reads as untouched.
+// through from the controller; the touchpad takes the Joy-Con mouse sensors
+// and the GL / GR half-clicks (out_touch.c).
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <math.h>
@@ -315,44 +316,6 @@ static void put16(uint8_t *d, float v)
     d[1] = (uint8_t)((uint16_t)x >> 8);
 }
 
-// Touchpad half clicks (GL / GR by default): a click plus a finger resting on
-// that half, which is how Steam Input and DS4Windows tell left from right.
-// The pad is 1920 x 943; each new touch gets a new finger ID, as on a real DS4.
-static void put_finger(uint8_t *f, uint8_t id, bool down, uint16_t x, uint16_t y)
-{
-    f[0] = (uint8_t)((id & 0x7F) | (down ? 0x00 : 0x80));
-    f[1] = (uint8_t)x;
-    f[2] = (uint8_t)(((x >> 8) & 0x0F) | ((y & 0x0F) << 4));
-    f[3] = (uint8_t)(y >> 4);
-}
-
-static void touchpad(uint32_t b, uint8_t *r)
-{
-    static uint8_t ids[2];
-    static bool was[2];
-    static uint16_t pos[2];
-    static uint8_t next_id, packet;
-    bool left = (b & NS2_BTN_TP_LEFT) != 0, right = (b & NS2_BTN_TP_RIGHT) != 0;
-    // Finger 1 is whichever half was pressed (the left one if both), finger 2 the other.
-    bool down[2] = { left || right, left && right };
-    uint16_t want[2] = { left ? 480 : 1440, 1440 };
-    for (int i = 0; i < 2; i++) {
-        if (down[i] && (!was[i] || pos[i] != want[i])) {
-            ids[i] = next_id++ & 0x7F;  // a new touch
-            pos[i] = want[i];
-        }
-        was[i] = down[i];
-    }
-    if (left || right) {
-        r[7] |= 0x02;  // touchpad click
-        packet++;
-    }
-    r[33] = 0x01;   // one touch packet
-    r[34] = packet;
-    put_finger(&r[35], ids[0], down[0], pos[0], 471);
-    put_finger(&r[39], ids[1], down[1], pos[1], 471);
-}
-
 static bool send(const pad_out_t *o)
 {
     if (!tud_hid_ready()) {
@@ -396,7 +359,16 @@ static bool send(const pad_out_t *o)
         put16(&r[21], 8192.0f);  // at rest, lying flat
     }
     r[30] = 0x1B;  // cable connected, battery full
-    touchpad(b, r);
+    // Touchpad (1920 x 943): Joy-Con mouse sensors and GL / GR half-clicks.
+    static uint8_t packet;
+    if (out_touchpad(o, 1920, 943, &r[35])) {
+        r[7] |= 0x02;  // touchpad click
+    }
+    if (r[35] < 0x80 || r[39] < 0x80) {
+        packet++;  // a touch packet counter that moves while fingers are down
+    }
+    r[33] = 0x01;  // one touch packet
+    r[34] = packet;
 
     int64_t now = esp_timer_get_time();
     // Only the counters differ when nothing changed: compare without them, but
@@ -472,6 +444,7 @@ static void reset(void)
 {
     s_have_last = false;
     s_counter = 0;
+    out_touchpad_reset();
 }
 
 const out_driver_t out_ds4 = {
