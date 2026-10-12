@@ -41,6 +41,16 @@ void pad_init(void (*notify)(void))
     s_notify = notify;
 }
 
+
+static const char *mode_name(void)
+{
+    if (s_present[PAD_ROLE_FULL]) return "Pro Controller";
+    if (s_pair_latched) return "Joy-Con pair";
+    if (s_present[PAD_ROLE_LEFT]) return "single Joy-Con L (sideways)";
+    if (s_present[PAD_ROLE_RIGHT]) return "single Joy-Con R (sideways)";
+    return "nothing connected";
+}
+
 static void notify(void)
 {
     if (s_notify) {
@@ -66,6 +76,7 @@ void pad_link_up(pad_role_t role)
     if (paired_now) {
         ESP_LOGI(TAG, "Joy-Con pair merged into one controller");
     }
+    ESP_LOGI(TAG, "USB output: %s", mode_name());
     notify();
 }
 
@@ -87,6 +98,7 @@ void pad_link_down(pad_role_t role)
     if (unpaired) {
         ESP_LOGI(TAG, "Joy-Con pair dissolved (both halves gone)");
     }
+    ESP_LOGI(TAG, "USB output: %s", mode_name());
     notify();
 }
 

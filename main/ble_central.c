@@ -103,6 +103,7 @@ typedef struct {
     ns2_stick_cal_t cal_a;  // left stick (or a lone Joy-Con R's stick)
     ns2_stick_cal_t cal_b;  // right stick (Pro only)
     bool settled;
+    bool logged_press;  // first button press after connecting has been logged
     int64_t settle_deadline;
     uint8_t rumble_id;
     volatile uint32_t input_count;
@@ -594,6 +595,11 @@ static void handle_input(link_t *l, const uint8_t *data, size_t len)
         }
     }
 
+    if (!l->logged_press && in.buttons != 0) {
+        l->logged_press = true;
+        ESP_LOGI(TAG, "link %d (%s): first button press 0x%08lx", link_index(l), pad_role_name(l->role),
+                 (unsigned long)in.buttons);
+    }
     pad_side_t s = { .buttons = in.buttons };
     switch (l->role) {
     case PAD_ROLE_LEFT:
@@ -1094,6 +1100,7 @@ static void handle_gatt_ready(int idx)
         return;
     }
     l->settled = false;
+    l->logged_press = false;
     l->settle_deadline = esp_timer_get_time() + SETTLE_US;
     // Only promote if the link didn't drop in the meantime (the disconnect
     // handler frees it from the NimBLE host task).
