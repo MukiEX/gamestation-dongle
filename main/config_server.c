@@ -16,6 +16,7 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_random.h"
 #include "esp_timer.h"
 #include "esp_netif.h"
 #include "lwip/esp_netif_net_stack.h"
@@ -268,6 +269,24 @@ static esp_err_t send_json(httpd_req_t *req, cJSON *root)
     return err;
 }
 
+// A new token every time the configurator opens. Pages from an earlier
+// session (a tab left open) send the old one and are told to reload, so they
+// can't change settings or leave the configurator by accident.
+static char s_session[12];
+
+static bool session_ok(httpd_req_t *req)
+{
+    char got[sizeof(s_session)] = "";
+    if (httpd_req_get_hdr_value_str(req, "X-Session", got, sizeof(got)) == ESP_OK &&
+        strcmp(got, s_session) == 0) {
+        return true;
+    }
+    ESP_LOGW(TAG, "request from an old configurator page ignored (%s)", req->uri);
+    httpd_resp_set_status(req, "409 Conflict");
+    httpd_resp_sendstr(req, "stale page");
+    return false;
+}
+
 static cJSON *read_json(httpd_req_t *req)
 {
     if (req->content_len <= 0 || req->content_len > 1024) {
@@ -310,6 +329,7 @@ static esp_err_t h_state(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "firmware", usb_gamepad_firmware_version());
+    cJSON_AddStringToObject(root, "session", s_session);
     settings_t s = settings_get();
     cJSON_AddItemToObject(root, "settings", settings_json(&s));
 
@@ -362,6 +382,7 @@ static esp_err_t h_state(httpd_req_t *req)
 
 static esp_err_t h_settings(httpd_req_t *req)
 {
+    if (!session_ok(req)) return ESP_OK;
     cJSON *j = read_json(req);
     if (j == NULL) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad JSON");
@@ -390,6 +411,7 @@ static esp_err_t h_settings(httpd_req_t *req)
 
 static esp_err_t h_forget(httpd_req_t *req)
 {
+    if (!session_ok(req)) return ESP_OK;
     cJSON *j = read_json(req);
     if (j == NULL) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad JSON");
@@ -411,6 +433,7 @@ static esp_err_t h_forget(httpd_req_t *req)
 
 static esp_err_t h_exit(httpd_req_t *req)
 {
+    if (!session_ok(req)) return ESP_OK;
     esp_err_t err = send_json(req, cJSON_CreateTrue());
     usb_gamepad_exit_config();  // switches USB after a short delay
     return err;
@@ -423,6 +446,7 @@ static esp_err_t h_exit(httpd_req_t *req)
 
 #define WS_MAX 3
 static int s_ws_fds[WS_MAX] = { -1, -1, -1 };
+static uint8_t s_ws_fails[WS_MAX];
 static portMUX_TYPE s_ws_mux = portMUX_INITIALIZER_UNLOCKED;
 
 static void ws_add(int fd)
@@ -433,7 +457,10 @@ static void ws_add(int fd)
         if (s_ws_fds[i] == fd) { slot = -2; break; }
         if (s_ws_fds[i] < 0 && slot == -1) slot = i;
     }
-    if (slot >= 0) s_ws_fds[slot] = fd;
+    if (slot >= 0) {
+        s_ws_fds[slot] = fd;
+        s_ws_fails[slot] = 0;
+    }
     portEXIT_CRITICAL(&s_ws_mux);
 }
 
@@ -494,9 +521,14 @@ static void ws_task(void *arg)
         for (int i = 0; i < WS_MAX; i++) {
             int fd = s_ws_fds[i];
             if (fd < 0) continue;
-            if (httpd_ws_get_fd_info(s_httpd, fd) != HTTPD_WS_CLIENT_WEBSOCKET ||
-                httpd_ws_send_frame_async(s_httpd, fd, &f) != ESP_OK) {
+            if (httpd_ws_get_fd_info(s_httpd, fd) != HTTPD_WS_CLIENT_WEBSOCKET) {
                 ws_remove(fd);
+            } else if (httpd_ws_send_frame_async(s_httpd, fd, &f) != ESP_OK) {
+                // A full send buffer is normal for a moment (the PC is busy);
+                // only give up on a page that stopped reading for ~1 s.
+                if (++s_ws_fails[i] > 60) ws_remove(fd);
+            } else {
+                s_ws_fails[i] = 0;
             }
         }
     }
@@ -530,6 +562,10 @@ static void httpd_start_once(void)
     cfg.max_open_sockets = 6;
     cfg.open_fn = on_open;
     cfg.close_fn = on_close;
+    // Send hiccups (EAGAIN while the PC is busy, resets when a tab closes)
+    // are expected and handled; don't flood the log with them.
+    esp_log_level_set("httpd_txrx", ESP_LOG_NONE);
+    esp_log_level_set("httpd_ws", ESP_LOG_NONE);
     if (httpd_start(&s_httpd, &cfg) != ESP_OK) {
         ESP_LOGE(TAG, "web server failed to start");
         s_httpd = NULL;
@@ -588,6 +624,7 @@ static void cfg_started(void)
         ESP_LOGE(TAG, "network interface failed to start");
         return;
     }
+    snprintf(s_session, sizeof(s_session), "%08lx", (unsigned long)esp_random());
     httpd_start_once();
     s_active = true;
     ESP_LOGI(TAG, "configurator ready: open http://192.168.7.1 (press BOOT to leave)");

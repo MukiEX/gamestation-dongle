@@ -7,14 +7,14 @@ A left and a right Joy-Con 2 automatically merge into a single controller.
 Based on [Switch2Connect](https://github.com/TommyWabg/Switch2Connect) by
 TommyWabg, so this project is **GPL-3.0**.
 
-## Status: step 3 of 5
+## Status: step 4 of 5
 
 | Step | What | State |
 |---|---|---|
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
 | 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
-| 3 | Web configurator at 192.168.7.1, settings in flash | **this build** |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | next |
+| 3 | Web configurator at 192.168.7.1, settings in flash | **done (0.3.4)** |
+| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | **next** |
 | 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
 
 ### Controllers
@@ -47,7 +47,8 @@ its normal internet connection: the dongle hands out an address but no route.
   list with Forget buttons, and a live view of every button and both sticks.
 
 **Save & exit** (or a short BOOT press, or Capture + Home again) turns the
-dongle back into a controller. The Bluetooth controllers stay connected the
+dongle back into a controller. A configurator tab left open from an earlier
+session reloads itself instead of changing anything. The Bluetooth controllers stay connected the
 whole time. Settings are stored on the dongle.
 
 ### Output modes
@@ -70,8 +71,9 @@ Switch). Windows' generic game-controller view shows nonsense for it, as it
 does for a real wired Pro Controller.
 
 Every mode also has the serial log port unless you turn it off in the
-configurator, which consoles may need. Console use (a real Switch or PS4) is
-untested.
+configurator, which consoles may need. Turning it off only removes the
+dongle's own USB COM port; the board's second (UART) USB port always carries
+the console log. Console use (a real Switch or PS4) is untested.
 
 Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
 B, whatever the label on the Nintendo controller says.
