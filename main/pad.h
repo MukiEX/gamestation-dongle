@@ -1,0 +1,59 @@
+// The single virtual controller the dongle exposes, built from whatever
+// Switch 2 controllers are currently connected.
+//
+// Rules:
+//   * A Pro Controller 2 is a complete controller on its own (role FULL).
+//   * A left and a right Joy-Con 2 merge into one controller.
+//   * Only one controller per role: a second Joy-Con of the same side, or any
+//     Joy-Con while a Pro Controller is connected, is ignored.
+//   * Once a pair has formed it stays a pair until both halves are gone; if one
+//     half drops out its inputs read neutral until it reconnects.
+//   * A lone Joy-Con (no pair formed yet) is mapped as a sideways mini-controller.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef enum {
+    PAD_ROLE_NONE = 0,
+    PAD_ROLE_LEFT,
+    PAD_ROLE_RIGHT,
+    PAD_ROLE_FULL,
+    PAD_ROLE_COUNT,
+} pad_role_t;
+
+typedef enum {
+    PAD_MODE_NONE = 0,     // nothing connected
+    PAD_MODE_FULL,         // Pro Controller 2
+    PAD_MODE_PAIR,         // merged left + right Joy-Con
+    PAD_MODE_SINGLE_LEFT,  // lone left Joy-Con, held sideways
+    PAD_MODE_SINGLE_RIGHT, // lone right Joy-Con, held sideways
+} pad_mode_t;
+
+// Input from one physical controller, after stick calibration.
+typedef struct {
+    uint32_t buttons;  // NS2_BTN_* bits
+    float lx, ly;      // [-1, 1], +y = up
+    float rx, ry;
+} pad_side_t;
+
+// The merged virtual controller, in Switch 2 button naming with *positional*
+// meaning: A = east, B = south, X = north, Y = west.
+typedef struct {
+    pad_mode_t mode;
+    uint32_t buttons;
+    float lx, ly, rx, ry;
+} pad_out_t;
+
+pad_role_t pad_role_for_pid(uint16_t pid);
+const char *pad_role_name(pad_role_t role);
+
+// Called from any task; `notify` is invoked (outside the lock) whenever the
+// output may have changed.
+void pad_init(void (*notify)(void));
+void pad_link_up(pad_role_t role);
+void pad_link_down(pad_role_t role);
+void pad_update(pad_role_t role, const pad_side_t *side);
+void pad_get_output(pad_out_t *out);

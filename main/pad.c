@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "pad.h"
+
+#include <string.h>
+
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+
+#include "ns2_proto.h"
+
+static const char *TAG = "pad";
+
+static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
+static pad_side_t s_side[PAD_ROLE_COUNT];
+static bool s_present[PAD_ROLE_COUNT];
+static bool s_pair_latched;
+static void (*s_notify)(void);
+
+pad_role_t pad_role_for_pid(uint16_t pid)
+{
+    switch (pid) {
+    case NS2_PID_JOYCON_L: return PAD_ROLE_LEFT;
+    case NS2_PID_JOYCON_R: return PAD_ROLE_RIGHT;
+    case NS2_PID_PRO2:     return PAD_ROLE_FULL;
+    default:               return PAD_ROLE_NONE;
+    }
+}
+
+const char *pad_role_name(pad_role_t role)
+{
+    switch (role) {
+    case PAD_ROLE_LEFT:  return "Joy-Con L";
+    case PAD_ROLE_RIGHT: return "Joy-Con R";
+    case PAD_ROLE_FULL:  return "Pro Controller";
+    default:             return "?";
+    }
+}
+
+void pad_init(void (*notify)(void))
+{
+    s_notify = notify;
+}
+
+static void notify(void)
+{
+    if (s_notify) {
+        s_notify();
+    }
+}
+
+void pad_link_up(pad_role_t role)
+{
+    if (role <= PAD_ROLE_NONE || role >= PAD_ROLE_COUNT) {
+        return;
+    }
+    bool paired_now = false;
+    portENTER_CRITICAL(&s_lock);
+    memset(&s_side[role], 0, sizeof(s_side[role]));
+    s_present[role] = true;
+    if (s_present[PAD_ROLE_LEFT] && s_present[PAD_ROLE_RIGHT] && !s_pair_latched) {
+        s_pair_latched = true;
+        paired_now = true;
+    }
+    portEXIT_CRITICAL(&s_lock);
+    ESP_LOGI(TAG, "%s connected", pad_role_name(role));
+    if (paired_now) {
+        ESP_LOGI(TAG, "Joy-Con pair merged into one controller");
+    }
+    notify();
+}
+
+void pad_link_down(pad_role_t role)
+{
+    if (role <= PAD_ROLE_NONE || role >= PAD_ROLE_COUNT) {
+        return;
+    }
+    bool unpaired = false;
+    portENTER_CRITICAL(&s_lock);
+    memset(&s_side[role], 0, sizeof(s_side[role]));
+    s_present[role] = false;
+    if (s_pair_latched && !s_present[PAD_ROLE_LEFT] && !s_present[PAD_ROLE_RIGHT]) {
+        s_pair_latched = false;
+        unpaired = true;
+    }
+    portEXIT_CRITICAL(&s_lock);
+    ESP_LOGI(TAG, "%s disconnected", pad_role_name(role));
+    if (unpaired) {
+        ESP_LOGI(TAG, "Joy-Con pair dissolved (both halves gone)");
+    }
+    notify();
+}
+
+void pad_update(pad_role_t role, const pad_side_t *side)
+{
+    if (role <= PAD_ROLE_NONE || role >= PAD_ROLE_COUNT) {
+        return;
+    }
+    portENTER_CRITICAL(&s_lock);
+    if (s_present[role]) {
+        s_side[role] = *side;
+    }
+    portEXIT_CRITICAL(&s_lock);
+    notify();
+}
+
+static inline uint32_t mapbit(uint32_t in, uint32_t from, uint32_t to)
+{
+    return (in & from) ? to : 0;
+}
+
+// Lone left Joy-Con held sideways: the rail (SL/SR) faces away from the player,
+// so the controller is rotated 90 degrees counter-clockwise from upright.
+static void map_single_left(const pad_side_t *s, pad_out_t *o)
+{
+    uint32_t b = s->buttons;
+    uint32_t r = 0;
+    r |= mapbit(b, NS2_BTN_LEFT,  NS2_BTN_B);   // south
+    r |= mapbit(b, NS2_BTN_DOWN,  NS2_BTN_A);   // east
+    r |= mapbit(b, NS2_BTN_UP,    NS2_BTN_Y);   // west
+    r |= mapbit(b, NS2_BTN_RIGHT, NS2_BTN_X);   // north
+    r |= mapbit(b, NS2_BTN_SL_L,  NS2_BTN_L);
+    r |= mapbit(b, NS2_BTN_SR_L,  NS2_BTN_R);
+    r |= mapbit(b, NS2_BTN_L,     NS2_BTN_ZL);
+    r |= mapbit(b, NS2_BTN_ZL,    NS2_BTN_ZR);
+    r |= mapbit(b, NS2_BTN_MINUS, NS2_BTN_PLUS);
+    r |= mapbit(b, NS2_BTN_LSTICK, NS2_BTN_LSTICK);
+    r |= mapbit(b, NS2_BTN_CAPT,  NS2_BTN_CAPT);
+    o->buttons = r;
+    o->lx = -s->ly;
+    o->ly = s->lx;
+    o->rx = o->ry = 0.0f;
+}
+
+// Lone right Joy-Con held sideways: rotated 90 degrees clockwise from upright.
+static void map_single_right(const pad_side_t *s, pad_out_t *o)
+{
+    uint32_t b = s->buttons;
+    uint32_t r = 0;
+    r |= mapbit(b, NS2_BTN_A,     NS2_BTN_B);   // south
+    r |= mapbit(b, NS2_BTN_X,     NS2_BTN_A);   // east
+    r |= mapbit(b, NS2_BTN_B,     NS2_BTN_Y);   // west
+    r |= mapbit(b, NS2_BTN_Y,     NS2_BTN_X);   // north
+    r |= mapbit(b, NS2_BTN_SL_R,  NS2_BTN_L);
+    r |= mapbit(b, NS2_BTN_SR_R,  NS2_BTN_R);
+    r |= mapbit(b, NS2_BTN_R,     NS2_BTN_ZL);
+    r |= mapbit(b, NS2_BTN_ZR,    NS2_BTN_ZR);
+    r |= mapbit(b, NS2_BTN_PLUS,  NS2_BTN_PLUS);
+    r |= mapbit(b, NS2_BTN_RSTICK, NS2_BTN_LSTICK);
+    r |= mapbit(b, NS2_BTN_HOME,  NS2_BTN_HOME);
+    r |= mapbit(b, NS2_BTN_C,     NS2_BTN_C);
+    o->buttons = r;
+    // The lone controller's stick drives the virtual left stick.
+    o->lx = s->ry;
+    o->ly = -s->rx;
+    o->rx = o->ry = 0.0f;
+}
+
+void pad_get_output(pad_out_t *o)
+{
+    pad_side_t side[PAD_ROLE_COUNT];
+    bool present[PAD_ROLE_COUNT];
+    bool pair;
+    portENTER_CRITICAL(&s_lock);
+    memcpy(side, s_side, sizeof(side));
+    memcpy(present, s_present, sizeof(present));
+    pair = s_pair_latched;
+    portEXIT_CRITICAL(&s_lock);
+
+    memset(o, 0, sizeof(*o));
+    if (present[PAD_ROLE_FULL]) {
+        o->mode = PAD_MODE_FULL;
+        o->buttons = side[PAD_ROLE_FULL].buttons;
+        o->lx = side[PAD_ROLE_FULL].lx;
+        o->ly = side[PAD_ROLE_FULL].ly;
+        o->rx = side[PAD_ROLE_FULL].rx;
+        o->ry = side[PAD_ROLE_FULL].ry;
+    } else if (pair) {
+        // Each Joy-Con only ever sets its own bits, so the merge is a plain OR;
+        // an absent half contributes zeros (neutral).
+        o->mode = PAD_MODE_PAIR;
+        o->buttons = side[PAD_ROLE_LEFT].buttons | side[PAD_ROLE_RIGHT].buttons;
+        o->lx = side[PAD_ROLE_LEFT].lx;
+        o->ly = side[PAD_ROLE_LEFT].ly;
+        o->rx = side[PAD_ROLE_RIGHT].rx;
+        o->ry = side[PAD_ROLE_RIGHT].ry;
+    } else if (present[PAD_ROLE_LEFT]) {
+        o->mode = PAD_MODE_SINGLE_LEFT;
+        map_single_left(&side[PAD_ROLE_LEFT], o);
+    } else if (present[PAD_ROLE_RIGHT]) {
+        o->mode = PAD_MODE_SINGLE_RIGHT;
+        map_single_right(&side[PAD_ROLE_RIGHT], o);
+    }
+}

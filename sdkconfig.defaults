@@ -1,0 +1,46 @@
+# Target: ESP32-S3 N16R8 (16 MB quad flash, 8 MB octal PSRAM)
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+
+CONFIG_FREERTOS_HZ=1000
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# Logs go to UART0 (the board's "COM"/"UART" USB-C port) and are mirrored to the
+# dongle's own USB CDC serial port by the firmware. The USB-Serial-JTAG console
+# is disabled because TinyUSB owns the native USB PHY.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# Bluetooth: NimBLE, central only. Switch 2 controllers use a plain
+# (unencrypted, un-bonded) BLE link plus Nintendo's application-level pairing,
+# so no security manager or bond storage is needed.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=y
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=y
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=n
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=n
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=3
+CONFIG_BT_NIMBLE_NVS_PERSIST=n
+CONFIG_BT_NIMBLE_SECURITY_ENABLE=n
+CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=256
+# Bigger mbuf pool / more concurrent GATT procedures: two Joy-Cons at 7.5 ms plus
+# rumble writes exhaust the defaults (learned the hard way by Switch2Connect).
+CONFIG_BT_NIMBLE_MSYS_1_BLOCK_COUNT=48
+CONFIG_BT_NIMBLE_GATT_MAX_PROCS=8
+CONFIG_BT_NIMBLE_LOG_LEVEL_WARNING=y
+# Wi-Fi is never started; turn off the Wi-Fi/BT coexistence arbiter so BLE gets
+# the radio to itself.
+CONFIG_ESP_COEX_SW_COEXIST_ENABLE=n
+
+# TinyUSB: one HID gamepad interface + one CDC serial port for logs.
+CONFIG_TINYUSB_CDC_ENABLED=y
+CONFIG_TINYUSB_CDC_COUNT=1
+CONFIG_TINYUSB_HID_COUNT=1
