@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Joy-Con 2 Dongle Flasher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow working column — firmware card, three sequential steps, options, log. */
+:root {
+  --bg: #f3f4f6;
+  --panel: #ffffff;
+  --ink: #16191f;
+  --muted: #5d6573;
+  --line: #d9dde4;
+  --accent: #e4002b;        /* Joy-Con red, used once per screen */
+  --accent-ink: #ffffff;
+  --blue: #0a6fd8;          /* Joy-Con blue: progress */
+  --good: #18794e;
+  --warn: #a35200;
+  --bad: #c4231c;
+  --log-bg: #11141a;
+  --log-ink: #c9d1dc;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --panel: #171b21; --ink: #e8ebf0; --muted: #98a1ae; --line: #2a3039;
+    --accent: #ff3b52; --accent-ink: #160307; --blue: #4ea3ff; --good: #4cc38a; --warn: #f0a84a; --bad: #ff6b62;
+    --log-bg: #0a0c0f; --log-ink: #c9d1dc; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --panel: #171b21; --ink: #e8ebf0; --muted: #98a1ae; --line: #2a3039;
+  --accent: #ff3b52; --accent-ink: #160307; --blue: #4ea3ff; --good: #4cc38a; --warn: #f0a84a; --bad: #ff6b62;
+  --log-bg: #0a0c0f; --log-ink: #c9d1dc; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body);
+  padding-inline: 16px; padding-block: 32px 48px;
+}
+main { max-width: 640px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { font-size: 26px; line-height: 1.2; margin: 0; font-weight: 600; text-wrap: balance; letter-spacing: -0.01em; }
+h2 { font-size: 15px; margin: 0; font-weight: 600; }
+p { margin: 0; }
+.sub { color: var(--muted); margin-top: 6px; max-width: 60ch; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+
+.fw { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 20px; }
+.fw dt { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.fw .wide { grid-column: 1 / -1; }
+.fw dd { margin: 2px 0 0; font-family: var(--font-mono); font-size: 13.5px; overflow-wrap: anywhere; }
+
+.banner { border-radius: 10px; padding: 12px 16px; border: 1px solid var(--bad); color: var(--bad); background: var(--panel); }
+
+ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.step { display: grid; grid-template-columns: 32px 1fr; gap: 14px; align-items: start; }
+.num {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid var(--line); font: 600 14px var(--font-mono); color: var(--muted);
+}
+.step.active .num { border-color: var(--ink); color: var(--ink); }
+.step.done .num { background: var(--good); border-color: var(--good); color: var(--panel); }
+.step-body { min-width: 0; display: grid; gap: 8px; padding-top: 4px; }
+.step-body p { color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+button {
+  font: 600 14px var(--font-body); border-radius: 8px; padding: 9px 16px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.chip { font: 500 12.5px var(--font-mono); padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.chip.ok { color: var(--good); border-color: var(--good); }
+.chip.warn { color: var(--warn); border-color: var(--warn); }
+
+progress { width: 100%; height: 10px; appearance: none; border: 0; border-radius: 99px; background: var(--line); overflow: hidden; }
+progress::-webkit-progress-bar { background: var(--line); border-radius: 99px; }
+progress::-webkit-progress-value { background: var(--blue); border-radius: 99px; }
+progress::-moz-progress-bar { background: var(--blue); }
+
+details summary { cursor: pointer; font-weight: 600; }
+.opts { display: grid; gap: 14px; margin-top: 14px; }
+.opt { display: grid; gap: 4px; }
+.opt label { font-weight: 500; }
+.opt small { color: var(--muted); }
+.check { display: flex; gap: 10px; align-items: flex-start; }
+.check input { margin-top: 4px; }
+select, input[type="text"] {
+  font: 14px var(--font-mono); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); max-width: 100%;
+}
+input[type="file"] { max-width: 100%; color: var(--muted); }
+
+.log {
+  background: var(--log-bg); color: var(--log-ink); border-radius: 10px; padding: 12px 14px;
+  font: 12.5px/1.5 var(--font-mono); height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0;
+}
+.log .err { color: #ff8a80; }
+.log .ok { color: #7ee2a8; }
+.result { font-weight: 600; }
+.result.ok { color: var(--good); }
+.result.bad { color: var(--bad); }
+footer { color: var(--muted); font-size: 13px; }
+footer a { color: inherit; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Joy-Con 2 Dongle Flasher</h1>
+    <p class="sub">Writes the dongle firmware to an ESP32-S3 N16R8 over USB, from this page. Works in Chrome, Edge or Opera on a desktop computer.</p>
+  </header>
+
+  <div class="banner" id="no-serial" hidden>
+    This browser can't reach USB serial ports. Open this file in Chrome, Edge or Opera on Windows, macOS, Linux or ChromeOS.
+    If it still says this, serve the file locally (for example <span class="mono">python -m http.server</span> in its folder) and open
+    <span class="mono">http://localhost:8000</span>.
+  </div>
+
+  <section class="panel" aria-labelledby="fw-title">
+    <h2 id="fw-title">Firmware</h2>
+    <dl class="fw" style="margin:12px 0 0">
+      <div class="wide"><dt>Image</dt><dd id="fw-name">__FW_NAME__</dd></div>
+      <div><dt>Size</dt><dd id="fw-size">__FW_SIZE__</dd></div>
+      <div><dt>Write at</dt><dd id="fw-addr">0x0</dd></div>
+      <div><dt>MD5</dt><dd id="fw-md5">__FW_MD5__</dd></div>
+    </dl>
+  </section>
+
+  <section class="panel" aria-label="Flashing steps">
+    <ol class="steps">
+      <li class="step active" id="s1">
+        <div class="num">1</div>
+        <div class="step-body">
+          <h2>Put the board in download mode</h2>
+          <p>Hold <b>BOOT</b>, plug the board's <b>USB</b> (OTG) port into this computer, then release BOOT. Using the board's <b>UART/COM</b> port instead works without BOOT.</p>
+        </div>
+      </li>
+      <li class="step" id="s2">
+        <div class="num">2</div>
+        <div class="step-body">
+          <h2>Connect</h2>
+          <p>Pick the board in the browser's port list. In download mode it shows up as <span class="mono">USB JTAG/serial debug unit</span> (or as the UART chip's name).</p>
+          <div class="row">
+            <button id="connect" class="primary" disabled>Connect</button>
+            <span class="chip" id="lib-state">Loading flasher library…</span>
+            <span class="chip" id="chip-state" hidden></span>
+          </div>
+        </div>
+      </li>
+      <li class="step" id="s3">
+        <div class="num">3</div>
+        <div class="step-body">
+          <h2>Flash</h2>
+          <p>Takes about 15 seconds at 921600 baud. Don't unplug the board until it says done.</p>
+          <div class="row">
+            <button id="flash" class="primary" disabled>Flash firmware</button>
+            <button id="disconnect" disabled>Disconnect</button>
+          </div>
+          <progress id="progress" max="100" value="0" hidden></progress>
+          <p class="result" id="result" hidden></p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>Options</summary>
+      <div class="opts">
+        <div class="check">
+          <input type="checkbox" id="erase-all">
+          <div class="opt">
+            <label for="erase-all">Erase the whole flash first</label>
+            <small>Also forgets every paired controller. Adds about 20 seconds.</small>
+          </div>
+        </div>
+        <div class="opt">
+          <label for="baud">Baud rate</label>
+          <select id="baud">
+            <option value="921600" selected>921600</option>
+            <option value="460800">460800</option>
+            <option value="230400">230400</option>
+            <option value="115200">115200 (slowest, most reliable)</option>
+          </select>
+          <small>Only matters on the UART/COM port; the USB port always runs at full speed.</small>
+        </div>
+        <div class="opt">
+          <label for="custom-file">Use a different firmware file</label>
+          <input type="file" id="custom-file" accept=".bin,application/octet-stream">
+          <small>For later builds. A <span class="mono">-merged.bin</span> goes at 0x0; the plain app image <span class="mono">joycon2_dongle.bin</span> goes at 0x10000.</small>
+        </div>
+        <div class="opt">
+          <label for="custom-addr">Write address for that file</label>
+          <input type="text" id="custom-addr" value="0x0" spellcheck="false" inputmode="text" style="width:10ch">
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section aria-label="Log">
+    <pre class="log" id="log" aria-live="polite"></pre>
+  </section>
+
+  <footer>
+    Uses Espressif's <a href="https://github.com/espressif/esptool-js" target="_blank" rel="noopener">esptool-js</a>, loaded from a CDN, so this page needs an internet connection.
+    Firmware: Joy-Con 2 Dongle, GPL-3.0, based on Switch2Connect.
+  </footer>
+</main>
+
+<script>
+__MD5_JS__
+</script>
+<script type="module">
+const FW_B64 = "__FW_B64__";
+const FW_MD5 = "__FW_MD5__";
+const LIB_URLS = [
+  "https://cdn.jsdelivr.net/npm/esptool-js@0.5.7/bundle.js",
+  "https://unpkg.com/esptool-js@0.5.7/bundle.js",
+];
+
+const $ = (id) => document.getElementById(id);
+const logEl = $("log");
+function log(text, cls) {
+  const line = document.createElement("span");
+  if (cls) line.className = cls;
+  line.textContent = text + "\n";
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+const terminal = {
+  clean() { logEl.textContent = ""; },
+  writeLine(data) { log(data); },
+  write(data) {
+    const last = logEl.lastChild;
+    if (last && !last.className && !last.textContent.endsWith("\n")) last.textContent += data;
+    else { const s = document.createElement("span"); s.textContent = data; logEl.appendChild(s); }
+    logEl.scrollTop = logEl.scrollHeight;
+  },
+};
+
+function setStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    const el = $("s" + i);
+    el.classList.toggle("done", i < n);
+    el.classList.toggle("active", i === n);
+  }
+}
+
+// Firmware image as a binary string (one char per byte), which esptool-js expects.
+let image = { name: $("fw-name").textContent, data: atob(FW_B64), address: 0 };
+
+function u8ToBstr(u8) {
+  let s = "";
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return s;
+}
+function fmtSize(n) { return n.toLocaleString("en-US") + " bytes (" + (n / 1024).toFixed(0) + " KB)"; }
+
+$("custom-file").addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const buf = new Uint8Array(await f.arrayBuffer());
+  const addr = parseInt($("custom-addr").value, 16);
+  image = { name: f.name, data: u8ToBstr(buf), address: Number.isFinite(addr) ? addr : 0 };
+  $("fw-name").textContent = f.name;
+  $("fw-size").textContent = fmtSize(buf.length);
+  $("fw-addr").textContent = "0x" + image.address.toString(16);
+  $("fw-md5").textContent = md5bstr(image.data);
+  log("Selected " + f.name + " (" + buf.length + " bytes) for 0x" + image.address.toString(16));
+});
+$("custom-addr").addEventListener("change", () => {
+  const addr = parseInt($("custom-addr").value, 16);
+  if (Number.isFinite(addr) && $("custom-file").files.length) {
+    image.address = addr;
+    $("fw-addr").textContent = "0x" + addr.toString(16);
+  }
+});
+
+if (!("serial" in navigator)) {
+  $("no-serial").hidden = false;
+  $("lib-state").textContent = "USB serial not available";
+}
+
+// Sanity-check the embedded image before anything else.
+if (md5bstr(image.data) !== FW_MD5) {
+  log("The embedded firmware is damaged (MD5 mismatch). Download the flasher again.", "err");
+}
+
+let ESPLoader, Transport;
+for (const url of LIB_URLS) {
+  try {
+    ({ ESPLoader, Transport } = await import(url));
+    break;
+  } catch (err) {
+    log("Couldn't load " + url + ": " + err.message, "err");
+  }
+}
+if (ESPLoader) {
+  $("lib-state").textContent = "Ready";
+  $("lib-state").className = "chip ok";
+  if ("serial" in navigator) $("connect").disabled = false;
+} else {
+  $("lib-state").textContent = "Library failed to load";
+  $("lib-state").className = "chip warn";
+  log("Couldn't load esptool-js from either CDN. Check the internet connection and reload.", "err");
+}
+
+let port = null, transport = null, loader = null, isUsbJtag = false;
+
+async function cleanup() {
+  try { if (transport) await transport.disconnect(); } catch (_) {}
+  port = null; transport = null; loader = null;
+  $("connect").disabled = !ESPLoader;
+  $("flash").disabled = true;
+  $("disconnect").disabled = true;
+  $("chip-state").hidden = true;
+}
+
+$("connect").addEventListener("click", async () => {
+  $("connect").disabled = true;
+  $("result").hidden = true;
+  try {
+    port = await navigator.serial.requestPort({});
+  } catch (_) {
+    $("connect").disabled = false;
+    log("No port chosen.");
+    return;
+  }
+  const info = port.getInfo ? port.getInfo() : {};
+  isUsbJtag = info.usbVendorId === 0x303a;
+  try {
+    transport = new Transport(port, false);
+    loader = new ESPLoader({
+      transport,
+      baudrate: parseInt($("baud").value, 10),
+      romBaudrate: 115200,
+      terminal,
+      debugLogging: false,
+    });
+    const chip = await loader.main();
+    const s = $("chip-state");
+    s.hidden = false;
+    s.textContent = chip;
+    s.className = /ESP32-S3/i.test(chip) ? "chip ok" : "chip warn";
+    if (!/ESP32-S3/i.test(chip)) log("This is a " + chip + ", not an ESP32-S3. This firmware only runs on an ESP32-S3.", "err");
+    $("flash").disabled = !/ESP32-S3/i.test(chip);
+    $("disconnect").disabled = false;
+    setStep(3);
+  } catch (err) {
+    log("Couldn't talk to the board: " + err.message, "err");
+    log("Check that it is in download mode (hold BOOT while plugging in), close any other program using the port, and try again.", "err");
+    await cleanup();
+  }
+});
+
+$("disconnect").addEventListener("click", async () => {
+  await cleanup();
+  setStep(2);
+  log("Disconnected.");
+});
+
+$("flash").addEventListener("click", async () => {
+  $("flash").disabled = true;
+  $("disconnect").disabled = true;
+  const bar = $("progress");
+  bar.hidden = false;
+  bar.value = 0;
+  const res = $("result");
+  res.hidden = true;
+  try {
+    await loader.writeFlash({
+      fileArray: [{ data: image.data, address: image.address }],
+      flashSize: "keep",
+      flashMode: "keep",
+      flashFreq: "keep",
+      eraseAll: $("erase-all").checked,
+      compress: true,
+      reportProgress: (_i, written, total) => { bar.value = total ? (written / total) * 100 : 0; },
+      calculateMD5Hash: (img) => md5bstr(img),
+    });
+    bar.value = 100;
+    log("Write verified.", "ok");
+    try { await loader.after("hard_reset", isUsbJtag); } catch (_) {}
+    await cleanup();
+    setStep(4);
+    res.className = "result ok";
+    res.textContent = isUsbJtag
+      ? "Done. Unplug the board and plug it back in (without BOOT) to start the dongle."
+      : "Done. The board has restarted with the new firmware.";
+    res.hidden = false;
+  } catch (err) {
+    log("Flashing failed: " + err.message, "err");
+    res.className = "result bad";
+    res.textContent = "Flashing failed. The board is still safe to retry: reconnect it in download mode and flash again.";
+    res.hidden = false;
+    await cleanup();
+    setStep(2);
+  }
+});
+
+if (navigator.serial) {
+  navigator.serial.addEventListener("disconnect", async (e) => {
+    if (port && e.target === port) {
+      log("The board was unplugged.");
+      await cleanup();
+      setStep(1);
+    }
+  });
+}
+
+log("Firmware " + image.name + " embedded (" + image.data.length + " bytes, MD5 " + FW_MD5 + ").");
+</script>
+</body>
+</html>
