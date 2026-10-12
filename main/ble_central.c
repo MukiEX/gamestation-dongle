@@ -1053,6 +1053,35 @@ static const init_cmd_t INIT_SEQUENCE[] = {
     { 0x09, 0x07, 8,  { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
 };
 
+// Joy-Con 2 Charging Grip: its GL / GR buttons reach the console through the
+// Joy-Cons, after command 08:02 turns them on (ndeadly's
+// switch2_controller_research; SDL sends the same over USB). They then show up
+// as the GL / GR bits in each Joy-Con's own report. Harmless without a grip.
+static void grip_setup(link_t *l)
+{
+    int idx = link_index(l);
+    static const uint8_t info_req[4] = { 0x20, 0x00, 0x00, 0x00 };
+    uint8_t info[0x40];
+    size_t n = sizeof(info);
+    if (cmd_exchange(l, 0x08, 0x01, info_req, sizeof(info_req), info, &n) && n >= 20) {
+        // 4 bytes, then grip data laid out like factory data: serial at +2.
+        char serial[15] = { 0 };
+        for (int i = 0; i < 14; i++) {
+            char c = (char)info[6 + i];
+            serial[i] = isprint((unsigned char)c) ? c : 0;
+        }
+        if (serial[0]) {
+            ESP_LOGI(TAG, "link %d: in a charging grip (serial %s)", idx, serial);
+        } else {
+            ESP_LOGI(TAG, "link %d: no charging grip", idx);
+        }
+    }
+    static const uint8_t enable[4] = { 0x01, 0x00, 0x00, 0x00 };
+    if (cmd_exchange(l, 0x08, 0x02, enable, sizeof(enable), NULL, NULL)) {
+        ESP_LOGI(TAG, "link %d: charging grip GL/GR enabled", idx);
+    }
+}
+
 static bool link_init(link_t *l)
 {
     int idx = link_index(l);
@@ -1105,6 +1134,8 @@ static bool link_init(link_t *l)
     read_stick_cal(l, NS2_ADDR_CAL_USER_STICK_1, NS2_ADDR_CAL_STICK_1, &l->cal_a);
     if (role == PAD_ROLE_FULL) {
         read_stick_cal(l, NS2_ADDR_CAL_USER_STICK_2, NS2_ADDR_CAL_STICK_2, &l->cal_b);
+    } else {
+        grip_setup(l);
     }
 
     if (l->pairing) {

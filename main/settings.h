@@ -20,7 +20,7 @@ typedef enum {
     LAYOUT_LABELS,          // Nintendo A = Xbox A, B = B, X = X, Y = Y
 } button_layout_t;
 
-// What the Pro Controller 2's GL / GR back buttons press. AUTO picks per
+// What the GL / GR back buttons (Pro Controller 2, Joy-Con 2 charging grip) press. AUTO picks per
 // output mode: the DS4 touchpad's left / right half, the generic HID mode's
 // own buttons 20 / 21, nothing in XInput and Switch Pro (no spare buttons).
 typedef enum {

@@ -243,7 +243,7 @@ function showSettings() {
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
   const auto = { ds4: "the touchpad's left / right half", hid: "its own buttons 20 / 21" }[settings.mode];
-  $("griphint").textContent = "Pro Controller 2 only. Auto in this mode: " +
+  $("griphint").textContent = "Pro Controller 2, or Joy-Cons in the charging grip. Auto in this mode: " +
     (auto || "nothing (no spare buttons), so pick one here") + ".";
   $("rumble").value = settings.rumble;
   $("rumbleOut").textContent = settings.rumble === 0 ? "off" : settings.rumble + " / 10";
