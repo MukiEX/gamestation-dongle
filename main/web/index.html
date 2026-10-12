@@ -39,6 +39,9 @@ h2 { font-size: 15px; margin: 0 0 12px; font-weight: 650; }
 .row label { font-weight: 550; }
 .hint { color: var(--muted); font-size: 13px; grid-column: 2; margin-top: -4px; }
 select, input[type=range] { width: 100%; }
+.adv { border-top: 1px solid var(--line); padding: 8px 0; }
+.adv summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.adv .hint { grid-column: auto; }
 .seg.flips { flex-wrap: wrap; }
 .seg.flips button { padding: 6px 9px; font-size: 13px; }
 .grips { display: flex; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
@@ -159,16 +162,21 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       </div>
       <div class="hint" id="griphint"></div>
     </div>
-    <div class="row">
-      <label>DS4 motion</label>
-      <div class="seg flips" id="flipDs4"></div>
-      <div class="hint" id="flipDs4Code"></div>
-    </div>
-    <div class="row">
-      <label>Switch Pro motion</label>
-      <div class="seg flips" id="flipSwitch"></div>
-      <div class="hint" id="flipSwitchCode"></div>
-    </div>
+    <details class="adv" id="adv">
+      <summary>Advanced: motion axis flips</summary>
+      <p class="hint" style="margin:6px 0 0">Not needed normally: motion is verified correct for Steam and SDL games.
+        Only for a game that reads an axis backwards.</p>
+      <div class="row">
+        <label>DS4 motion</label>
+        <div class="seg flips" id="flipDs4"></div>
+        <div class="hint" id="flipDs4Code"></div>
+      </div>
+      <div class="row">
+        <label>Switch Pro motion</label>
+        <div class="seg flips" id="flipSwitch"></div>
+        <div class="hint" id="flipSwitchCode"></div>
+      </div>
+    </details>
     <div class="row" style="border-top:0">
       <span></span><span class="saved" id="saved">Saved</span>
     </div>
@@ -252,11 +260,12 @@ function showSettings() {
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
   seg("hotkeys", settings.hotkeys);
+  if ((settings.flipDs4 || 0) || (settings.flipSwitch || 0)) $("adv").open = true;
   for (const id of ["flipDs4", "flipSwitch"]) {
     const m = settings[id] || 0;
     [...$(id).children].forEach((b, i) => b.classList.toggle("on", (m & (1 << i)) !== 0));
     $(id + "Code").textContent = "Highlighted = flipped. Code: " + flipCode(m) +
-      ". For testing gyro in Steam; applies when you exit.";
+      ". Applies when you exit.";
   }
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
