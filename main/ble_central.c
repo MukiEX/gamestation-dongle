@@ -127,6 +127,7 @@ typedef struct {
     uint16_t tp_lx, tp_ly;
     int32_t tp_travel;   // sensor counts moved since landing, before the finger goes down
     float tp_x, tp_y;
+    bool tp_mouse_pose;  // lying on its rail side (mouse use)
 } link_t;
 
 typedef enum {
@@ -697,15 +698,38 @@ static void motion_update(link_t *l, const ns2_input_t *in, pad_motion_t *m)
 #define TP_LAND_COUNTS  6       // movement needed before the finger goes down
 #define TP_EDGE         28000
 
-static void trackpad_update(link_t *l, const ns2_input_t *in, pad_trackpad_t *tp)
+static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t *m, pad_trackpad_t *tp)
 {
     static const uint16_t limit_dist[3] = { 1000, 1500, 3000 };
     static const uint16_t limit_rough[3] = { 4000, 5000, 10000 };
     settings_t st = settings_get();
     int lvl = st.pad_lift <= 2 ? st.pad_lift : 0;
-    float gain = 8.0f * st.pad_speed;  // pad units per sensor count
+    // Pad units per sensor count: steps 10..19 are speeds 1..10 (8 units per
+    // step), steps 1..9 are 0.1..0.9 of speed 1. The finger position is kept
+    // as a float, so fractions of a unit add up instead of being lost.
+    float gain = st.pad_speed >= 10 ? 8.0f * (st.pad_speed - 9) : 0.8f * st.pad_speed;
 
     tp->valid = true;
+    // Mouse use = lying on the rail side: gravity along the Joy-Con's own
+    // left-right axis (X). Hysteresis so it doesn't flicker at the boundary.
+    if (m->valid) {
+        float ax = fabsf(m->accel[0]);
+        if (ax > 0.75f) l->tp_mouse_pose = true;
+        else if (ax < 0.55f) l->tp_mouse_pose = false;
+    }
+    if (st.pad_grip && !l->tp_mouse_pose) {
+        // Held normally: the sensor faces the palm, so "something close" = a
+        // hand on the grip (the loosest thresholds; a palm is no table).
+        tp->grip_mode = true;
+        tp->grip = in->mouse_distance != 0 && in->mouse_distance < limit_dist[2] &&
+                   in->mouse_roughness < limit_rough[2];
+        tp->touch = false;
+        l->tp_on = l->tp_touch = false;
+        l->tp_lx = in->mouse_x;
+        l->tp_ly = in->mouse_y;
+        return;
+    }
+    tp->grip_mode = false;
     bool on = in->mouse_distance != 0 && in->mouse_distance < limit_dist[lvl] &&
               in->mouse_roughness < limit_rough[lvl];
     if (!on) {
@@ -782,7 +806,7 @@ static void handle_input(link_t *l, const uint8_t *data, size_t len)
     }
     motion_update(l, &in, &s.motion);
     if (l->role != PAD_ROLE_FULL) {
-        trackpad_update(l, &in, &s.tp);
+        trackpad_update(l, &in, &s.motion, &s.tp);
     }
     pad_update(l->role, &s);
 }

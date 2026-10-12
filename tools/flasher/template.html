@@ -447,7 +447,9 @@ __MD5_JS__
     "Configurator first: slide each Joy-Con on a table, sensor side down: its finger dot appears on its trackpad and follows the motion; lifting it makes the dot vanish (try the Lift-off levels)",
     "Steam, Test Device Inputs: the left / right trackpads show touches and movement from the left / right Joy-Con",
     "Steam: bind a trackpad as mouse (or use Desktop Layout): sliding the Joy-Con moves the cursor smoothly in all directions, no jumps at the pad edges. Note the Trackpad speed that feels right",
-    "Back buttons: GL / GR = L4 / R4; SL / SR on the Joy-Cons = L5 / R5",
+    "Back buttons: GL / GR = L4 / R4; left SL = L4, left SR = L5, right SR = R4, right SL = R5",
+    "Sensor when held = Grip sense: a Joy-Con on its rail side is a trackpad; held normally, the configurator (and the Motion tab) shows 'grip: hand' when your palm covers the sensor",
+    "Trackpad speed: the slider's left part (0.1x..0.9x) gives finer movement; note which step feels best",
     "Gyro in Steam (gyro as mouse): turn left = cursor left, tilt up = cursor up",
     "Rumble / haptics: Steam's Identify Controller buzzes, and game rumble works",
     "If Steam offers a firmware update for this controller: decline it, and note it here",
@@ -1139,6 +1141,7 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
     for (let i = 0; i < 2; i++) {
       const t = tp[i], o = 17 + 6 * i;
       t.touch = (buttons & (i === 0 ? 0x02000000 : 0x00200000)) !== 0;
+      t.grip = (buttons & (i === 0 ? 0x20000000 : 0x10000000)) !== 0;
       t.x = s16(d, o); t.y = s16(d, o + 2); t.p = d.getUint16(o + 4, true);
       if (t.touch) {
         if (t.last && (t.last.x !== t.x || t.last.y !== t.y)) {
@@ -1186,7 +1189,7 @@ log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
       if (t.touch) { g.fillStyle = acc; g.beginPath(); g.arc(px(t.x), py(t.y), 9, 0, 7); g.fill(); }
       const st = t.steps.slice().sort((a, b) => a - b);
       const med = st.length ? st[st.length >> 1] : 0, min = st.length ? st[0] : 0;
-      $("tp-s" + i).textContent = (t.touch ? "touching" : "not touching") + "   x " + t.x + "   y " + t.y + "   pressure " + t.p +
+      $("tp-s" + i).textContent = (t.touch ? "touching" : "not touching") + (t.grip ? "   grip held" : "   grip free") + "   x " + t.x + "   y " + t.y + "   pressure " + t.p +
         "\nstep (pad units): smallest " + min.toFixed(0) + ", typical " + med.toFixed(0) + "   (pad is 65536 wide)";
     }
     if (now - tpRateT > 1000) {

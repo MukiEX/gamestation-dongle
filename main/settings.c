@@ -20,7 +20,7 @@ static settings_t s_cur = {
     .mode_hotkeys = true,
     .grip_gl = GRIP_AUTO,
     .grip_gr = GRIP_AUTO,
-    .pad_speed = 5,
+    .pad_speed = 14,
     .pad_lift = 0,
 };
 
@@ -89,9 +89,10 @@ void settings_init(void)
         s.grip_gr = (grip_map_t)get_u8(h, "gr", s.grip_gr, GRIP_COUNT - 1);
         s.flip_ds4 = get_u8(h, "flipds4", s.flip_ds4, MOTION_FLIP_ALL);
         s.flip_switch = get_u8(h, "flipsw", s.flip_switch, MOTION_FLIP_ALL);
-        s.pad_speed = get_u8(h, "padspeed", s.pad_speed, SETTINGS_PAD_SPEED_MAX);
+        s.pad_speed = get_u8(h, "padspd2", s.pad_speed, SETTINGS_PAD_SPEED_MAX);
         if (s.pad_speed == 0) s.pad_speed = 1;
         s.pad_lift = get_u8(h, "padlift", s.pad_lift, SETTINGS_PAD_LIFT_MAX);
+        s.pad_grip = get_u8(h, "padgrip", s.pad_grip, 1);
         s_cur = s;
         nvs_close(h);
     }
@@ -138,8 +139,9 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "gr", (uint8_t)s.grip_gr);
         nvs_set_u8(h, "flipds4", s.flip_ds4);
         nvs_set_u8(h, "flipsw", s.flip_switch);
-        nvs_set_u8(h, "padspeed", s.pad_speed);
+        nvs_set_u8(h, "padspd2", s.pad_speed);
         nvs_set_u8(h, "padlift", s.pad_lift);
+        nvs_set_u8(h, "padgrip", s.pad_grip);
         nvs_commit(h);
         nvs_close(h);
     }

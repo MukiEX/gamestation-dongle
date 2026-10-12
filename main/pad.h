@@ -49,6 +49,8 @@ typedef struct {
     bool valid;   // this controller has a sensor
     bool touch;   // finger down (the Joy-Con is on a surface and moving)
     int16_t x, y;
+    bool grip;    // grip-sense mode: the sensor sees the hand holding this Joy-Con
+    bool grip_mode;  // grip-sense mode is active (held normally, setting on)
 } pad_trackpad_t;
 
 // Input from one physical controller, after stick calibration. Motion is in

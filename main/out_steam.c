@@ -286,15 +286,24 @@ static bool send(const pad_out_t *o)
     if (b & NS2_BTN_RIGHT)  t |= T_RIGHT;
     if (b & NS2_BTN_GL)     t |= T_L4;     // back buttons (Auto)
     if (b & NS2_BTN_GR)     t |= T_R4;
-    if (b & (NS2_BTN_SL_L | NS2_BTN_SR_L)) t |= T_L5;
-    if (b & (NS2_BTN_SL_R | NS2_BTN_SR_R)) t |= T_R5;
+    // Joy-Con rail buttons: the upper one is L4 / R4 (like GL / GR), the
+    // lower one L5 / R5. Left Joy-Con: SL upper, SR lower; right: SR upper.
+    if (b & NS2_BTN_SL_L) t |= T_L4;
+    if (b & NS2_BTN_SR_L) t |= T_L5;
+    if (b & NS2_BTN_SR_R) t |= T_R4;
+    if (b & NS2_BTN_SL_R) t |= T_R5;
     if (b & NS2_BTN_TP_LEFT)  t |= T_LPAD_CLICK;
     if (b & NS2_BTN_TP_RIGHT) t |= T_RPAD_CLICK;
     // No capacitive sensing on Joy-Cons: a moved stick counts as touched, and
     // the grips as held whenever a controller is connected.
     if (fabsf(o->lx) > 0.1f || fabsf(o->ly) > 0.1f) t |= T_LSTICK_TOUCH;
     if (fabsf(o->rx) > 0.1f || fabsf(o->ry) > 0.1f) t |= T_RSTICK_TOUCH;
-    if (o->mode != PAD_MODE_NONE) t |= T_LGRIP_TOUCH | T_RGRIP_TOUCH;
+    // Grips: from the optical sensor in grip-sense mode, otherwise "held"
+    // whenever a controller is connected.
+    if (o->mode != PAD_MODE_NONE) {
+        if (o->tp[0].grip_mode ? o->tp[0].grip : true) t |= T_LGRIP_TOUCH;
+        if (o->tp[1].grip_mode ? o->tp[1].grip : true) t |= T_RGRIP_TOUCH;
+    }
     if (o->tp[0].touch) t |= T_LPAD_TOUCH;
     if (o->tp[1].touch) t |= T_RPAD_TOUCH;
 

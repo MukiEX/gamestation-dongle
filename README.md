@@ -15,7 +15,7 @@ TommyWabg, so this project is **GPL-3.0**.
 | 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
 | 3 | Web configurator at 192.168.7.1, settings in flash | **done (0.3.4)** |
 | 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | gyro **done (0.4.3)**, back buttons, DualSense (0.5.0); audio haptics and Switch 2 Pro still to do |
-| 5 | Steam Controller (2026) mode with mouse-sensor trackpads | **this build (0.6.0)** |
+| 5 | Steam Controller (2026) mode with mouse-sensor trackpads | **this build (0.6.2)** |
 
 ### Controllers
 
@@ -130,10 +130,16 @@ trackpads.
   left pad, right Joy-Con → right pad. Lifting it lifts the finger. The finger
   starts at the pad's centre and, at the edge, lifts for one report and lands
   at the centre again; Steam reads trackpads as relative motion, so the
-  movement continues. *Trackpad speed* and *Trackpad lift-off* are in the
-  configurator, which also shows both trackpads live.
+  movement continues. *Trackpad speed* (with fine steps from 0.1× to 0.9× of
+  speed 1) and *Trackpad lift-off* are in the configurator, which also shows
+  both trackpads live.
+* **Grip sense (optional):** with *Sensor when held* set to *Grip sense*, a
+  Joy-Con lying on its rail side (as a mouse) is a trackpad, and one held
+  normally reports through its sensor whether your hand is on that grip
+  (Steam's grip-touch). The accelerometer tells the two apart.
 * **Buttons:** Home = Steam button, Capture = quick access (…), − / + = the
-  left / right centre buttons (Back / Start in SDL), GL / GR = L4 / R4, a Joy-Con's SL / SR = L5 / R5. ZL / ZR are full
+  left / right centre buttons (Back / Start in SDL), GL / GR = L4 / R4; on the Joy-Con rails, left SL = L4, left SR = L5,
+  right SR = R4, right SL = R5. ZL / ZR are full
   trigger pulls. Joy-Cons have no touch sensing, so a moved stick counts as
   "touched".
 * **Haptics:** Steam's rumble drives the Joy-Con motors; its haptic clicks,

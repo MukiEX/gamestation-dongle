@@ -325,6 +325,15 @@ static esp_err_t h_index(httpd_req_t *req)
     return httpd_resp_send(req, web_index_html_start, web_index_html_end - web_index_html_start - 1);  // minus the NUL
 }
 
+// Trackpad state for the page: -1 no sensor, 0 / 1 finger up / down,
+// 2 / 3 grip-sense mode without / with a hand on the grip.
+static int tp_state(const pad_trackpad_t *t)
+{
+    if (!t->valid) return -1;
+    if (t->grip_mode) return t->grip ? 3 : 2;
+    return t->touch ? 1 : 0;
+}
+
 static cJSON *settings_json(const settings_t *s)
 {
     cJSON *o = cJSON_CreateObject();
@@ -340,6 +349,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddNumberToObject(o, "flipSwitch", s->flip_switch);
     cJSON_AddNumberToObject(o, "padSpeed", s->pad_speed);
     cJSON_AddNumberToObject(o, "padLift", s->pad_lift);
+    cJSON_AddBoolToObject(o, "padGrip", s->pad_grip);
     return o;
 }
 
@@ -410,8 +420,7 @@ static esp_err_t h_state(httpd_req_t *req)
         cJSON_AddItemToObject(in, "motion", cJSON_CreateFloatArray(mv, 6));
     }
     if (o.tp[0].valid || o.tp[1].valid) {
-        const int tv[6] = { o.tp[0].valid ? o.tp[0].touch : -1, o.tp[0].x, o.tp[0].y,
-                            o.tp[1].valid ? o.tp[1].touch : -1, o.tp[1].x, o.tp[1].y };
+        const int tv[6] = { tp_state(&o.tp[0]), o.tp[0].x, o.tp[0].y, tp_state(&o.tp[1]), o.tp[1].x, o.tp[1].y };
         cJSON_AddItemToObject(in, "tp", cJSON_CreateIntArray(tv, 6));
     }
     return send_json(req, root);
@@ -444,6 +453,7 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "flipSwitch")) && cJSON_IsNumber(v)) s.flip_switch = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "padSpeed")) && cJSON_IsNumber(v)) s.pad_speed = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "padLift")) && cJSON_IsNumber(v)) s.pad_lift = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "padGrip")) && cJSON_IsBool(v)) s.pad_grip = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);
         if (g < GRIP_COUNT) s.grip_gl = g;
@@ -567,8 +577,7 @@ static void ws_task(void *arg)
         }
         if (o.tp[0].valid || o.tp[1].valid) {
             n += snprintf(msg + n, sizeof(msg) - n, ",\"tp\":[%d,%d,%d,%d,%d,%d]",
-                          o.tp[0].valid ? o.tp[0].touch : -1, o.tp[0].x, o.tp[0].y,
-                          o.tp[1].valid ? o.tp[1].touch : -1, o.tp[1].x, o.tp[1].y);
+                          tp_state(&o.tp[0]), o.tp[0].x, o.tp[0].y, tp_state(&o.tp[1]), o.tp[1].x, o.tp[1].y);
         }
         n += snprintf(msg + n, sizeof(msg) - n, "}");
         int64_t now = esp_timer_get_time();

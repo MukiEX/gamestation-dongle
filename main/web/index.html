@@ -89,6 +89,8 @@ button:disabled { opacity: .5; cursor: default; }
 .pad i { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
   background: var(--accent); left: 50%; top: 50%; opacity: 0; transition: opacity .1s; }
 .pad i.on { opacity: 1; }
+.pad.grip { border-style: dashed; }
+.pad.held { border: 2px solid var(--ok); background: color-mix(in srgb, var(--ok) 18%, var(--chip)); }
 .pad b { position: absolute; top: 116px; left: 0; right: 0; text-align: center; font-weight: 500; font-size: 13px; color: var(--muted); }
 .motion { display: flex; gap: 22px; margin-top: 30px; align-items: flex-start; flex-wrap: wrap; }
 .motion .stick i { background: var(--ok); }
@@ -174,8 +176,8 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
     </div>
     <div class="row">
       <label for="padSpeed">Trackpad speed</label>
-      <div class="rangeval"><input type="range" id="padSpeed" min="1" max="10" step="1"><output id="padSpeedOut"></output></div>
-      <div class="hint">Steam Controller mode: how far the virtual finger moves when you slide a Joy-Con on a surface (its mouse sensor).</div>
+      <div class="rangeval"><input type="range" id="padSpeed" min="1" max="19" step="1"><output id="padSpeedOut"></output></div>
+      <div class="hint">Steam Controller mode: how far the virtual finger moves when you slide a Joy-Con on a surface (its mouse sensor). The left part of the slider is fine control: 0.1× to 0.9× of speed 1.</div>
     </div>
     <div class="row">
       <label>Trackpad lift-off</label>
@@ -183,6 +185,13 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
         <button data-v="0">Strict</button><button data-v="1">Medium</button><button data-v="2">Loose</button>
       </div>
       <div class="hint">How far off the surface still counts as touching. Loose works on more surfaces but may pick up your hand.</div>
+    </div>
+    <div class="row">
+      <label>Sensor when held</label>
+      <div class="seg" id="padGrip">
+        <button data-v="false">Trackpad</button><button data-v="true">Grip sense</button>
+      </div>
+      <div class="hint">Grip sense: a Joy-Con lying on its rail side is a trackpad; held normally, its sensor tells Steam whether your hand is on that grip.</div>
     </div>
     <details class="adv" id="adv">
       <summary>Advanced: motion axis flips</summary>
@@ -295,8 +304,9 @@ function showSettings() {
       ". Applies when you exit.";
   }
   $("padSpeed").value = settings.padSpeed;
-  $("padSpeedOut").textContent = settings.padSpeed + " / 10";
+  $("padSpeedOut").textContent = padSpeedName(settings.padSpeed);
   seg("padLift", String(settings.padLift));
+  seg("padGrip", String(!!settings.padGrip));
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
   const auto = { ds4: "the touchpad's left / right half", ds5: "the touchpad's left / right half",
@@ -364,6 +374,10 @@ for (const id of ["flipDs4", "flipSwitch"]) {
   });
 }
 $("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
+$("padGrip").addEventListener("click", (e) => {
+  const v = e.target.dataset && e.target.dataset.v;
+  if (v !== undefined) save({ padGrip: v === "true" });
+});
 $("padLift").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
   if (v !== undefined) save({ padLift: +v });
@@ -450,13 +464,21 @@ function renderInput(inp) {
   renderPads(inp.tp);
 }
 
-// Optical-sensor trackpads: [touch0, x0, y0, touch1, x1, y1]; touch -1 = no sensor.
+// Trackpad speed steps: 1..9 = 0.1..0.9 x speed 1, 10..19 = speeds 1..10.
+function padSpeedName(v) { return v >= 10 ? String(v - 9) : "0." + v + "×"; }
+
+// Optical-sensor trackpads: [state0, x0, y0, state1, x1, y1]; state -1 no sensor,
+// 0 / 1 finger up / down, 2 / 3 grip-sense mode without / with a hand.
 function renderPads(tp) {
   $("pads").style.display = tp ? "flex" : "none";
   if (!tp) return;
   for (let i = 0; i < 2; i++) {
     const dot = $("tp" + i), t = tp[i * 3];
     dot.classList.toggle("on", t === 1);
+    const pad = dot.parentElement;
+    pad.classList.toggle("grip", t >= 2);
+    pad.classList.toggle("held", t === 3);
+    pad.querySelector("b").textContent = (i ? "Right" : "Left") + (t >= 2 ? (t === 3 ? " grip: hand" : " grip: free") : " trackpad");
     dot.style.left = (50 + tp[i * 3 + 1] / 32767 * 46) + "%";
     dot.style.top = (50 - tp[i * 3 + 2] / 32767 * 46) + "%";
     dot.parentElement.style.opacity = t < 0 ? 0.35 : 1;

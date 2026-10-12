@@ -54,11 +54,12 @@ typedef struct {
     uint8_t flip_ds4;
     uint8_t flip_switch;
     // Joy-Con optical sensor as a trackpad (Steam Controller mode).
-    uint8_t pad_speed;       // 1..10, 5 = default
+    uint8_t pad_speed;       // 1..19: 1..9 = 0.1..0.9 x the old slowest, 10..19 = speeds 1..10 (14 = default 5)
     uint8_t pad_lift;        // 0..2: how far off the surface still counts as touching
+    bool pad_grip;           // held normally (not on its rail side): sensor = grip sensor
 } settings_t;
 
-#define SETTINGS_PAD_SPEED_MAX 10
+#define SETTINGS_PAD_SPEED_MAX 19
 #define SETTINGS_PAD_LIFT_MAX  2
 
 #define MOTION_FLIP_GX 0x01  // gyro pitch (X)
