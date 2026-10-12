@@ -18,6 +18,7 @@
 
 #include <ctype.h>
 #include <math.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -119,6 +120,13 @@ typedef struct {
     float still_min[3], still_max[3];
     float still_accel[3];
     int still_n;
+
+    // Optical sensor -> trackpad finger.
+    bool tp_on;          // on a surface last report
+    bool tp_touch;       // finger down
+    uint16_t tp_lx, tp_ly;
+    int32_t tp_travel;   // sensor counts moved since landing, before the finger goes down
+    float tp_x, tp_y;
 } link_t;
 
 typedef enum {
@@ -679,6 +687,60 @@ static void motion_update(link_t *l, const ns2_input_t *in, pad_motion_t *m)
     m->valid = true;
 }
 
+// Joy-Con 2 optical sensor -> a finger on a virtual trackpad. "On a surface"
+// uses Switch2Connect's thresholds (lift-off distance non-zero and under a
+// limit, surface roughness under a limit; three levels). The sensor reports
+// a wrapping position, so only its movement is used: the finger lands at the
+// pad's centre and moves with the Joy-Con. At the edge it lifts for one report
+// and lands at the centre again; trackpads read as relative motion in Steam,
+// so movement simply continues.
+#define TP_LAND_COUNTS  6       // movement needed before the finger goes down
+#define TP_EDGE         28000
+
+static void trackpad_update(link_t *l, const ns2_input_t *in, pad_trackpad_t *tp)
+{
+    static const uint16_t limit_dist[3] = { 1000, 1500, 3000 };
+    static const uint16_t limit_rough[3] = { 4000, 5000, 10000 };
+    settings_t st = settings_get();
+    int lvl = st.pad_lift <= 2 ? st.pad_lift : 0;
+    float gain = 8.0f * st.pad_speed;  // pad units per sensor count
+
+    tp->valid = true;
+    bool on = in->mouse_distance != 0 && in->mouse_distance < limit_dist[lvl] &&
+              in->mouse_roughness < limit_rough[lvl];
+    if (!on) {
+        l->tp_on = false;
+        l->tp_touch = false;
+    } else if (!l->tp_on) {
+        l->tp_on = true;
+        l->tp_touch = false;
+        l->tp_travel = 0;
+    } else {
+        int16_t dx = (int16_t)(in->mouse_x - l->tp_lx);
+        int16_t dy = (int16_t)(in->mouse_y - l->tp_ly);
+        if (!l->tp_touch) {
+            l->tp_travel += abs(dx) + abs(dy);
+            if (l->tp_travel >= TP_LAND_COUNTS) {
+                l->tp_touch = true;
+                l->tp_x = l->tp_y = 0.0f;
+            }
+        } else {
+            l->tp_x += dx * gain;
+            l->tp_y -= dy * gain;  // sensor +y is toward the player; pad +y is up
+        }
+    }
+    l->tp_lx = in->mouse_x;
+    l->tp_ly = in->mouse_y;
+
+    tp->touch = l->tp_touch;
+    if (l->tp_touch && (fabsf(l->tp_x) > TP_EDGE || fabsf(l->tp_y) > TP_EDGE)) {
+        tp->touch = false;  // one report lifted, then down again at the centre
+        l->tp_x = l->tp_y = 0.0f;
+    }
+    tp->x = (int16_t)l->tp_x;
+    tp->y = (int16_t)l->tp_y;
+}
+
 static void handle_input(link_t *l, const uint8_t *data, size_t len)
 {
     ns2_input_t in;
@@ -719,6 +781,9 @@ static void handle_input(link_t *l, const uint8_t *data, size_t len)
         return;
     }
     motion_update(l, &in, &s.motion);
+    if (l->role != PAD_ROLE_FULL) {
+        trackpad_update(l, &in, &s.tp);
+    }
     pad_update(l->role, &s);
 }
 

@@ -20,6 +20,8 @@ static settings_t s_cur = {
     .mode_hotkeys = true,
     .grip_gl = GRIP_AUTO,
     .grip_gr = GRIP_AUTO,
+    .pad_speed = 5,
+    .pad_lift = 0,
 };
 
 static const struct { const char *key, *name; } s_grips[GRIP_COUNT] = {
@@ -87,6 +89,9 @@ void settings_init(void)
         s.grip_gr = (grip_map_t)get_u8(h, "gr", s.grip_gr, GRIP_COUNT - 1);
         s.flip_ds4 = get_u8(h, "flipds4", s.flip_ds4, MOTION_FLIP_ALL);
         s.flip_switch = get_u8(h, "flipsw", s.flip_switch, MOTION_FLIP_ALL);
+        s.pad_speed = get_u8(h, "padspeed", s.pad_speed, SETTINGS_PAD_SPEED_MAX);
+        if (s.pad_speed == 0) s.pad_speed = 1;
+        s.pad_lift = get_u8(h, "padlift", s.pad_lift, SETTINGS_PAD_LIFT_MAX);
         s_cur = s;
         nvs_close(h);
     }
@@ -114,6 +119,9 @@ void settings_set(const settings_t *in)
     if (s.grip_gr >= GRIP_COUNT) s.grip_gr = GRIP_AUTO;
     s.flip_ds4 &= MOTION_FLIP_ALL;
     s.flip_switch &= MOTION_FLIP_ALL;
+    if (s.pad_speed < 1) s.pad_speed = 1;
+    if (s.pad_speed > SETTINGS_PAD_SPEED_MAX) s.pad_speed = SETTINGS_PAD_SPEED_MAX;
+    if (s.pad_lift > SETTINGS_PAD_LIFT_MAX) s.pad_lift = SETTINGS_PAD_LIFT_MAX;
     portENTER_CRITICAL(&s_mux);
     s_cur = s;
     portEXIT_CRITICAL(&s_mux);
@@ -130,6 +138,8 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "gr", (uint8_t)s.grip_gr);
         nvs_set_u8(h, "flipds4", s.flip_ds4);
         nvs_set_u8(h, "flipsw", s.flip_switch);
+        nvs_set_u8(h, "padspeed", s.pad_speed);
+        nvs_set_u8(h, "padlift", s.pad_lift);
         nvs_commit(h);
         nvs_close(h);
     }
@@ -143,7 +153,7 @@ void settings_set(const settings_t *in)
 }
 
 const out_mode_t SETTINGS_MODE_ORDER[OUT_MODE_COUNT] = {
-    OUT_MODE_XINPUT, OUT_MODE_DS4, OUT_MODE_DS5, OUT_MODE_SWITCH_PRO, OUT_MODE_HID,
+    OUT_MODE_XINPUT, OUT_MODE_DS4, OUT_MODE_DS5, OUT_MODE_SWITCH_PRO, OUT_MODE_STEAM, OUT_MODE_HID,
 };
 
 out_mode_t settings_out_mode(void)
@@ -159,6 +169,7 @@ const char *settings_out_mode_name(out_mode_t mode)
     case OUT_MODE_SWITCH_PRO: return "Switch Pro Controller";
     case OUT_MODE_HID:        return "generic HID gamepad";
     case OUT_MODE_DS5:        return "DualSense";
+    case OUT_MODE_STEAM:      return "Steam Controller";
     default:                  return "?";
     }
 }
@@ -171,6 +182,7 @@ const char *settings_out_mode_key(out_mode_t mode)
     case OUT_MODE_SWITCH_PRO: return "switchpro";
     case OUT_MODE_HID:        return "hid";
     case OUT_MODE_DS5:        return "ds5";
+    case OUT_MODE_STEAM:      return "steam";
     default:                  return "?";
     }
 }

@@ -13,6 +13,7 @@ typedef enum {
     OUT_MODE_SWITCH_PRO,   // Nintendo Switch Pro Controller
     OUT_MODE_HID,          // generic HID gamepad (step-1 mode)
     OUT_MODE_DS5,          // DualSense (added last so stored modes keep their numbers)
+    OUT_MODE_STEAM,        // Steam Controller (2026), with the optical sensors as trackpads
     OUT_MODE_COUNT,
 } out_mode_t;
 
@@ -52,7 +53,13 @@ typedef struct {
     // Steam: one mask per mode, MOTION_FLIP_* bits.
     uint8_t flip_ds4;
     uint8_t flip_switch;
+    // Joy-Con optical sensor as a trackpad (Steam Controller mode).
+    uint8_t pad_speed;       // 1..10, 5 = default
+    uint8_t pad_lift;        // 0..2: how far off the surface still counts as touching
 } settings_t;
+
+#define SETTINGS_PAD_SPEED_MAX 10
+#define SETTINGS_PAD_LIFT_MAX  2
 
 #define MOTION_FLIP_GX 0x01  // gyro pitch (X)
 #define MOTION_FLIP_GY 0x02  // gyro yaw (Y)

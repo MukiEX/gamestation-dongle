@@ -221,4 +221,9 @@ void pad_get_output(pad_out_t *o)
         o->mode = PAD_MODE_SINGLE_RIGHT;
         map_single_right(&side[PAD_ROLE_RIGHT], o);
     }
+    // Each Joy-Con's sensor drives the trackpad on its own side.
+    if (o->mode != PAD_MODE_FULL) {
+        o->tp[0] = side[PAD_ROLE_LEFT].tp;
+        o->tp[1] = side[PAD_ROLE_RIGHT].tp;
+    }
 }

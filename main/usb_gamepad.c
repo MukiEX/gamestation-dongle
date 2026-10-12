@@ -386,7 +386,9 @@ static uint32_t grip_target(grip_map_t m, bool left)
     };
     if (m == GRIP_AUTO) {
         if (s_drv == &out_ds4 || s_drv == &out_ds5) return left ? NS2_BTN_TP_LEFT : NS2_BTN_TP_RIGHT;
-        if (s_drv == &out_hid) return left ? NS2_BTN_GL : NS2_BTN_GR;  // its own buttons 20 / 21
+        if (s_drv == &out_hid || s_drv == &out_steam) {
+            return left ? NS2_BTN_GL : NS2_BTN_GR;  // HID buttons 20 / 21; Steam L4 / R4
+        }
         return 0;
     }
     return m < GRIP_COUNT ? bits[m] : 0;
@@ -466,6 +468,7 @@ static const out_driver_t *driver_for(out_mode_t mode)
     switch (mode) {
     case OUT_MODE_DS4:        return &out_ds4;
     case OUT_MODE_DS5:        return &out_ds5;
+    case OUT_MODE_STEAM:      return &out_steam;
     case OUT_MODE_SWITCH_PRO: return &out_switchpro;
     case OUT_MODE_HID:        return &out_hid;
     case OUT_MODE_XINPUT:

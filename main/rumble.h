@@ -32,6 +32,11 @@ void rumble_set_hd(const uint8_t left[4], const uint8_t right[4]);
 
 void rumble_stop(void);
 
+// A plain tone on one or both sides for a fixed time (Steam Controller
+// haptic clicks, pulses and tones). sides: bit 0 = left, bit 1 = right.
+// amp 0..1, before the rumble-strength setting.
+void rumble_tone(uint8_t sides, float hz, float amp, uint32_t ms);
+
 // Short feedback buzz played by the dongle itself (not the PC), e.g. when the
 // configurator opens. Overrides PC rumble while it plays.
 typedef enum {

@@ -43,6 +43,14 @@ typedef struct {
     bool valid;
 } pad_motion_t;
 
+// A virtual trackpad finger made from a Joy-Con 2's optical (mouse) sensor:
+// x right, y up, +-32767 across the pad.
+typedef struct {
+    bool valid;   // this controller has a sensor
+    bool touch;   // finger down (the Joy-Con is on a surface and moving)
+    int16_t x, y;
+} pad_trackpad_t;
+
 // Input from one physical controller, after stick calibration. Motion is in
 // the controller's own upright frame.
 typedef struct {
@@ -50,6 +58,7 @@ typedef struct {
     float lx, ly;      // [-1, 1], +y = up
     float rx, ry;
     pad_motion_t motion;
+    pad_trackpad_t tp;
 } pad_side_t;
 
 // The merged virtual controller, in Switch 2 button naming with *positional*
@@ -59,6 +68,7 @@ typedef struct {
     uint32_t buttons;
     float lx, ly, rx, ry;
     pad_motion_t motion;  // in the frame of the controller as the player holds it
+    pad_trackpad_t tp[2]; // [0] left trackpad (left Joy-Con), [1] right (right Joy-Con)
 } pad_out_t;
 
 pad_role_t pad_role_for_pid(uint16_t pid);

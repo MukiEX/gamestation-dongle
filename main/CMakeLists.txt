@@ -11,7 +11,7 @@ idf_component_register(
         "rumble.c"
         "out_hid.c"
         "out_xinput.c"
-        "out_ds4.c" "out_ds5.c"
+        "out_ds4.c" "out_ds5.c" "out_steam.c"
         "out_switchpro.c"
         "config_server.c"
     INCLUDE_DIRS "."

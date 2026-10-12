@@ -336,7 +336,7 @@ footer a { color: inherit; }
     </section>
 
     <section class="panel" aria-labelledby="tests-title">
-      <h2 id="tests-title">Step 4 tests</h2>
+      <h2 id="tests-title">Step 5 tests</h2>
       <p class="sub" style="margin-top:6px">Press <b>Start</b> on a test before doing it, so the log is labelled. Pick the result, add a note if anything was off, then save the report.</p>
       <ol class="tests" id="tests"></ol>
     </section>
@@ -428,14 +428,16 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Pick DualSense in the configurator (or cycle with BOOT: XInput, DS4, DualSense, Switch Pro, HID): Windows shows a 'DualSense Wireless Controller', and the Joy-Cons stay connected",
-    "DualSense mode: buttons and sticks right in Steam's controller test and a gamepad tester; C (GameChat) is the mute button",
-    "DualSense mode, Motion tab: the 3D model follows the controller like in DS4 mode",
-    "DualSense mode: rumble in Steam's controller test or a game (the PC's 'rumble emulation')",
-    "DualSense mode, Back buttons on Auto: GL / GR click the touchpad's left / right half",
-    "After flashing: connect both Joy-Cons. A Joy-Con only lights its player LED once it's in use. If one ever looks dead, check the log for 'no input for 3 s' (it then reconnects on a button press) and save the report",
-    "After a normal power-on, an old crash report shows once as 'old crash report' and is then gone",
-    "All other modes still work as before (buttons, sticks, rumble, motion)",
+    "Pick Steam Controller in the configurator: Windows shows a 'Steam Controller' (Valve), the Joy-Cons stay connected, and the log shows 'host command 83 / ae / b4' lines once Steam is running",
+    "Steam recognises it as a Steam Controller (Settings, Controller): buttons, sticks, triggers right in Test Device Inputs; Home = Steam button, Capture = '...' (quick access)",
+    "Configurator first: slide each Joy-Con on a table, sensor side down: its finger dot appears on its trackpad and follows the motion; lifting it makes the dot vanish (try the Lift-off levels)",
+    "Steam, Test Device Inputs: the left / right trackpads show touches and movement from the left / right Joy-Con",
+    "Steam: bind a trackpad as mouse (or use Desktop Layout): sliding the Joy-Con moves the cursor smoothly in all directions, no jumps at the pad edges. Note the Trackpad speed that feels right",
+    "Back buttons: GL / GR = L4 / R4; SL / SR on the Joy-Cons = L5 / R5",
+    "Gyro in Steam (gyro as mouse): turn left = cursor left, tilt up = cursor up",
+    "Rumble / haptics: Steam's Identify Controller buzzes, and game rumble works",
+    "If Steam offers a firmware update for this controller: decline it, and note it here",
+    "All other modes still work as before",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
@@ -580,7 +582,7 @@ __MD5_JS__
 
   // The dongle's USB identity depends on its output mode (generic HID,
   // XInput, DS4, Switch Pro); its log port is the same in every mode.
-  const DONGLE_IDS = ["303a:8243", "303a:8244", "303a:8245", "45e:28e", "54c:9cc", "54c:ce6", "57e:2009"];
+  const DONGLE_IDS = ["303a:8243", "303a:8244", "303a:8245", "45e:28e", "54c:9cc", "54c:ce6", "57e:2009", "28de:1302"];
   function isDongle(info) {
     return info && info.usbVendorId !== undefined &&
       DONGLE_IDS.includes(info.usbVendorId.toString(16) + ":" + info.usbProductId.toString(16));
@@ -660,7 +662,7 @@ __MD5_JS__
   // ---- Report ----
   function report() {
     const out = [];
-    out.push("Joy-Con 2 Dongle — step 4 test report");
+    out.push("Joy-Con 2 Dongle — step 5 test report");
     out.push("Saved: " + new Date().toString());
     out.push("Firmware: " + $("st-fw").textContent);
     out.push("Browser: " + navigator.userAgent);

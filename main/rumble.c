@@ -148,6 +148,34 @@ void rumble_set_hd(const uint8_t left[4], const uint8_t right[4])
     publish(&f, true, esp_timer_get_time() + HD_HOLD_US);
 }
 
+void rumble_tone(uint8_t sides, float hz, float amp, uint32_t ms)
+{
+    float a = amp * strength();
+    if (a <= 0.0f || ms == 0 || (sides & 3) == 0) {
+        return;
+    }
+    if (hz < 40.0f) hz = 40.0f;
+    if (hz > 1250.0f) hz = 1250.0f;
+    uint16_t code = hz_to_code(hz);
+    // Low tones go in the low band, high ones in the high band; the other band stays silent.
+    bool low = hz < 240.0f;
+    ns2_vib_t v = NS2_VIB_SILENT;
+    ns2_vib_t p = NS2_VIB_SILENT;
+    if (low) {
+        v.lf_freq = code; v.lf_amp = clamp_amp(a * 1023.0f * 0.6f);
+        p.lf_freq = code; p.lf_amp = clamp_amp(a * 1023.0f);
+    } else {
+        v.hf_freq = code; v.hf_amp = clamp_amp(a * 1023.0f * 0.5f);
+        p.hf_freq = code; p.hf_amp = clamp_amp(a * 1023.0f * 0.7f);
+    }
+    rumble_frame_t f;
+    f.jc[0] = (sides & 1) ? v : NS2_VIB_SILENT;
+    f.jc[1] = (sides & 2) ? v : NS2_VIB_SILENT;
+    f.pro[0] = (sides & 1) ? p : NS2_VIB_SILENT;
+    f.pro[1] = (sides & 2) ? p : NS2_VIB_SILENT;
+    publish(&f, true, esp_timer_get_time() + (int64_t)ms * 1000);
+}
+
 static int64_t s_cue_start;
 static rumble_cue_t s_cue;
 

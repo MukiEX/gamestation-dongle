@@ -7,15 +7,15 @@ A left and a right Joy-Con 2 automatically merge into a single controller.
 Based on [Switch2Connect](https://github.com/TommyWabg/Switch2Connect) by
 TommyWabg, so this project is **GPL-3.0**.
 
-## Status: step 4 of 5
+## Status: step 5 of 5
 
 | Step | What | State |
 |---|---|---|
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
 | 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
 | 3 | Web configurator at 192.168.7.1, settings in flash | **done (0.3.4)** |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | gyro **done (0.4.3)**, back buttons; DualSense **this build (0.5.0)**; audio haptics and Switch 2 Pro **next** |
-| 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
+| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | gyro **done (0.4.3)**, back buttons, DualSense (0.5.0); audio haptics and Switch 2 Pro still to do |
+| 5 | Steam Controller (2026) mode with mouse-sensor trackpads | **this build (0.6.0)** |
 
 ### Controllers
 
@@ -59,12 +59,13 @@ whole time. Settings are stored on the dongle.
 | **DualShock 4** | DS4 (054C:09CC) | yes | yes |
 | **DualSense** | DualSense (054C:0CE6) | yes (rumble emulation; audio haptics next) | yes |
 | **Switch Pro** | Switch Pro Controller (057E:2009) | yes (HD rumble, converted) | yes |
+| **Steam Controller** | Steam Controller 2026 (28DE:1302), Joy-Con mouse sensors as its trackpads | yes (rumble, haptic clicks and tones) | yes |
 | **Generic HID** | "Joy-Con 2 Dongle" HID gamepad (303A:8243) | no | – |
 
 **Changing mode:** pick it in the configurator, press **BOOT** briefly, or hold
 **−** and **+** together for 3 seconds. The dongle drops off USB for about a second and comes back as the
 next controller; the Bluetooth controllers stay connected. The mode is saved
-for the next power-up. The order is XInput → DS4 → DualSense → Switch Pro → generic HID.
+for the next power-up. The order is XInput → DS4 → DualSense → Switch Pro → Steam Controller → generic HID.
 
 Switch Pro mode only reads correctly in software that speaks the Pro
 Controller's USB protocol (Steam, SDL games, Chrome's gamepad support, a
@@ -117,6 +118,35 @@ Steam's gyro-as-mouse. For a game that reads an axis backwards, the
 configurator's *Advanced* section can flip each gyro and accelerometer axis
 per mode; the log prints the active code (e.g. `gyro +-+ accel +++`) when
 those modes start.
+
+### Steam Controller mode
+
+The dongle presents itself as a wired Steam Controller (2026), which Steam
+supports natively, so Steam Input can bind everything, including the
+trackpads.
+
+* **Trackpads from the Joy-Con mouse sensors.** Slide a Joy-Con on a surface
+  (sensor side down) and a finger moves on that side's trackpad: left Joy-Con →
+  left pad, right Joy-Con → right pad. Lifting it lifts the finger. The finger
+  starts at the pad's centre and, at the edge, lifts for one report and lands
+  at the centre again; Steam reads trackpads as relative motion, so the
+  movement continues. *Trackpad speed* and *Trackpad lift-off* are in the
+  configurator, which also shows both trackpads live.
+* **Buttons:** Home = Steam button, Capture = quick access (…), − / + = the
+  left / right centre buttons (Back / Start in SDL), GL / GR = L4 / R4, a Joy-Con's SL / SR = L5 / R5. ZL / ZR are full
+  trigger pulls. Joy-Cons have no touch sensing, so a moved stick counts as
+  "touched".
+* **Haptics:** Steam's rumble drives the Joy-Con motors; its haptic clicks,
+  pulses and tones (Identify Controller, trackpad clicks) play as short Joy-Con
+  HD-rumble tones at the requested pitch.
+* **If Steam offers a firmware update** for this controller, decline it: the
+  dongle only imitates the controller.
+
+Sources: the USB descriptors and the answers Steam checks come from
+[HIDMaestro](https://github.com/hifihedgehog/HIDMaestro)'s steam-controller-2
+profile (MIT); the input layout from SDL's `SDL_hidapi_steam_triton.c`; the
+haptic reports from [sc2-research](https://github.com/CouchTurtle/sc2-research)
+(MIT).
 
 The generic HID mode is the step-1 layout:
 

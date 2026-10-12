@@ -338,6 +338,8 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddStringToObject(o, "gr", settings_grip_key(s->grip_gr));
     cJSON_AddNumberToObject(o, "flipDs4", s->flip_ds4);
     cJSON_AddNumberToObject(o, "flipSwitch", s->flip_switch);
+    cJSON_AddNumberToObject(o, "padSpeed", s->pad_speed);
+    cJSON_AddNumberToObject(o, "padLift", s->pad_lift);
     return o;
 }
 
@@ -407,6 +409,11 @@ static esp_err_t h_state(httpd_req_t *req)
                               o.motion.accel[0], o.motion.accel[1], o.motion.accel[2] };
         cJSON_AddItemToObject(in, "motion", cJSON_CreateFloatArray(mv, 6));
     }
+    if (o.tp[0].valid || o.tp[1].valid) {
+        const int tv[6] = { o.tp[0].valid ? o.tp[0].touch : -1, o.tp[0].x, o.tp[0].y,
+                            o.tp[1].valid ? o.tp[1].touch : -1, o.tp[1].x, o.tp[1].y };
+        cJSON_AddItemToObject(in, "tp", cJSON_CreateIntArray(tv, 6));
+    }
     return send_json(req, root);
 }
 
@@ -435,6 +442,8 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "hotkeys")) && cJSON_IsBool(v)) s.mode_hotkeys = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "flipDs4")) && cJSON_IsNumber(v)) s.flip_ds4 = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "flipSwitch")) && cJSON_IsNumber(v)) s.flip_switch = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "padSpeed")) && cJSON_IsNumber(v)) s.pad_speed = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "padLift")) && cJSON_IsNumber(v)) s.pad_lift = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);
         if (g < GRIP_COUNT) s.grip_gl = g;
@@ -538,7 +547,7 @@ static void ws_task(void *arg)
 {
     (void)arg;
     static const char *mode_names[] = { "none", "pro", "pair", "left", "right" };
-    char last[300] = "";
+    char last[360] = "";
     int64_t last_sent = 0;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(16));
@@ -548,13 +557,18 @@ static void ws_task(void *arg)
         }
         pad_out_t o;
         pad_get_output(&o);
-        char msg[300];
+        char msg[360];
         int n = snprintf(msg, sizeof(msg), "{\"layout\":\"%s\",\"buttons\":%lu,\"lx\":%.3f,\"ly\":%.3f,\"rx\":%.3f,\"ry\":%.3f",
                          mode_names[o.mode < 5 ? o.mode : 0], (unsigned long)o.buttons, o.lx, o.ly, o.rx, o.ry);
         if (o.motion.valid) {
             n += snprintf(msg + n, sizeof(msg) - n, ",\"motion\":[%.1f,%.1f,%.1f,%.3f,%.3f,%.3f]",
                           o.motion.gyro[0], o.motion.gyro[1], o.motion.gyro[2],
                           o.motion.accel[0], o.motion.accel[1], o.motion.accel[2]);
+        }
+        if (o.tp[0].valid || o.tp[1].valid) {
+            n += snprintf(msg + n, sizeof(msg) - n, ",\"tp\":[%d,%d,%d,%d,%d,%d]",
+                          o.tp[0].valid ? o.tp[0].touch : -1, o.tp[0].x, o.tp[0].y,
+                          o.tp[1].valid ? o.tp[1].touch : -1, o.tp[1].x, o.tp[1].y);
         }
         n += snprintf(msg + n, sizeof(msg) - n, "}");
         int64_t now = esp_timer_get_time();

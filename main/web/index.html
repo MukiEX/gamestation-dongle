@@ -36,6 +36,10 @@ h2 { font-size: 15px; margin: 0 0 12px; font-weight: 650; }
 .row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 0;
   border-top: 1px solid var(--line); }
 .row:first-of-type { border-top: 0; }
+@media (max-width: 480px) {
+  .row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .hint { grid-column: 1; }
+}
 .row label { font-weight: 550; }
 .hint { color: var(--muted); font-size: 13px; grid-column: 2; margin-top: -4px; }
 select, input[type=range] { width: 100%; }
@@ -80,6 +84,12 @@ button:disabled { opacity: .5; cursor: default; }
 .stick::before, .stick::after { content: ""; position: absolute; background: var(--line); }
 .stick::before { left: 50%; top: 6px; bottom: 6px; width: 1px; }
 .stick::after { top: 50%; left: 6px; right: 6px; height: 1px; }
+#pads { flex-wrap: wrap; row-gap: 34px; margin-top: 34px; }
+.pad { width: 110px; height: 110px; border-radius: 12px; border: 2px solid var(--line); position: relative; background: var(--chip); }
+.pad i { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+  background: var(--accent); left: 50%; top: 50%; opacity: 0; transition: opacity .1s; }
+.pad i.on { opacity: 1; }
+.pad b { position: absolute; top: 116px; left: 0; right: 0; text-align: center; font-weight: 500; font-size: 13px; color: var(--muted); }
 .motion { display: flex; gap: 22px; margin-top: 30px; align-items: flex-start; flex-wrap: wrap; }
 .motion .stick i { background: var(--ok); }
 .gyro { flex: 1; min-width: 220px; display: grid; gap: 7px; }
@@ -162,6 +172,18 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       </div>
       <div class="hint" id="griphint"></div>
     </div>
+    <div class="row">
+      <label for="padSpeed">Trackpad speed</label>
+      <div class="rangeval"><input type="range" id="padSpeed" min="1" max="10" step="1"><output id="padSpeedOut"></output></div>
+      <div class="hint">Steam Controller mode: how far the virtual finger moves when you slide a Joy-Con on a surface (its mouse sensor).</div>
+    </div>
+    <div class="row">
+      <label>Trackpad lift-off</label>
+      <div class="seg" id="padLift">
+        <button data-v="0">Strict</button><button data-v="1">Medium</button><button data-v="2">Loose</button>
+      </div>
+      <div class="hint">How far off the surface still counts as touching. Loose works on more surfaces but may pick up your hand.</div>
+    </div>
     <details class="adv" id="adv">
       <summary>Advanced: motion axis flips</summary>
       <p class="hint" style="margin:6px 0 0">Not needed normally: motion is verified correct for Steam and SDL games.
@@ -202,6 +224,11 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
     <div class="sticks">
       <div class="stick"><i id="ls"></i><b>Left stick</b></div>
       <div class="stick"><i id="rs"></i><b>Right stick</b></div>
+    </div>
+    <div class="sticks" id="pads" style="display:none">
+      <div class="pad"><i id="tp0"></i><b>Left trackpad</b></div>
+      <div class="pad"><i id="tp1"></i><b>Right trackpad</b></div>
+      <span class="hint" style="margin:0;align-self:center">Slide a Joy-Con on a table (sensor down): its finger appears and moves.</span>
     </div>
     <div class="motion" id="motion">
       <div class="stick"><i id="tilt"></i><b>Tilt</b></div>
@@ -267,10 +294,13 @@ function showSettings() {
     $(id + "Code").textContent = "Highlighted = flipped. Code: " + flipCode(m) +
       ". Applies when you exit.";
   }
+  $("padSpeed").value = settings.padSpeed;
+  $("padSpeedOut").textContent = settings.padSpeed + " / 10";
+  seg("padLift", String(settings.padLift));
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
   const auto = { ds4: "the touchpad's left / right half", ds5: "the touchpad's left / right half",
-    hid: "its own buttons 20 / 21" }[settings.mode];
+    hid: "its own buttons 20 / 21", steam: "its back buttons L4 / R4" }[settings.mode];
   $("griphint").textContent = "Pro Controller 2, or Joy-Cons in the charging grip. Auto in this mode: " +
     (auto || "nothing (no spare buttons), so pick one here") + ".";
   $("rumble").value = settings.rumble;
@@ -333,6 +363,11 @@ for (const id of ["flipDs4", "flipSwitch"]) {
     $(id).appendChild(b);
   });
 }
+$("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
+$("padLift").addEventListener("click", (e) => {
+  const v = e.target.dataset && e.target.dataset.v;
+  if (v !== undefined) save({ padLift: +v });
+});
 $("gl").addEventListener("change", () => save({ gl: $("gl").value }));
 $("gr").addEventListener("change", () => save({ gr: $("gr").value }));
 $("rumble").addEventListener("input", () => save({ rumble: +$("rumble").value }));
@@ -412,6 +447,20 @@ function renderInput(inp) {
   put($("rs"), inp.rx, inp.ry);
   $("padmode").textContent = PADMODE[inp.layout] || "";
   renderMotion(inp.motion);
+  renderPads(inp.tp);
+}
+
+// Optical-sensor trackpads: [touch0, x0, y0, touch1, x1, y1]; touch -1 = no sensor.
+function renderPads(tp) {
+  $("pads").style.display = tp ? "flex" : "none";
+  if (!tp) return;
+  for (let i = 0; i < 2; i++) {
+    const dot = $("tp" + i), t = tp[i * 3];
+    dot.classList.toggle("on", t === 1);
+    dot.style.left = (50 + tp[i * 3 + 1] / 32767 * 46) + "%";
+    dot.style.top = (50 - tp[i * 3 + 2] / 32767 * 46) + "%";
+    dot.parentElement.style.opacity = t < 0 ? 0.35 : 1;
+  }
 }
 
 // Gyro in deg/s (bars span +-360), accelerometer in g. The tilt dot acts like
