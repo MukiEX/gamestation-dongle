@@ -156,6 +156,41 @@ footer a { color: inherit; }
   .test { grid-template-columns: 2em 1fr; }
   .test select, .test button { grid-column: 2; justify-self: start; }
 }
+/* Motion viewer */
+.mv-scene { height: 260px; perspective: 800px; display: grid; place-items: center; margin-top: 14px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.mv-cam { transform-style: preserve-3d; transform: rotateX(-28deg); }
+.mv-body { position: relative; width: 0; height: 0; transform-style: preserve-3d; }
+.mv-face { position: absolute; box-sizing: border-box; border: 1px solid rgba(0,0,0,.35); backface-visibility: visible; }
+.mv-face.top { background: #2b3038; display: grid; place-items: center; color: #e8ebf0; }
+.mv-face.side { background: #3b424d; }
+.mv-face.far { background: var(--accent); color: #fff; font: 600 11px var(--font-body); display: grid; place-items: center; }
+.mv-face.near { background: #59616e; }
+.mv-face.bottom { background: #1b1f25; }
+.mv-face .shoulder { position: absolute; top: 4px; left: 8px; right: 8px; text-align: center; font: 600 11px var(--font-body); color: #ff8a98; letter-spacing: .08em; }
+.mv-face .abxy { position: absolute; right: 22px; top: 44%; width: 38px; height: 38px; }
+.mv-face .abxy b { position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #d9dde4; }
+.mv-face .stick { position: absolute; left: 26px; top: 40%; width: 26px; height: 26px; border-radius: 50%; background: #11141a; border: 2px solid #6b7686; }
+
+.mv-grid { display: grid; grid-template-columns: 200px 1fr; gap: 22px; align-items: start; margin-top: 16px; }
+@media (max-width: 560px) { .mv-grid { grid-template-columns: 1fr; } }
+.mv-level { width: 200px; height: 200px; border-radius: 50%; border: 2px solid var(--line); position: relative; background: var(--bg); }
+.mv-level::before, .mv-level::after { content: ""; position: absolute; background: var(--line); }
+.mv-level::before { left: 50%; top: 8px; bottom: 8px; width: 1px; }
+.mv-level::after { top: 50%; left: 8px; right: 8px; height: 1px; }
+.mv-level i { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: var(--good); left: 50%; top: 50%; z-index: 1; }
+.mv-level span { position: absolute; font-size: 11px; color: var(--muted); }
+.mv-bars { display: grid; gap: 12px; min-width: 0; }
+.mv-bar { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; }
+.mv-bar b { font-weight: 600; }
+.mv-bar small { color: var(--muted); font-size: 12.5px; grid-column: 1 / -1; margin-top: -2px; }
+.mv-bar output { font: 500 18px var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.mv-track { grid-column: 1 / -1; height: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; position: relative; overflow: hidden; }
+.mv-track::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--muted); }
+.mv-track i { position: absolute; top: 0; bottom: 0; background: var(--blue); }
+.mv-grav { font: 500 16px var(--font-mono); font-variant-numeric: tabular-nums; }
+.mv-checks { margin: 14px 0 0; padding-left: 20px; }
+.mv-checks li { margin: 3px 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -175,6 +210,7 @@ footer a { color: inherit; }
   <nav class="tabs" role="tablist" aria-label="Tool">
     <button class="tab" role="tab" id="tab-btn-flash" aria-controls="tab-flash" aria-selected="true">Flash</button>
     <button class="tab" role="tab" id="tab-btn-logs" aria-controls="tab-logs" aria-selected="false">Logs and tests</button>
+    <button class="tab" role="tab" id="tab-btn-motion" aria-controls="tab-motion" aria-selected="false">Motion</button>
   </nav>
 
   <div class="tabpanel" id="tab-flash" role="tabpanel" aria-labelledby="tab-btn-flash">
@@ -300,7 +336,7 @@ footer a { color: inherit; }
     </section>
 
     <section class="panel" aria-labelledby="tests-title">
-      <h2 id="tests-title">Step 3 tests</h2>
+      <h2 id="tests-title">Step 4 tests</h2>
       <p class="sub" style="margin-top:6px">Press <b>Start</b> on a test before doing it, so the log is labelled. Pick the result, add a note if anything was off, then save the report.</p>
       <ol class="tests" id="tests"></ol>
     </section>
@@ -315,6 +351,48 @@ footer a { color: inherit; }
         <span class="chip" id="mon-count">0 lines</span>
       </div>
       <pre class="log mon" id="mon" aria-live="off"></pre>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-motion" role="tabpanel" aria-labelledby="tab-btn-motion" hidden>
+    <section class="panel" aria-labelledby="mv-title">
+      <h2 id="mv-title">Motion viewer</h2>
+      <p class="sub" style="margin-top:6px">Reads the dongle's controller output in <b>DS4</b> or <b>Switch Pro</b> mode and decodes the gyro and accelerometer
+        exactly the way SDL does (SDL's controller code comes from Steam's). If these readings match the configurator's Live input, the dongle's
+        output is right; anything still odd in Steam is Steam's own handling.</p>
+      <div class="banner" id="mv-nohid" hidden style="margin-top:12px">This browser can't read USB controllers (WebHID). Open this file in Chrome or Edge.</div>
+      <div class="row" style="margin-top:12px">
+        <button id="mv-connect" class="primary">Connect to the dongle</button>
+        <button id="mv-disconnect" disabled>Disconnect</button>
+        <span class="chip" id="mv-state">Not connected</span>
+      </div>
+      <p class="sub" id="mv-cal" style="margin-top:8px"></p>
+
+      <div class="mv-scene" aria-label="3D view of the controller"><div class="mv-cam"><div class="mv-body" id="mv-body"></div></div></div>
+      <div class="row" style="margin-top:8px">
+        <button id="mv-reset">Reset view</button>
+        <span class="sub" style="font-size:13px">Lay the controller flat, then reset. The model should copy your moves; the red edge is the shoulder (L/R) side.</span>
+      </div>
+      <div class="mv-grid">
+        <div>
+          <div class="mv-level" aria-label="Tilt"><i id="mv-dot"></i>
+            <span style="left:50%;top:6px;transform:translateX(-50%)">top up</span>
+            <span style="left:8px;top:50%;transform:translateY(-120%)">left up</span>
+          </div>
+          <p class="sub" style="margin-top:8px;font-size:13px">Bubble level: the dot moves to the raised side.</p>
+        </div>
+        <div class="mv-bars">
+          <div class="mv-bar"><b>Pitch</b><output id="mv-g0">–</output><div class="mv-track"><i id="mv-b0"></i></div><small>tilt the top up: positive (right)</small></div>
+          <div class="mv-bar"><b>Yaw</b><output id="mv-g1">–</output><div class="mv-track"><i id="mv-b1"></i></div><small>flat, turn left: positive (right)</small></div>
+          <div class="mv-bar"><b>Roll</b><output id="mv-g2">–</output><div class="mv-track"><i id="mv-b2"></i></div><small>lower the right side: negative (left)</small></div>
+          <div><b>Gravity</b> <span class="mv-grav" id="mv-acc">–</span>
+            <p class="sub" style="font-size:12.5px;margin-top:2px">Flat: Y +1. Top up: Z toward −1. Right side down: X toward −1.</p></div>
+        </div>
+      </div>
+      <ol class="mv-checks sub">
+        <li>Steam or a game may hold the controller; that's fine, this only listens. If nothing moves, close DS4Windows or similar tools.</li>
+        <li>Bars span ±360 °/s. Readings are SDL's standard frame: X right, Y up out of the face, Z toward you.</li>
+      </ol>
     </section>
   </div>
 
@@ -367,6 +445,7 @@ if (typeof module !== "undefined") module.exports = md5bstr;
   const tabs = [
     { btn: document.getElementById("tab-btn-flash"), panel: document.getElementById("tab-flash") },
     { btn: document.getElementById("tab-btn-logs"), panel: document.getElementById("tab-logs") },
+    { btn: document.getElementById("tab-btn-motion"), panel: document.getElementById("tab-motion") },
   ];
   function show(i) {
     tabs.forEach((t, j) => {
@@ -376,15 +455,17 @@ if (typeof module !== "undefined") module.exports = md5bstr;
   }
   tabs.forEach((t, i) => t.btn.addEventListener("click", () => show(i)));
   if (location.hash === "#logs") show(1);
+  if (location.hash === "#motion") show(2);
 })();
 
 // ---- Log monitor and test report -----------------------------------------
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "DS4 mode, Steam's Test Device Inputs: in the configurator (Feel, DS4 motion) toggle flips and Save & exit until Steam's gyro views all move the right way and rest upright. Put the winning code (e.g. 'gyro +-+ accel +++') in the note, or what no combination fixes",
-    "Switch Pro mode: same, with the Switch Pro motion toggles. Winning code in the note",
-    "With those codes: Steam gyro as mouse (Gyro Behavior 'As Mouse', always on): turn left = cursor left, tilt the top up = cursor up",
+    "DS4 mode, Motion tab of this page (Chrome or Edge): with no flips, do the 3D model and the bars match the configurator's Live input and your moves? Note anything reversed",
+    "Switch Pro mode, Motion tab: same check",
+    "If either mode is off: toggle flips in the configurator (Feel, DS4 / Switch Pro motion), Save & exit, recheck. Put the winning code (e.g. 'gyro +-+ accel +++') in the note",
+    "Then Steam gyro as mouse (Gyro Behavior 'As Mouse', always on): turn left = cursor left, tilt the top up = cursor up",
     "DS4 mode, Back buttons on Auto, Steam Test Device Inputs: does a finger dot appear on the left half for GL and the right half for GR (the whole pad lighting up is the click)?",
     "Switch Pro mode: rumble in a game or in Steam's controller test; the log shows 'rumble from the PC' lines when the PC sends any",
     "Charging grip: take the Joy-Cons out of the grip and put them back while connected; within ~2 s the grip's GL / GR work again",
@@ -614,7 +695,7 @@ if (typeof module !== "undefined") module.exports = md5bstr;
   // ---- Report ----
   function report() {
     const out = [];
-    out.push("Joy-Con 2 Dongle — step 3 test report");
+    out.push("Joy-Con 2 Dongle — step 4 test report");
     out.push("Saved: " + new Date().toString());
     out.push("Firmware: " + $("st-fw").textContent);
     out.push("Browser: " + navigator.userAgent);
@@ -904,6 +985,250 @@ if (navigator.serial) {
 }
 
 log("Built-in images: " + IMAGES.map((im) => im.name).join(", ") + ".");
+</script>
+<script>
+// ---- Motion viewer (WebHID) -------------------------------------------------
+// Decodes DS4 and Switch Pro motion the way SDL's HIDAPI drivers do, including
+// their calibration handling, and shows it in SDL's frame (X right, Y up out of
+// the face, Z toward the player; gyro in deg/s, right-hand rule; accel in g).
+(function () {
+  const $ = (id) => document.getElementById(id);
+  if (!("hid" in navigator)) {
+    $("mv-nohid").hidden = false;
+    $("mv-connect").disabled = true;
+    return;
+  }
+  let dev = null, mode = "", noDataTimer = 0, gotData = false;
+  // DS4 calibration: per axis [bias, scale] -> deg/s or g (SDL defaults first).
+  let ds4cal = [[0, 1 / 16], [0, 1 / 16], [0, 1 / 16], [0, 1 / 8192], [0, 1 / 8192], [0, 1 / 8192]];
+  // Switch: gyro offsets and scales (deg/s per LSB), accel scales (g per LSB).
+  let sw = { goff: [0, 0, 0], gs: [1 / 14.2842, 1 / 14.2842, 1 / 14.2842], as: [1 / 4096, 1 / 4096, 1 / 4096] };
+  let swReply = null, swPacket = 0;
+
+  const s16 = (dv, o) => dv.getInt16(o, true);
+  const state = (t) => { $("mv-state").textContent = t; };
+
+  // ---- 3D model: orientation from the decoded motion (Mahony filter, SDL frame) ----
+  const W = 200, H = 28, D = 120;  // controller box: X width, Y thickness, Z depth (px)
+  (function buildModel() {
+    const body = $("mv-body");
+    const face = (cls, w, h, tf, html) => {
+      const f = document.createElement("div");
+      f.className = "mv-face " + cls;
+      f.style.width = w + "px"; f.style.height = h + "px";
+      f.style.left = -w / 2 + "px"; f.style.top = -h / 2 + "px";
+      f.style.transform = tf;
+      if (html) f.innerHTML = html;
+      body.appendChild(f);
+    };
+    // CSS axes: x right, y down, z toward the viewer.
+    face("top", W, D, "rotateX(90deg) translateZ(" + H / 2 + "px)",
+      '<div class="shoulder">▲ TOP (L / R)</div><div class="stick"></div>' +
+      '<div class="abxy"><b style="left:12px;top:0"></b><b style="left:0;top:12px"></b><b style="left:24px;top:12px"></b><b style="left:12px;top:24px"></b></div>');
+    face("bottom", W, D, "rotateX(-90deg) translateZ(" + H / 2 + "px)");
+    face("near", W, H, "translateZ(" + D / 2 + "px)");
+    face("far", W, H, "rotateY(180deg) translateZ(" + D / 2 + "px)", "L · R");
+    face("side", D, H, "rotateY(90deg) translateZ(" + W / 2 + "px)");
+    face("side", D, H, "rotateY(-90deg) translateZ(" + W / 2 + "px)");
+  })();
+  let q = [1, 0, 0, 0], lastT = 0, settle = 0;  // body -> world, w x y z
+  const qmul = (a, b) => [a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3], a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2],
+                          a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1], a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]];
+  function rotMat(q) {
+    const [w, x, y, z] = q;
+    return [[1-2*(y*y+z*z), 2*(x*y-w*z), 2*(x*z+w*y)],
+            [2*(x*y+w*z), 1-2*(x*x+z*z), 2*(y*z-w*x)],
+            [2*(x*z-w*y), 2*(y*z+w*x), 1-2*(x*x+y*y)]];
+  }
+  function integrate(g, a) {
+    const now = performance.now();
+    let dt = lastT ? (now - lastT) / 1000 : 0;
+    lastT = now;
+    if (dt <= 0 || dt > 0.1) dt = 0.004;
+    const R = rotMat(q);
+    // Estimated "up" in body coordinates vs the measured one (accelerometer at rest).
+    const v = [R[1][0], R[1][1], R[1][2]];
+    const n = Math.hypot(a[0], a[1], a[2]);
+    let e = [0, 0, 0];
+    if (n > 0.5 && n < 1.5) {
+      const m = [a[0] / n, a[1] / n, a[2] / n];
+      e = [m[1]*v[2]-m[2]*v[1], m[2]*v[0]-m[0]*v[2], m[0]*v[1]-m[1]*v[0]];
+    }
+    const kp = settle > 0 ? 8 : 1.2;
+    if (settle > 0) settle -= dt;
+    const rad = Math.PI / 180;
+    const w = [g[0]*rad + kp*e[0], g[1]*rad + kp*e[1], g[2]*rad + kp*e[2]];
+    q = qmul(q, [1, w[0]*dt/2, w[1]*dt/2, w[2]*dt/2]);
+    const l = Math.hypot(...q); q = q.map((c) => c / l);
+  }
+  let drawPending = false;
+  function draw() {
+    drawPending = false;
+    const R = rotMat(q);
+    // SDL world (X right, Y up, Z toward you) -> CSS (x right, y down, z toward you): flip Y.
+    const C = [1, -1, 1], m = (r, c) => C[r] * R[r][c] * C[c];
+    $("mv-body").style.transform = "matrix3d(" + [m(0,0), m(1,0), m(2,0), 0, m(0,1), m(1,1), m(2,1), 0,
+      m(0,2), m(1,2), m(2,2), 0, 0, 0, 0, 1].join(",") + ")";
+  }
+  function resetView() { q = [1, 0, 0, 0]; settle = 1.0; lastT = 0; draw(); }
+  $("mv-reset").addEventListener("click", resetView);
+  resetView();
+  window.__mvQ = () => rotMat(q);
+  window.__mvFeed = (g, a, n) => { for (let i = 0; i < (n || 1); i++) { integrate(g, a); } draw(); };
+
+  function show(g, a) {
+    gotData = true;
+    integrate(g, a);
+    if (!drawPending) { drawPending = true; requestAnimationFrame(draw); }
+    for (let i = 0; i < 3; i++) {
+      $("mv-g" + i).textContent = (g[i] >= 0 ? "+" : "") + g[i].toFixed(0) + " °/s";
+      const v = Math.max(-1, Math.min(1, g[i] / 360)), bar = $("mv-b" + i);
+      bar.style.left = (v < 0 ? 50 + v * 50 : 50) + "%";
+      bar.style.width = Math.abs(v) * 50 + "%";
+    }
+    const f = (v) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+    $("mv-acc").textContent = "X " + f(a[0]) + "  Y " + f(a[1]) + "  Z " + f(a[2]) + " g";
+    const cl = (v) => Math.max(-1, Math.min(1, v));
+    $("mv-dot").style.left = (50 + cl(a[0]) * 42) + "%";
+    $("mv-dot").style.top = (50 + cl(a[2]) * 42) + "%";
+  }
+
+  // ---- DS4 (054C:09CC), SDL_hidapi_ps4.c ----
+  async function ds4Calibration() {
+    let dv;
+    try { dv = await dev.receiveFeatureReport(0x02); } catch (e) { $("mv-cal").textContent = "No calibration report (" + e.message + "); using SDL's defaults."; return; }
+    const o = dv.getUint8(0) === 0x02 && dv.byteLength >= 37 ? 1 : 0;  // with or without the report ID
+    const r = (i) => s16(dv, o + i);
+    const bias = [r(0), r(2), r(4)];
+    // USB layout: pitch+, pitch-, yaw+, yaw-, roll+, roll-
+    const plus = [r(6), r(10), r(14)], minus = [r(8), r(12), r(16)];
+    const speed = r(18) + r(20);
+    const cal = [];
+    for (let i = 0; i < 3; i++) {
+      const den = Math.abs(plus[i] - bias[i]) + Math.abs(minus[i] - bias[i]);
+      cal.push(den ? [bias[i], (speed * 16 / den)] : [0, 1]);
+    }
+    for (let i = 0; i < 3; i++) {
+      const p = r(22 + 4 * i), m = r(24 + 4 * i), range = p - m;
+      cal.push([p - Math.trunc(range / 2), 2 * 8192 / range]);
+    }
+    const bad = cal.some(([b, sc]) => Math.abs(b) > 1024 || Math.abs(1 - sc) > 0.5);
+    if (bad) { $("mv-cal").textContent = "Calibration report rejected by SDL's sanity check; using defaults."; return; }
+    ds4cal = cal.map(([b, sc], i) => [b, sc * (i < 3 ? 1 / 16 : 1 / 8192)]);
+    $("mv-cal").textContent = "DS4 calibration: gyro " + (1 / ds4cal[0][1]).toFixed(3) + " LSB per °/s, accel " +
+      (1 / ds4cal[3][1]).toFixed(0) + " LSB per g (decoded as SDL does).";
+  }
+  function ds4Report(e) {
+    if (e.reportId !== 0x01 || e.data.byteLength < 24) return;
+    const d = e.data, v = (i) => (s16(d, 12 + 2 * i) - ds4cal[i][0]) * ds4cal[i][1];
+    show([v(0), v(1), v(2)], [v(3), v(4), v(5)]);
+  }
+
+  // ---- Switch Pro (057E:2009), SDL_hidapi_switch.c ----
+  const NEUTRAL = [0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40];
+  function swSub(cmd, args) {
+    const data = new Uint8Array(48);
+    data[0] = swPacket++ & 0x0F;
+    data.set(NEUTRAL, 1);
+    data[9] = cmd;
+    data.set(args, 10);
+    return dev.sendReport(0x01, data);
+  }
+  function waitReply(cmd, ms) {
+    return new Promise((res) => {
+      const t = setTimeout(() => { swReply = null; res(null); }, ms);
+      swReply = (d) => { if (d.getUint8(13) === cmd) { clearTimeout(t); swReply = null; res(d); } };
+    });
+  }
+  async function spiRead(addr, len) {
+    const p = waitReply(0x10, 600);
+    await swSub(0x10, [addr & 0xFF, (addr >> 8) & 0xFF, 0, 0, len]);
+    const d = await p;
+    if (!d) return null;
+    return new DataView(d.buffer, d.byteOffset + 19, len);  // reply data starts at report byte 20
+  }
+  async function switchSetup() {
+    try {
+      await dev.sendReport(0x80, new Uint8Array([0x02]));  // handshake
+      await dev.sendReport(0x80, new Uint8Array([0x04]));  // keep streaming over USB
+    } catch (e) { /* a host may already have done this */ }
+    const f = await spiRead(0x6020, 0x18);
+    if (!f) { $("mv-cal").textContent = "No reply to the calibration read; using SDL's fallback scales."; return; }
+    const g = (i) => s16(f, i);
+    let aRaw = [g(0), g(2), g(4)], aCo = [g(6), g(8), g(10)], gRaw = [g(12), g(14), g(16)], gCo = [g(18), g(20), g(22)];
+    const u = await spiRead(0x8026, 0x1A);
+    let user = false;
+    if (u && u.getUint16(0, true) === 0xA1B2) {
+      user = true;
+      aRaw = [s16(u, 2), s16(u, 4), s16(u, 6)];
+      gRaw = [s16(u, 14), s16(u, 16), s16(u, 18)];
+    }
+    sw = {
+      goff: gRaw,
+      gs: gCo.map((c, i) => 936 / (c - gRaw[i])),
+      as: aCo.map((c, i) => 4 / (c - aRaw[i])),
+    };
+    $("mv-cal").textContent = "Switch Pro calibration" + (user ? " (user)" : " (factory)") + ": gyro " +
+      (1 / sw.gs[0]).toFixed(3) + " LSB per °/s, accel " + (1 / sw.as[0]).toFixed(0) + " LSB per g (decoded as SDL does).";
+  }
+  function switchReport(e) {
+    const d = e.data;
+    if (e.reportId === 0x21 && swReply) { swReply(d); return; }
+    if (e.reportId !== 0x30 || d.byteLength < 24) return;
+    // First IMU sample at report byte 13: accel X, Y, Z, gyro X, Y, Z.
+    const ax = s16(d, 12), ay = s16(d, 14), az = s16(d, 16);
+    const gx = s16(d, 18), gy = s16(d, 20), gz = s16(d, 22);
+    const GX = (gx - sw.goff[0]) * sw.gs[0], GY = (gy - sw.goff[1]) * sw.gs[1], GZ = (gz - sw.goff[2]) * sw.gs[2];
+    // SDL shuffles Switch axes into the PlayStation frame: (-Y, Z, -X).
+    show([-GY, GZ, -GX], [-ay * sw.as[1], az * sw.as[2], -ax * sw.as[0]]);
+  }
+
+  async function open(d) {
+    dev = d;
+    if (!dev.opened) await dev.open();
+    mode = dev.vendorId === 0x054c ? "ds4" : "switch";
+    gotData = false;
+    resetView();
+    dev.addEventListener("inputreport", mode === "ds4" ? ds4Report : switchReport);
+    state(mode === "ds4" ? "DS4 mode: reading" : "Switch Pro mode: reading");
+    $("mv-connect").disabled = true;
+    $("mv-disconnect").disabled = false;
+    if (mode === "ds4") await ds4Calibration(); else await switchSetup();
+    clearTimeout(noDataTimer);
+    noDataTimer = setTimeout(() => {
+      if (!gotData && dev) state("Connected, but no motion reports yet. Is another tool holding the controller exclusively?");
+    }, 2000);
+  }
+  async function close() {
+    clearTimeout(noDataTimer);
+    if (dev) {
+      dev.removeEventListener("inputreport", ds4Report);
+      dev.removeEventListener("inputreport", switchReport);
+      try { await dev.close(); } catch (_) {}
+    }
+    dev = null;
+    state("Not connected");
+    $("mv-connect").disabled = false;
+    $("mv-disconnect").disabled = true;
+  }
+
+  $("mv-connect").addEventListener("click", async () => {
+    try {
+      const list = await navigator.hid.requestDevice({ filters: [
+        { vendorId: 0x054c, productId: 0x09cc }, { vendorId: 0x057e, productId: 0x2009 } ] });
+      if (!list.length) return;
+      await open(list[0]);
+    } catch (e) { state("Couldn't open it: " + e.message); }
+  });
+  $("mv-disconnect").addEventListener("click", close);
+  // The dongle re-enumerates when its mode changes: follow it.
+  navigator.hid.addEventListener("disconnect", (e) => { if (e.device === dev) { close(); state("The dongle left (mode change?). Connect again."); } });
+  navigator.hid.addEventListener("connect", async (e) => {
+    const d = e.device;
+    const ours = (d.vendorId === 0x054c && d.productId === 0x09cc) || (d.vendorId === 0x057e && d.productId === 0x2009);
+    if (!dev && ours) { try { await open(d); } catch (_) {} }
+  });
+})();
 </script>
 </body>
 </html>
