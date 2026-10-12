@@ -56,6 +56,7 @@ CONFIG_TINYUSB_HID_COUNT=1
 # Web configurator: USB network (RNDIS, like GP2040-CE) at 192.168.7.1.
 CONFIG_TINYUSB_NET_MODE_ECM_RNDIS=y
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_WS_SUPPORT=y
 
 # Diagnostics (0.1.1): roomier stacks for tasks that log, and crash reports
 # saved to flash (ELF format, so the firmware can summarise them on next boot).

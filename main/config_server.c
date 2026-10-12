@@ -16,11 +16,13 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_timer.h"
 #include "esp_netif.h"
 #include "lwip/esp_netif_net_stack.h"
 #include "device/usbd_pvt.h"
 #include "freertos/event_groups.h"
 #include "tusb.h"
+#include "lwip/sockets.h"
 
 #include "ble_central.h"
 #include "bonds.h"
@@ -414,6 +416,108 @@ static esp_err_t h_exit(httpd_req_t *req)
     return err;
 }
 
+// ---------------------------------------------------------------------------
+// Live input over a WebSocket: pushed ~60 times a second (only when it
+// changes), instead of the page polling the whole state.
+// ---------------------------------------------------------------------------
+
+#define WS_MAX 3
+static int s_ws_fds[WS_MAX] = { -1, -1, -1 };
+static portMUX_TYPE s_ws_mux = portMUX_INITIALIZER_UNLOCKED;
+
+static void ws_add(int fd)
+{
+    portENTER_CRITICAL(&s_ws_mux);
+    int slot = -1;
+    for (int i = 0; i < WS_MAX; i++) {
+        if (s_ws_fds[i] == fd) { slot = -2; break; }
+        if (s_ws_fds[i] < 0 && slot == -1) slot = i;
+    }
+    if (slot >= 0) s_ws_fds[slot] = fd;
+    portEXIT_CRITICAL(&s_ws_mux);
+}
+
+static void ws_remove(int fd)
+{
+    portENTER_CRITICAL(&s_ws_mux);
+    for (int i = 0; i < WS_MAX; i++) {
+        if (s_ws_fds[i] == fd) s_ws_fds[i] = -1;
+    }
+    portEXIT_CRITICAL(&s_ws_mux);
+}
+
+static esp_err_t h_ws(httpd_req_t *req)
+{
+    if (req->method == HTTP_GET) {
+        ws_add(httpd_req_to_sockfd(req));  // handshake done
+        return ESP_OK;
+    }
+    // Drain (and ignore) anything the page sends.
+    httpd_ws_frame_t f = { 0 };
+    esp_err_t err = httpd_ws_recv_frame(req, &f, 0);
+    if (err != ESP_OK) return err;
+    if (f.len) {
+        uint8_t buf[64];
+        f.payload = buf;
+        httpd_ws_recv_frame(req, &f, f.len < sizeof(buf) ? f.len : sizeof(buf));
+    }
+    if (f.type == HTTPD_WS_TYPE_CLOSE) {
+        ws_remove(httpd_req_to_sockfd(req));
+    }
+    return ESP_OK;
+}
+
+static void ws_task(void *arg)
+{
+    (void)arg;
+    static const char *mode_names[] = { "none", "pro", "pair", "left", "right" };
+    char last[160] = "";
+    int64_t last_sent = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(16));
+        if (!s_active || s_httpd == NULL) {
+            last[0] = 0;
+            continue;
+        }
+        pad_out_t o;
+        pad_get_output(&o);
+        char msg[160];
+        int n = snprintf(msg, sizeof(msg), "{\"layout\":\"%s\",\"buttons\":%lu,\"lx\":%.3f,\"ly\":%.3f,\"rx\":%.3f,\"ry\":%.3f}",
+                         mode_names[o.mode < 5 ? o.mode : 0], (unsigned long)o.buttons, o.lx, o.ly, o.rx, o.ry);
+        int64_t now = esp_timer_get_time();
+        if (strcmp(msg, last) == 0 && now - last_sent < 500000) {
+            continue;
+        }
+        strcpy(last, msg);
+        last_sent = now;
+        httpd_ws_frame_t f = { .final = true, .type = HTTPD_WS_TYPE_TEXT, .payload = (uint8_t *)msg, .len = (size_t)n };
+        for (int i = 0; i < WS_MAX; i++) {
+            int fd = s_ws_fds[i];
+            if (fd < 0) continue;
+            if (httpd_ws_get_fd_info(s_httpd, fd) != HTTPD_WS_CLIENT_WEBSOCKET ||
+                httpd_ws_send_frame_async(s_httpd, fd, &f) != ESP_OK) {
+                ws_remove(fd);
+            }
+        }
+    }
+}
+
+// Small packets must go out at once: turn off Nagle on every connection.
+static esp_err_t on_open(httpd_handle_t hd, int fd)
+{
+    (void)hd;
+    int one = 1;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+    return ESP_OK;
+}
+
+static void on_close(httpd_handle_t hd, int fd)
+{
+    (void)hd;
+    ws_remove(fd);
+    close(fd);
+}
+
 static void httpd_start_once(void)
 {
     if (s_httpd) {
@@ -423,7 +527,9 @@ static void httpd_start_once(void)
     cfg.core_id = 0;
     cfg.stack_size = 6144;
     cfg.lru_purge_enable = true;
-    cfg.max_open_sockets = 5;
+    cfg.max_open_sockets = 6;
+    cfg.open_fn = on_open;
+    cfg.close_fn = on_close;
     if (httpd_start(&s_httpd, &cfg) != ESP_OK) {
         ESP_LOGE(TAG, "web server failed to start");
         s_httpd = NULL;
@@ -436,10 +542,12 @@ static void httpd_start_once(void)
         { .uri = "/api/settings", .method = HTTP_POST, .handler = h_settings },
         { .uri = "/api/forget",   .method = HTTP_POST, .handler = h_forget },
         { .uri = "/api/exit",     .method = HTTP_POST, .handler = h_exit },
+        { .uri = "/ws",           .method = HTTP_GET,  .handler = h_ws, .is_websocket = true },
     };
     for (size_t i = 0; i < sizeof(uris) / sizeof(uris[0]); i++) {
         httpd_register_uri_handler(s_httpd, &uris[i]);
     }
+    xTaskCreatePinnedToCore(ws_task, "cfg_ws", 4096, NULL, 3, NULL, 1);
 }
 
 // ---------------------------------------------------------------------------

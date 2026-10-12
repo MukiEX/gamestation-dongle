@@ -268,6 +268,7 @@ $("exit").addEventListener("click", async () => {
   $("exit").disabled = true;
   try { await api("/api/exit", {}); } catch (_) {}
   stopped = true;
+  if (ws) try { ws.close(); } catch (_) {}
   banner("Saved. The dongle is switching back to a controller; you can close this page.");
 });
 
@@ -321,6 +322,20 @@ function renderInput(inp) {
 
 let stopped = false;
 let failures = 0;
+let ws = null;
+let wsLive = false;
+
+// Live input comes over a WebSocket (pushed by the dongle as it changes); the
+// slower poll below keeps the lists and settings fresh, and covers for the
+// socket if it drops.
+function openSocket() {
+  if (stopped) return;
+  try { ws = new WebSocket("ws://" + location.host + "/ws"); } catch (_) { return; }
+  ws.onmessage = (e) => { wsLive = true; try { renderInput(JSON.parse(e.data)); } catch (_) {} };
+  ws.onclose = () => { wsLive = false; if (!stopped) setTimeout(openSocket, 1000); };
+  ws.onerror = () => { try { ws.close(); } catch (_) {} };
+}
+openSocket();
 async function poll() {
   if (stopped) return;
   try {
@@ -337,12 +352,12 @@ async function poll() {
     }
     if (!settings) { settings = st.settings; showSettings(); }
     renderLists(st);
-    renderInput(st.input);
+    if (!wsLive) renderInput(st.input);
     $("banner").classList.remove("show");
   } catch (e) {
     if (++failures > 3) banner("Lost contact with the dongle. Is it still in configurator mode?");
   }
-  setTimeout(poll, document.hidden ? 1000 : 80);
+  setTimeout(poll, document.hidden ? 1500 : (wsLive ? 500 : 100));
 }
 poll();
 </script>
