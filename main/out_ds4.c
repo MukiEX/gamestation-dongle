@@ -1,6 +1,6 @@
 // DualShock 4 output (Sony 054C:09CC). Report descriptor, feature reports and
-// report layout follow GP2040-CE (MIT). Touchpad, gyro and accelerometer read
-// neutral until step 4.
+// report layout follow GP2040-CE (MIT). Gyro and accelerometer are passed
+// through from the controller; the touchpad reads as untouched.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <math.h>
@@ -266,11 +266,18 @@ static const uint8_t itf_desc[] = {
     TUD_HID_INOUT_DESCRIPTOR(0, 4, HID_ITF_PROTOCOL_NONE, sizeof(report_desc), EP_OUT, EP_IN, 64, 1),
 };
 
-// Feature 0x02: IMU calibration (values from a real controller).
+// Feature 0x02: IMU calibration. Clean, symmetric values instead of one real
+// controller's so the scale is exact: zero bias, gyro +-8847 for +-540 dps
+// (16.384 LSB per deg/s, as a real DS4), accelerometer +-8192 per g. The
+// plus/minus pairs are equal so the USB and Bluetooth layouts read the same.
 static const uint8_t feature_02[] = {
-    0xfe, 0xff, 0x0e, 0x00, 0x04, 0x00, 0xd4, 0x22, 0x2a, 0xdd, 0xbb, 0x22, 0x5e, 0xdd, 0x81, 0x22,
-    0x84, 0xdd, 0x1c, 0x02, 0x1c, 0x02, 0x85, 0x1f, 0xb0, 0xe0, 0xc6, 0x20, 0xb5, 0xe0, 0xb1, 0x20,
-    0x83, 0xdf, 0x0c, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,             // gyro bias pitch, yaw, roll
+    0x8f, 0x22, 0x71, 0xdd, 0x8f, 0x22, 0x71, 0xdd, // gyro +/- (8847 / -8847)
+    0x8f, 0x22, 0x71, 0xdd,
+    0x1c, 0x02, 0x1c, 0x02,                         // gyro speed +/- 540 dps
+    0x00, 0x20, 0x00, 0xe0, 0x00, 0x20, 0x00, 0xe0, // accel +/- 1 g (8192 / -8192)
+    0x00, 0x20, 0x00, 0xe0,
+    0x0c, 0x00,
 };
 
 // Feature 0x03: controller definition (gamepad).
@@ -298,6 +305,13 @@ static int64_t s_ts_base;
 static uint8_t axis8(float v)
 {
     return (uint8_t)lrintf((out_clampf(v, -1.0f, 1.0f) + 1.0f) * 127.5f);
+}
+
+static void put16(uint8_t *d, float v)
+{
+    int16_t x = (int16_t)lrintf(out_clampf(v, -32768.0f, 32767.0f));
+    d[0] = (uint8_t)x;
+    d[1] = (uint8_t)((uint16_t)x >> 8);
 }
 
 static bool send(const pad_out_t *o)
@@ -331,6 +345,15 @@ static bool send(const pad_out_t *o)
     if (b & NS2_BTN_CAPT)   r[7] |= 0x02;  // touchpad click
     r[8] = (b & NS2_BTN_ZL) ? 255 : 0;
     r[9] = (b & NS2_BTN_ZR) ? 255 : 0;
+    if (o->motion.valid) {
+        // 16.384 LSB per deg/s and 8192 per g, matching feature report 0x02.
+        for (int i = 0; i < 3; i++) {
+            put16(&r[13 + 2 * i], o->motion.gyro[i] * 16.384f);
+            put16(&r[19 + 2 * i], o->motion.accel[i] * 8192.0f);
+        }
+    } else {
+        put16(&r[21], 8192.0f);  // at rest, lying flat
+    }
     r[30] = 0x1B;  // cable connected, battery full
     r[33] = 0x00;  // no touch packets
     r[35] = 0x80;  // finger 1: not touching

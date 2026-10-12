@@ -141,6 +141,13 @@ static void map_single_left(const pad_side_t *s, pad_out_t *o)
     o->lx = -s->ly;
     o->ly = s->lx;
     o->rx = o->ry = 0.0f;
+    // Rotated 90 degrees counter-clockwise about the face normal (Y):
+    // the Joy-Con's top points left, its right side away from the player.
+    const pad_motion_t *m = &s->motion;
+    o->motion.valid = m->valid;
+    o->motion.gyro[0] = m->gyro[2];   o->motion.accel[0] = m->accel[2];
+    o->motion.gyro[1] = m->gyro[1];   o->motion.accel[1] = m->accel[1];
+    o->motion.gyro[2] = -m->gyro[0];  o->motion.accel[2] = -m->accel[0];
 }
 
 // Lone right Joy-Con held sideways: rotated 90 degrees clockwise from upright.
@@ -165,6 +172,13 @@ static void map_single_right(const pad_side_t *s, pad_out_t *o)
     o->lx = s->ry;
     o->ly = -s->rx;
     o->rx = o->ry = 0.0f;
+    // Rotated 90 degrees clockwise: the top points right, the right side
+    // toward the player.
+    const pad_motion_t *m = &s->motion;
+    o->motion.valid = m->valid;
+    o->motion.gyro[0] = -m->gyro[2];  o->motion.accel[0] = -m->accel[2];
+    o->motion.gyro[1] = m->gyro[1];   o->motion.accel[1] = m->accel[1];
+    o->motion.gyro[2] = m->gyro[0];   o->motion.accel[2] = m->accel[0];
 }
 
 void pad_get_output(pad_out_t *o)
@@ -186,6 +200,7 @@ void pad_get_output(pad_out_t *o)
         o->ly = side[PAD_ROLE_FULL].ly;
         o->rx = side[PAD_ROLE_FULL].rx;
         o->ry = side[PAD_ROLE_FULL].ry;
+        o->motion = side[PAD_ROLE_FULL].motion;
     } else if (pair) {
         // Each Joy-Con only ever sets its own bits, so the merge is a plain OR;
         // an absent half contributes zeros (neutral).
@@ -195,6 +210,10 @@ void pad_get_output(pad_out_t *o)
         o->ly = side[PAD_ROLE_LEFT].ly;
         o->rx = side[PAD_ROLE_RIGHT].rx;
         o->ry = side[PAD_ROLE_RIGHT].ry;
+        // Motion comes from the right Joy-Con (the aiming hand), or the left
+        // one while the right is away.
+        o->motion = side[PAD_ROLE_RIGHT].motion.valid ? side[PAD_ROLE_RIGHT].motion
+                                                      : side[PAD_ROLE_LEFT].motion;
     } else if (present[PAD_ROLE_LEFT]) {
         o->mode = PAD_MODE_SINGLE_LEFT;
         map_single_left(&side[PAD_ROLE_LEFT], o);

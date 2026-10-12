@@ -17,6 +17,7 @@
 #include "ble_central.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -110,6 +111,14 @@ typedef struct {
     uint8_t rumble_tail;  // silent packets still to send after rumble stops
     volatile uint32_t input_count;
     bool cmd_answered;  // last cmd_exchange got a reply (even a rejection)
+
+    // Gyro zero-rate offset, learned whenever the controller lies still.
+    float gyro_bias[3];
+    bool bias_known;
+    float still_sum[3];
+    float still_min[3], still_max[3];
+    float still_accel[3];
+    int still_n;
 } link_t;
 
 typedef enum {
@@ -582,6 +591,94 @@ static int on_mtu(uint16_t conn, const struct ble_gatt_error *err, uint16_t mtu,
 // Input
 // ---------------------------------------------------------------------------
 
+// Sensor scales measured by Switch2Connect (360-degree turns, resting
+// gravity): accelerometer 4096 LSB/g on both; gyro 14.29 LSB/dps on the
+// Pro Controller 2 (ST +-2000 dps), 16.384 on Joy-Cons.
+#define ACCEL_LSB_PER_G       4096.0f
+#define GYRO_LSB_PER_DPS_PRO  14.285714f
+#define GYRO_LSB_PER_DPS_JC   16.384f
+// Auto-calibration: ~1 s of samples where the gyro barely moves and gravity
+// stays put becomes the new zero-rate offset.
+#define STILL_SAMPLES   120
+#define STILL_MAX_DPS   8.0f   // |rate - current offset|, per axis
+#define STILL_SPREAD    1.5f   // max - min over the window, per axis (dps)
+#define STILL_ACCEL_G   0.04f  // gravity drift allowed over the window
+
+static void still_reset(link_t *l, const float accel[3])
+{
+    l->still_n = 0;
+    for (int i = 0; i < 3; i++) {
+        l->still_sum[i] = 0.0f;
+        l->still_min[i] = 1e9f;
+        l->still_max[i] = -1e9f;
+        l->still_accel[i] = accel[i];
+    }
+}
+
+// Raw sensor axes -> the controller's upright frame (pad.h convention).
+// Same mapping for Pro and both Joy-Cons, as Switch2Connect does.
+static void to_body(const float raw[3], float out[3])
+{
+    out[0] = raw[0];
+    out[1] = raw[2];
+    out[2] = -raw[1];
+}
+
+static void motion_update(link_t *l, const ns2_input_t *in, pad_motion_t *m)
+{
+    float lsb_dps = l->role == PAD_ROLE_FULL ? GYRO_LSB_PER_DPS_PRO : GYRO_LSB_PER_DPS_JC;
+    float g[3], a[3];
+    for (int i = 0; i < 3; i++) {
+        g[i] = in->gyro[i] / lsb_dps;
+        a[i] = in->accel[i] / ACCEL_LSB_PER_G;
+    }
+    if (a[0] == 0.0f && a[1] == 0.0f && a[2] == 0.0f) {
+        return;  // IMU not streaming (yet)
+    }
+
+    bool still = true;
+    for (int i = 0; i < 3 && still; i++) {
+        if (fabsf(g[i] - l->gyro_bias[i]) > STILL_MAX_DPS ||
+            fabsf(a[i] - l->still_accel[i]) > STILL_ACCEL_G) {
+            still = false;
+        }
+    }
+    float amag = sqrtf(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+    if (!still || l->still_n == 0 || fabsf(amag - 1.0f) > 0.1f) {
+        still_reset(l, a);
+    }
+    for (int i = 0; i < 3; i++) {
+        l->still_sum[i] += g[i];
+        if (g[i] < l->still_min[i]) l->still_min[i] = g[i];
+        if (g[i] > l->still_max[i]) l->still_max[i] = g[i];
+    }
+    if (++l->still_n >= STILL_SAMPLES) {
+        bool quiet = true;
+        for (int i = 0; i < 3; i++) {
+            if (l->still_max[i] - l->still_min[i] > STILL_SPREAD) quiet = false;
+        }
+        if (quiet) {
+            for (int i = 0; i < 3; i++) {
+                l->gyro_bias[i] = l->still_sum[i] / l->still_n;
+            }
+            if (!l->bias_known) {
+                ESP_LOGI(TAG, "link %d: gyro calibrated (offset %.2f %.2f %.2f dps)", link_index(l),
+                         l->gyro_bias[0], l->gyro_bias[1], l->gyro_bias[2]);
+            }
+            l->bias_known = true;
+        }
+        still_reset(l, a);
+    }
+
+    float gc[3];
+    for (int i = 0; i < 3; i++) {
+        gc[i] = g[i] - l->gyro_bias[i];
+    }
+    to_body(gc, m->gyro);
+    to_body(a, m->accel);
+    m->valid = true;
+}
+
 static void handle_input(link_t *l, const uint8_t *data, size_t len)
 {
     ns2_input_t in;
@@ -621,6 +718,7 @@ static void handle_input(link_t *l, const uint8_t *data, size_t len)
     default:
         return;
     }
+    motion_update(l, &in, &s.motion);
     pad_update(l->role, &s);
 }
 

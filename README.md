@@ -14,7 +14,7 @@ TommyWabg, so this project is **GPL-3.0**.
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
 | 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
 | 3 | Web configurator at 192.168.7.1, settings in flash | **done (0.3.4)** |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | **next** |
+| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | **this build: gyro (0.4.0)** |
 | 5 | Steam Controller (2026) mode with mouse-sensor trackpads | |
 
 ### Controllers
@@ -53,12 +53,12 @@ whole time. Settings are stored on the dongle.
 
 ### Output modes
 
-| Mode | Shows up as | Rumble |
-|---|---|---|
-| **XInput** (default) | Xbox 360 controller (045E:028E) | yes |
-| **DualShock 4** | DS4 (054C:09CC) | yes |
-| **Switch Pro** | Switch Pro Controller (057E:2009) | yes (HD rumble, converted) |
-| **Generic HID** | "Joy-Con 2 Dongle" HID gamepad (303A:8243) | no |
+| Mode | Shows up as | Rumble | Gyro |
+|---|---|---|---|
+| **XInput** (default) | Xbox 360 controller (045E:028E) | yes | – |
+| **DualShock 4** | DS4 (054C:09CC) | yes | yes |
+| **Switch Pro** | Switch Pro Controller (057E:2009) | yes (HD rumble, converted) | yes |
+| **Generic HID** | "Joy-Con 2 Dongle" HID gamepad (303A:8243) | no | – |
 
 **Changing mode:** pick it in the configurator, press **BOOT** briefly, or hold
 **−** and **+** together for 3 seconds. The dongle drops off USB for about a second and comes back as the
@@ -92,6 +92,13 @@ B, whatever the label on the Nintendo controller says.
 large motor drives the low band and the small motor the high band. Switch HD
 rumble keeps its frequencies. With a Joy-Con pair each half plays its own
 side; a lone Joy-Con plays both.
+
+**Gyro and accelerometer** pass through in DS4 and Switch Pro modes, scaled
+to what those controllers report (sensor scales measured by Switch2Connect).
+A Joy-Con pair uses the right Joy-Con's motion (the left one's while the right
+is away); a lone sideways Joy-Con's axes are turned to match how it is held.
+The gyro recalibrates itself whenever the controller rests still for about a
+second. The configurator shows live motion under Live input.
 
 The generic HID mode is the step-1 layout:
 

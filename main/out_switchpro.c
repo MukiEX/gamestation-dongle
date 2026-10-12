@@ -2,7 +2,7 @@
 // implemented by GP2040-CE (MIT): the 0x80 handshake, 0x01 subcommands with
 // 0x21 replies, SPI flash reads for calibration and colours, and 0x30 full
 // input reports. HD rumble from 0x01 / 0x10 output reports drives the
-// Switch 2 controllers' actuators. IMU data reads neutral until step 4.
+// Switch 2 controllers' actuators. Gyro and accelerometer are passed through.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <math.h>
@@ -131,9 +131,12 @@ static const uint8_t itf_desc[] = {
 static const uint8_t spi_6000[0x100] = {
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x03, 0xA0, 0xFF, 0xFF, 0xFF, 0xFF,
-    0xFF, 0xFF, 0xFF, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xE3, 0xFF, 0x39, 0xFF,
-    0xED, 0x01, 0x00, 0x40, 0x00, 0x40, 0x00, 0x40, 0x09, 0x00, 0xEA, 0xFF,
-    0xA1, 0xFF, 0x3B, 0x34, 0x3B, 0x34, 0x3B, 0x34, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0x02, 0xFF, 0xFF, 0xFF, 0xFF,
+    // 0x6020: IMU factory calibration. Zero offsets, accel 16384 = 4 g
+    // (4096 LSB/g), gyro 13371 = 936 dps (14.285 LSB per deg/s).
+    0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x40, 0x00, 0x40, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x3B, 0x34, 0x3B, 0x34, 0x3B, 0x34, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xa4, 0x46, 0x6a, 0x00, 0x08, 0x80, 0xa4, 0x46, 0x6a, 0x00, 0x08,
     0x80, 0xa4, 0x46, 0x6a, 0xa4, 0x46, 0x6a, 0xFF, 0x1B, 0x1B, 0x1D, 0xFF,
     0xFF, 0xFF, 0xEC, 0x00, 0x8C, 0xEC, 0x00, 0x8C, 0x01, 0xFF, 0xFF, 0xFF,
@@ -199,6 +202,7 @@ static void queue_pop(void)
 
 static volatile bool s_ready;       // host finished the USB handshake
 static volatile uint8_t s_inputs[10];  // battery/connection, 3 button bytes, 2 sticks
+static volatile uint8_t s_imu[36];     // 3 samples of accel X/Y/Z + gyro X/Y/Z
 static uint8_t s_timer;
 static uint8_t s_report[64];
 static int64_t s_last_sent;
@@ -211,6 +215,11 @@ static void put_stick(volatile uint8_t *d, float x, float y)
     d[0] = sx & 0xFF;
     d[1] = (uint8_t)(((sx >> 8) & 0x0F) | ((sy & 0x0F) << 4));
     d[2] = (uint8_t)(sy >> 4);
+}
+
+static int16_t s16(float v)
+{
+    return (int16_t)lrintf(out_clampf(v, -32768.0f, 32767.0f));
 }
 
 static void update_inputs(const pad_out_t *o)
@@ -239,15 +248,34 @@ static void update_inputs(const pad_out_t *o)
     if (b & NS2_BTN_ZL)     in[3] |= 0x80;
     put_stick(&in[4], o->lx, o->ly);
     put_stick(&in[7], o->rx, o->ry);
+
+    // Switch axes from ours (see pad.h), as SDL maps them back:
+    // X = -Z (toward the top), Y = -X (left), Z = Y (out of the face).
+    int16_t v[6] = { 0, 0, 4096, 0, 0, 0 };  // no motion: lying flat
+    if (o->motion.valid) {
+        const pad_motion_t *m = &o->motion;
+        const float A = 4096.0f, G = 13371.0f / 936.0f;  // the SPI calibration's scales
+        v[0] = s16(-m->accel[2] * A); v[1] = s16(-m->accel[0] * A); v[2] = s16(m->accel[1] * A);
+        v[3] = s16(-m->gyro[2] * G);  v[4] = s16(-m->gyro[0] * G);  v[5] = s16(m->gyro[1] * G);
+    }
+    uint8_t imu[36];
+    for (int k = 0; k < 3; k++) {  // one fresh sample per report: repeat it
+        for (int i = 0; i < 6; i++) {
+            imu[k * 12 + i * 2] = (uint8_t)v[i];
+            imu[k * 12 + i * 2 + 1] = (uint8_t)((uint16_t)v[i] >> 8);
+        }
+    }
     portENTER_CRITICAL(&s_q_mux);
     memcpy((void *)s_inputs, in, sizeof(in));
+    memcpy((void *)s_imu, imu, sizeof(imu));
     portEXIT_CRITICAL(&s_q_mux);
 }
 
-static void copy_inputs(uint8_t *dst)
+static void copy_inputs(uint8_t *dst, uint8_t *imu)
 {
     portENTER_CRITICAL(&s_q_mux);
     memcpy(dst, (const void *)s_inputs, sizeof(s_inputs));
+    memcpy(imu, (const void *)s_imu, sizeof(s_imu));
     portEXIT_CRITICAL(&s_q_mux);
 }
 
@@ -298,7 +326,7 @@ static bool send(const pad_out_t *o)
     memset(s_report, 0, sizeof(s_report));
     s_report[0] = 0x30;
     s_report[1] = s_timer;
-    copy_inputs(&s_report[2]);
+    copy_inputs(&s_report[2], &s_report[13]);
     s_report[12] = 0x09;  // vibrator input report
     if (!tud_hid_report(0, s_report, sizeof(s_report))) {
         return false;
@@ -330,7 +358,8 @@ static void handle_subcommand(const uint8_t *d, uint16_t n)
     memset(r, 0, sizeof(r));
     r[0] = 0x21;
     r[1] = s_timer++;
-    copy_inputs(&r[2]);
+    uint8_t imu_unused[36];
+    copy_inputs(&r[2], imu_unused);
     r[13] = 0x80;  // ACK
     r[14] = cmd;
     switch (cmd) {

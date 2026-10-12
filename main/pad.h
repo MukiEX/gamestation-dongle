@@ -32,11 +32,24 @@ typedef enum {
     PAD_MODE_SINGLE_RIGHT, // lone right Joy-Con, held sideways
 } pad_mode_t;
 
-// Input from one physical controller, after stick calibration.
+// Motion uses the PlayStation / SDL axis convention for a controller held
+// normally: +X = right, +Y = out of the face (up when lying flat), +Z = toward
+// the player. Gyro in degrees/second (right-hand rule: +X = top tilts up,
+// +Y = turn left, +Z = roll left), accelerometer in g (lying flat reads
+// Y = +1).
+typedef struct {
+    float gyro[3];
+    float accel[3];
+    bool valid;
+} pad_motion_t;
+
+// Input from one physical controller, after stick calibration. Motion is in
+// the controller's own upright frame.
 typedef struct {
     uint32_t buttons;  // NS2_BTN_* bits
     float lx, ly;      // [-1, 1], +y = up
     float rx, ry;
+    pad_motion_t motion;
 } pad_side_t;
 
 // The merged virtual controller, in Switch 2 button naming with *positional*
@@ -45,6 +58,7 @@ typedef struct {
     pad_mode_t mode;
     uint32_t buttons;
     float lx, ly, rx, ry;
+    pad_motion_t motion;  // in the frame of the controller as the player holds it
 } pad_out_t;
 
 pad_role_t pad_role_for_pid(uint16_t pid);

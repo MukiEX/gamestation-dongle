@@ -72,6 +72,15 @@ button:disabled { opacity: .5; cursor: default; }
 .stick::before, .stick::after { content: ""; position: absolute; background: var(--line); }
 .stick::before { left: 50%; top: 6px; bottom: 6px; width: 1px; }
 .stick::after { top: 50%; left: 6px; right: 6px; height: 1px; }
+.motion { display: flex; gap: 22px; margin-top: 30px; align-items: flex-start; flex-wrap: wrap; }
+.motion .stick i { background: var(--ok); }
+.gyro { flex: 1; min-width: 220px; display: grid; gap: 7px; }
+.gyro .bar { display: grid; grid-template-columns: 92px 1fr 64px; gap: 8px; align-items: center; font-size: 13px; }
+.gyro .track { height: 10px; background: var(--chip); border-radius: 5px; position: relative; overflow: hidden; }
+.gyro .track::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.gyro .track i { position: absolute; top: 0; bottom: 0; background: var(--accent); }
+.gyro output, .accel { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; text-align: right; }
+.accel { text-align: left; }
 .stick i { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
   background: var(--accent); left: 50%; top: 50%; z-index: 1; }
 .stick b { position: absolute; bottom: -22px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); font-weight: 500; }
@@ -163,7 +172,16 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="stick"><i id="ls"></i><b>Left stick</b></div>
       <div class="stick"><i id="rs"></i><b>Right stick</b></div>
     </div>
-    <p class="hint" style="margin:30px 0 0">Shows the merged controller before the button layout is applied, in Switch names.</p>
+    <div class="motion" id="motion">
+      <div class="stick"><i id="tilt"></i><b>Tilt</b></div>
+      <div class="gyro">
+        <div class="bar"><span>Pitch (X)</span><span class="track"><i id="g0"></i></span><output id="g0v"></output></div>
+        <div class="bar"><span>Yaw (Y)</span><span class="track"><i id="g1"></i></span><output id="g1v"></output></div>
+        <div class="bar"><span>Roll (Z)</span><span class="track"><i id="g2"></i></span><output id="g2v"></output></div>
+        <div class="accel" id="accel"></div>
+      </div>
+    </div>
+    <p class="hint" style="margin:30px 0 0">Shows the merged controller before the button layout is applied, in Switch names. Motion is from the controller as you hold it (the right Joy-Con for a pair); a second of resting still recalibrates the gyro.</p>
   </section>
 </main>
 <footer>The controller is paused while this page is open. Save &amp; exit (or press BOOT) to go back to playing.</footer>
@@ -333,6 +351,25 @@ function renderInput(inp) {
   put($("ls"), inp.lx, inp.ly);
   put($("rs"), inp.rx, inp.ry);
   $("padmode").textContent = PADMODE[inp.layout] || "";
+  renderMotion(inp.motion);
+}
+
+// Gyro in deg/s (bars span +-360), accelerometer in g. The tilt dot acts like
+// a bubble level: it moves toward the side that is raised.
+function renderMotion(m) {
+  $("motion").style.opacity = m ? 1 : 0.4;
+  if (!m) { $("accel").textContent = "No motion data from this controller."; return; }
+  for (let i = 0; i < 3; i++) {
+    const v = Math.max(-1, Math.min(1, m[i] / 360));
+    const bar = $("g" + i);
+    bar.style.left = (v < 0 ? 50 + v * 50 : 50) + "%";
+    bar.style.width = Math.abs(v) * 50 + "%";
+    $("g" + i + "v").textContent = m[i].toFixed(0) + " °/s";
+  }
+  const t = $("tilt"), cl = (v) => Math.max(-1, Math.min(1, v));
+  t.style.left = (50 + cl(m[3]) * 42) + "%";
+  t.style.top = (50 + cl(m[5]) * 42) + "%";
+  $("accel").textContent = "Gravity  X " + m[3].toFixed(2) + "  Y " + m[4].toFixed(2) + "  Z " + m[5].toFixed(2) + " g";
 }
 
 let stopped = false;

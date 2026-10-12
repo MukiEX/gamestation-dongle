@@ -377,6 +377,11 @@ static esp_err_t h_state(httpd_req_t *req)
     cJSON_AddNumberToObject(in, "ly", o.ly);
     cJSON_AddNumberToObject(in, "rx", o.rx);
     cJSON_AddNumberToObject(in, "ry", o.ry);
+    if (o.motion.valid) {
+        const float mv[6] = { o.motion.gyro[0], o.motion.gyro[1], o.motion.gyro[2],
+                              o.motion.accel[0], o.motion.accel[1], o.motion.accel[2] };
+        cJSON_AddItemToObject(in, "motion", cJSON_CreateFloatArray(mv, 6));
+    }
     return send_json(req, root);
 }
 
@@ -498,7 +503,7 @@ static void ws_task(void *arg)
 {
     (void)arg;
     static const char *mode_names[] = { "none", "pro", "pair", "left", "right" };
-    char last[160] = "";
+    char last[300] = "";
     int64_t last_sent = 0;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(16));
@@ -508,9 +513,15 @@ static void ws_task(void *arg)
         }
         pad_out_t o;
         pad_get_output(&o);
-        char msg[160];
-        int n = snprintf(msg, sizeof(msg), "{\"layout\":\"%s\",\"buttons\":%lu,\"lx\":%.3f,\"ly\":%.3f,\"rx\":%.3f,\"ry\":%.3f}",
+        char msg[300];
+        int n = snprintf(msg, sizeof(msg), "{\"layout\":\"%s\",\"buttons\":%lu,\"lx\":%.3f,\"ly\":%.3f,\"rx\":%.3f,\"ry\":%.3f",
                          mode_names[o.mode < 5 ? o.mode : 0], (unsigned long)o.buttons, o.lx, o.ly, o.rx, o.ry);
+        if (o.motion.valid) {
+            n += snprintf(msg + n, sizeof(msg) - n, ",\"motion\":[%.1f,%.1f,%.1f,%.3f,%.3f,%.3f]",
+                          o.motion.gyro[0], o.motion.gyro[1], o.motion.gyro[2],
+                          o.motion.accel[0], o.motion.accel[1], o.motion.accel[2]);
+        }
+        n += snprintf(msg + n, sizeof(msg) - n, "}");
         int64_t now = esp_timer_get_time();
         if (strcmp(msg, last) == 0 && now - last_sent < 500000) {
             continue;
