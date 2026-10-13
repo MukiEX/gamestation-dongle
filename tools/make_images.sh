@@ -33,6 +33,16 @@ assert d[2] == 2, f"bootloader header flash mode is {d[2]}, expected DIO (2)"
 print(sys.argv[1], "ok: DIO header")
 PY
 }
+# Always rebuild first: an image linked before the last source edit (the
+# configurator page in particular) once shipped as 0.6.7.
+ninja -C build >/dev/null || { echo "normal build failed"; exit 1; }
+if [ -d build-diag ]; then ninja -C build-diag >/dev/null || { echo "diagnostic build failed"; exit 1; }; fi
+python3 - build/joycon2_dongle.bin main/web/index.html <<'PY'
+import sys
+app, page = (open(p, 'rb').read() for p in sys.argv[1:])
+assert page in app, "build/joycon2_dongle.bin does not contain the current main/web/index.html"
+print("configurator page in the image is current")
+PY
 rm -f dist/*.bin
 check_version build/joycon2_dongle.bin normal
 merge build "joycon2-dongle-$VER-merged.bin"
