@@ -326,7 +326,7 @@ footer a { color: inherit; }
       <p class="sub">Plug the dongle into a PC or console and pair your Joy-Con 2 (or Pro Controller 2) once: hold the small SYNC
         button on the controller's rail until it connects. From then on, any button wakes it and it reconnects by itself.
         A left and a right Joy-Con become one controller; a single Joy-Con works sideways on its own.
-        The dongle starts as an Xbox 360 controller; pick another type with the shortcuts below or in the configurator.</p>
+        The dongle starts as an Xbox 360 (XInput) controller; pick another type with the shortcuts below or in the configurator.</p>
       <div class="usage-fig">__SVG_SHORTCUTS__</div>
       <div class="usage-fig">__SVG_BOOT__</div>
       <div class="usage-fig">__SVG_MODES__</div>
@@ -483,12 +483,11 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Flash 1.0.0: the log says 'Joy-Con 2 Dongle 1.0.0 starting' and your settings are kept",
-    "Both Joy-Cons connect and merge; the Pro Controller 2 works on its own",
-    "Every mode (XInput, DS4, DualSense, Switch Pro, Steam Controller, generic HID) shows up and its buttons, sticks and rumble work",
-    "Gyro in DS4 / DualSense / Switch Pro / Steam Controller (Motion tab or Steam)",
-    "Joy-Con mouse sensor: trackpads (Steam Controller), touchpad (DS4 / DualSense) and USB mouse all still work",
-    "Configurator opens, saves and exits without problems",
+    "After flashing 1.0.1 the configurator shows XInput USB ID = Dongle's own and Sensor when held = Grip sense (new defaults, applied once)",
+    "Joy-Cons in the charging grip: press GL or GR once. The log says 'in the charging grip ... its sensor is ignored' and the configurator's Live input shows 'charging grip' for both",
+    "Then take the Joy-Cons out and lay one on its rail side: the log says 'out of the charging grip' for it and its trackpad / mouse works again",
+    "Status byte: put the Joy-Cons into the charging grip and take them out again (with and without the grip's USB cable plugged in). Keep the log: the 'status byte' lines may show a grip or charging bit",
+    "Everything else still works as in 1.0.0",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

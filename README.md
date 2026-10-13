@@ -16,7 +16,7 @@ TommyWabg, so this project is **GPL-3.0**.
    until it connects (a short buzz and the player-1 LED). From then on any
    button wakes it and it reconnects by itself. A left and a right Joy-Con
    become one controller; a single Joy-Con works sideways on its own.
-4. **Play.** The dongle starts as an Xbox 360 controller. To change the
+4. **Play.** The dongle starts as an Xbox 360 (XInput) controller. To change the
    controller type or open the settings page, use the shortcuts below.
 
 ![Controller shortcuts: hold − and + for 3 s for the next mode, Capture and Home for 3 s for the configurator, SYNC to pair](docs/img/shortcuts.svg)
@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.0.0
+## Status: 1.0.1
 
 | Step | What | State |
 |---|---|---|
@@ -42,8 +42,11 @@ connection while it's open.
 
 ### Still open
 
-* **Grip sense** (*Sensor when held = Grip sense*): works, but needs tuning;
-  in the charging grip the sensor sees the grip itself and reads "hand".
+* **Grip sense** (*Sensor when held = Grip sense*, on by default): may need
+  tuning. In the charging grip the sensor sees the grip itself, so the dongle
+  ignores it there once GL / GR has been pressed (see Steam Controller mode).
+  The log now records each Joy-Con's "status byte" so a grip-attached bit, if
+  there is one, can be found and used instead.
 * **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
 * **First pairing after flashing:** occasionally a Joy-Con needs pairing a
   couple of times. A log from a session where it happens is needed.
@@ -112,13 +115,13 @@ Controller's USB protocol (Steam, SDL games, Chrome's gamepad support, a
 Switch). Windows' generic game-controller view shows nonsense for it, as it
 does for a real wired Pro Controller.
 
-**XInput USB ID:** with the real Xbox 360 ID (045E:028E, the default),
-Windows' Xbox driver takes the whole USB device, so in XInput mode the log
-port and the USB mouse don't appear. *XInput USB ID = Dongle's own* uses
-303A:8246 instead: Windows splits the device into its parts and still uses its
-Xbox driver for the controller, found by its interface class and a Microsoft
-OS "XUSB10" compatible ID. A few games that look for the real Xbox ID may not
-recognise it.
+**XInput USB ID:** by default (*Dongle's own*) XInput mode uses 303A:8246:
+Windows splits the device into its parts (controller, log port, USB mouse) and
+uses its Xbox driver for the controller, found by its interface class and a
+Microsoft OS "XUSB10" compatible ID. A few games that look for the real Xbox
+ID may not recognise it; for those, pick *Xbox 360* (045E:028E). With that ID
+Windows' Xbox driver takes the whole USB device, so the log port and the USB
+mouse don't appear.
 
 Every mode also has the serial log port unless you turn it off in the
 configurator, which consoles may need. Turning it off only removes the
@@ -207,9 +210,14 @@ trackpads.
   Joy-Con lying on its rail side (as a mouse) is a trackpad, and one held
   normally reports through its sensor whether your hand is on that grip
   (Steam's grip-touch); while it lies on its rail side its grip reads as
-  free. The accelerometer tells the two apart. It is off by default (Steam
-  then sees both grips as held); the configurator's live view shows
-  "grip: hand" / "grip: free" once it's on.
+  free. The accelerometer tells the two apart. It is on by default (off:
+  Steam sees both grips as held); the configurator's live view shows
+  "grip: hand" / "grip: free".
+* **Charging grip:** the sensor sits on the rail side, so in the Joy-Con 2
+  charging grip it only sees the grip. Once GL or GR is pressed the dongle
+  knows the Joy-Cons are in the grip and ignores their sensors (no trackpad,
+  no grip sensing; Steam sees the grips as held, the live view shows
+  "charging grip") until a Joy-Con reconnects or is laid on its rail side.
 * **Buttons:** Home = Steam button, Capture = quick access (…), − / + = the
   left / right centre buttons (Back / Start in SDL), GL / GR = L4 / R4; on the Joy-Con rails, left SL = L4, left SR = L5,
   right SR = R4, right SL = R5. ZL / ZR are full

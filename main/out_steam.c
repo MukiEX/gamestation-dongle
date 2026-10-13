@@ -306,7 +306,7 @@ static bool send(const pad_out_t *o)
         bool gs = settings_get().pad_grip;
         for (int i = 0; i < 2; i++) {
             const pad_trackpad_t *p = &o->tp[i];
-            bool held = (gs && p->valid) ? (p->grip_mode && p->grip) : true;
+            bool held = (gs && p->valid && !p->in_dock) ? (p->grip_mode && p->grip) : true;
             if (held) t |= i == 0 ? T_LGRIP_TOUCH : T_RGRIP_TOUCH;
         }
     }

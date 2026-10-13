@@ -81,6 +81,7 @@
 typedef struct {
     uint32_t timestamp;
     uint32_t buttons;           // already masked with NS2_BTN_MASK
+    uint8_t status;             // top byte of the button field (meaning not fully known)
     uint16_t ls_x, ls_y;        // raw 12-bit
     uint16_t rs_x, rs_y;        // raw 12-bit
     uint16_t mouse_x, mouse_y;  // optical sensor position (wraps)

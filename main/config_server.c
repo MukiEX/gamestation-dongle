@@ -326,10 +326,11 @@ static esp_err_t h_index(httpd_req_t *req)
 }
 
 // Trackpad state for the page: -1 no sensor, 0 / 1 finger up / down,
-// 2 / 3 grip-sense mode without / with a hand on the grip.
+// 2 / 3 grip-sense mode without / with a hand on the grip, 4 in the charging grip.
 static int tp_state(const pad_trackpad_t *t)
 {
     if (!t->valid) return -1;
+    if (t->in_dock) return 4;
     if (t->grip_mode) return t->grip ? 3 : 2;
     return t->touch ? 1 : 0;
 }

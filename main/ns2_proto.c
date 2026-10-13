@@ -25,6 +25,7 @@ bool ns2_parse_input(const uint8_t *d, size_t len, ns2_input_t *o)
     }
     o->timestamp = rd_u32(&d[0]);
     o->buttons = rd_u32(&d[4]) & NS2_BTN_MASK;
+    o->status = d[7];
     rd_stick(&d[10], &o->ls_x, &o->ls_y);
     rd_stick(&d[13], &o->rs_x, &o->rs_y);
     o->mouse_x = rd_u16(&d[16]);

@@ -191,7 +191,7 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
         <button data-v="false">Xbox 360</button><button data-v="true">Dongle's own</button>
       </div>
       <div class="hint">XInput mode only. With the Xbox 360 ID, Windows' Xbox driver takes the whole USB device, so the USB mouse and the log port don't appear.
-        Dongle's own ID (303A:8246) lets them appear; Windows still uses its Xbox driver for the controller, but a few games that look for the real Xbox ID may not.
+        Dongle's own ID (303A:8246, the default) lets them appear; Windows still uses its Xbox driver for the controller, but a few games that look for the real Xbox ID may not.
         Takes effect when you exit.</div>
     </div>
     <div class="row">
@@ -228,7 +228,7 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="seg" id="padGrip">
         <button data-v="false">Trackpad</button><button data-v="true">Grip sense</button>
       </div>
-      <div class="hint">Grip sense: a Joy-Con lying on its rail side is a trackpad; held normally, its sensor tells Steam whether your hand is on that grip (Live input below shows "grip: hand" / "grip: free"). Off by default: Steam then sees both grips as held. The sensor sits on the rail side, so in the charging grip it sees the grip itself.</div>
+      <div class="hint">Grip sense: a Joy-Con lying on its rail side is a trackpad; held normally, its sensor tells Steam whether your hand is on that grip (Live input below shows "grip: hand" / "grip: free"). On by default; Trackpad: Steam sees both grips as held. In the charging grip the sensor only sees the grip, so once GL / GR is pressed it is ignored there (live view: "charging grip").</div>
     </div>
     <div class="row">
       <label>DS4 / DualSense touchpad</label>
@@ -539,7 +539,7 @@ function renderInput(inp) {
 function padSpeedName(v) { return v >= 10 ? String(v - 9) : "0." + v + "×"; }
 
 // Optical-sensor trackpads: [state0, x0, y0, state1, x1, y1]; state -1 no sensor,
-// 0 / 1 finger up / down, 2 / 3 grip-sense mode without / with a hand.
+// 0 / 1 finger up / down, 2 / 3 grip-sense mode without / with a hand, 4 charging grip.
 function renderPads(tp, raw) {
   $("pads").style.display = tp ? "flex" : "none";
   if (!tp) return;
@@ -547,9 +547,10 @@ function renderPads(tp, raw) {
     const dot = $("tp" + i), t = tp[i * 3];
     dot.classList.toggle("on", t === 1);
     const pad = dot.parentElement;
-    pad.classList.toggle("grip", t >= 2);
+    pad.classList.toggle("grip", t === 2 || t === 3);
     pad.classList.toggle("held", t === 3);
-    pad.querySelector("b").textContent = (i ? "Right" : "Left") + (t >= 2 ? (t === 3 ? " grip: hand" : " grip: free") : " trackpad");
+    pad.querySelector("b").textContent = (i ? "Right" : "Left") +
+      (t === 4 ? ": charging grip" : t >= 2 ? (t === 3 ? " grip: hand" : " grip: free") : " trackpad");
     dot.style.left = (50 + tp[i * 3 + 1] / 32767 * 46) + "%";
     dot.style.top = (50 - tp[i * 3 + 2] / 32767 * 46) + "%";
     dot.parentElement.style.opacity = t < 0 ? 0.35 : 1;

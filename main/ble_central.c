@@ -128,6 +128,10 @@ typedef struct {
     int32_t tp_travel;   // sensor counts moved since landing, before the finger goes down
     float tp_x, tp_y;
     bool tp_mouse_pose;  // lying on its rail side (mouse use)
+    bool in_dock;        // in the charging grip: GL / GR came from this pair
+    bool status_seen;
+    uint8_t status_logs;
+    uint8_t last_status; // top byte of the button field, logged on change
 } link_t;
 
 typedef enum {
@@ -730,6 +734,22 @@ static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t
         }
     }
     tp->mouse_pose = l->tp_mouse_pose;
+    // Lying on its rail side means it is out of the charging grip.
+    if (l->in_dock && l->tp_mouse_pose) {
+        l->in_dock = false;
+        ESP_LOGI(TAG, "link %d: out of the charging grip (lying on its rail side)", link_index(l));
+    }
+    if (l->in_dock) {
+        // In the charging grip the sensor only sees the grip itself: ignore
+        // it (no trackpad finger, no grip sensing; Steam sees the grips held).
+        tp->in_dock = true;
+        tp->grip_mode = false;
+        tp->touch = false;
+        l->tp_on = l->tp_touch = false;
+        l->tp_lx = in->mouse_x;
+        l->tp_ly = in->mouse_y;
+        return;
+    }
     if (st.pad_grip && !l->tp_mouse_pose) {
         // Held normally: the sensor faces the palm, so "something close" = a
         // hand on the grip (the loosest thresholds; a palm is no table).
@@ -833,6 +853,28 @@ static void handle_input(link_t *l, const uint8_t *data, size_t len)
         break;
     default:
         return;
+    }
+    // Status byte: log changes so its bits (charging, grip attached...) can
+    // be worked out from test logs.
+    if (!l->status_seen || in.status != l->last_status) {
+        if (l->status_logs < 40) {
+            l->status_logs++;
+            ESP_LOGI(TAG, "link %d: status byte %02x", link_index(l), in.status);
+        }
+        l->status_seen = true;
+        l->last_status = in.status;
+    }
+    // GL / GR only exist on the charging grip: seeing one means this pair is
+    // in it. Applies to every connected Joy-Con until it disconnects or is
+    // laid on its rail side.
+    if (in.buttons & (NS2_BTN_GL | NS2_BTN_GR)) {
+        for (int i = 0; i < MAX_LINKS; i++) {
+            link_t *o = &s_links[i];
+            if (o->state != LS_FREE && (o->role == PAD_ROLE_LEFT || o->role == PAD_ROLE_RIGHT) && !o->in_dock) {
+                o->in_dock = true;
+                ESP_LOGI(TAG, "link %d: in the charging grip (GL / GR pressed): its sensor is ignored", i);
+            }
+        }
     }
     motion_update(l, &in, &s.motion);
     if (l->role != PAD_ROLE_FULL) {

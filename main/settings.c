@@ -28,6 +28,8 @@ static settings_t s_cur = {
     .scroll_speed = 5,
     .pad_lift = 0,
     .pad_ds_touch = true,
+    .pad_grip = true,
+    .xinput_generic = true,
 };
 
 static const struct { const char *key, *name; } s_grips[GRIP_COUNT] = {
@@ -104,10 +106,11 @@ void settings_init(void)
         s.pad_hscroll = get_u8(h, "hscroll", s.pad_hscroll, 1);
         s.scroll_speed = get_u8(h, "scrollspd", s.scroll_speed, 10);
         if (s.scroll_speed == 0) s.scroll_speed = 1;
-        s.xinput_generic = get_u8(h, "xigeneric", s.xinput_generic, 1);
+        // "...2" keys: 1.0.1 changed these defaults (on), so older saves are left behind.
+        s.xinput_generic = get_u8(h, "xigeneric2", s.xinput_generic, 1);
         if (s.mouse_speed == 0) s.mouse_speed = 1;
         s.pad_lift = get_u8(h, "padlift", s.pad_lift, SETTINGS_PAD_LIFT_MAX);
-        s.pad_grip = get_u8(h, "padgrip", s.pad_grip, 1);
+        s.pad_grip = get_u8(h, "padgrip2", s.pad_grip, 1);
         s.pad_ds_touch = get_u8(h, "padds", s.pad_ds_touch, 1);
         s.pad_mouse = get_u8(h, "padmouse", s.pad_mouse, PAD_MOUSE_MAX);
         s_cur = s;
@@ -185,9 +188,9 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "mousespd2", s.mouse_speed);
         nvs_set_u8(h, "hscroll", s.pad_hscroll);
         nvs_set_u8(h, "scrollspd", s.scroll_speed);
-        nvs_set_u8(h, "xigeneric", s.xinput_generic);
+        nvs_set_u8(h, "xigeneric2", s.xinput_generic);
         nvs_set_u8(h, "padlift", s.pad_lift);
-        nvs_set_u8(h, "padgrip", s.pad_grip);
+        nvs_set_u8(h, "padgrip2", s.pad_grip);
         nvs_set_u8(h, "padds", s.pad_ds_touch);
         nvs_set_u8(h, "padmouse", s.pad_mouse);
         nvs_commit(h);
