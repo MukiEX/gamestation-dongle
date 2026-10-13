@@ -721,8 +721,13 @@ static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t
     // left-right axis (X). Hysteresis so it doesn't flicker at the boundary.
     if (m->valid) {
         float ax = fabsf(m->accel[0]);
+        bool was = l->tp_mouse_pose;
         if (ax > 0.75f) l->tp_mouse_pose = true;
         else if (ax < 0.55f) l->tp_mouse_pose = false;
+        if (l->tp_mouse_pose != was) {
+            ESP_LOGI(TAG, "link %d: %s", link_index(l),
+                     l->tp_mouse_pose ? "lying on its rail side (mouse use)" : "upright again");
+        }
     }
     tp->mouse_pose = l->tp_mouse_pose;
     if (st.pad_grip && !l->tp_mouse_pose) {

@@ -76,7 +76,8 @@ static const char *s_strings[MOUSE_STRING_INDEX + 1];
 #define EP_MOUSE_IN 0x84
 static bool s_with_mouse;
 static uint8_t s_mouse_inst;
-static const uint8_t s_mouse_report_desc[] = {
+#define MOUSE_DESC_TAIL 2  // the two End Collections
+static const uint8_t s_mouse_report_desc_plain[] = {
     0x05, 0x01,        // Usage Page (Generic Desktop)
     0x09, 0x02,        // Usage (Mouse)
     0xA1, 0x01,        // Collection (Application)
@@ -107,6 +108,12 @@ static const uint8_t s_mouse_report_desc[] = {
     0x75, 0x08,        //     Report Size (8)
     0x95, 0x01,        //     Report Count (1)
     0x81, 0x06,        //     Input (Data, Var, Rel)
+    0xC0,              //   End Collection
+    0xC0,              // End Collection
+};
+// Sideways scroll (AC Pan) is spliced in before the End Collections only
+// while that setting is on; off, the mouse is exactly the 0.6.8 one.
+static const uint8_t s_mouse_pan_items[] = {
     0x05, 0x0C,        //     Usage Page (Consumer)
     0x0A, 0x38, 0x02,  //     Usage (AC Pan): sideways scroll
     0x15, 0x81,        //     Logical Minimum (-127)
@@ -114,10 +121,16 @@ static const uint8_t s_mouse_report_desc[] = {
     0x75, 0x08,        //     Report Size (8)
     0x95, 0x01,        //     Report Count (1)
     0x81, 0x06,        //     Input (Data, Var, Rel)
-    0xC0,              //   End Collection
-    0xC0,              // End Collection
 };
+static uint8_t s_mouse_report_desc[sizeof(s_mouse_report_desc_plain) + sizeof(s_mouse_pan_items)];
+static uint16_t s_mouse_desc_len;
+static bool s_mouse_pan;   // the current mouse has the sideways-scroll byte
 static bool s_with_cdc;  // the log port is part of the current USB device
+static volatile bool s_mouse_desc_read;  // the PC fetched the mouse's report descriptor
+// Mouse diagnostics, logged once per USB session from the report task.
+static bool s_mouse_logged_desc, s_mouse_logged_first;
+static uint32_t s_mouse_fail;
+
 
 static const out_driver_t *driver_for(out_mode_t mode);
 
@@ -166,10 +179,25 @@ static void build_descriptors(void)
     const uint8_t cdc[] = { TUD_CDC_DESCRIPTOR(itf_cdc, 5, EP_CDC_NOTIF, 8, EP_CDC_OUT, EP_CDC_IN, 64) };
     uint16_t cdc_len = s_with_cdc ? sizeof(cdc) : 0;
     s_with_mouse = !s_drv->is_config && settings_get().pad_mouse != PAD_MOUSE_OFF;
+    s_mouse_desc_read = false;
+    s_mouse_logged_desc = s_mouse_logged_first = false;
+    s_mouse_fail = 0;
     s_mouse_inst = s_drv->hid_report_desc ? 1 : 0;
+    s_mouse_pan = settings_get().pad_hscroll;
+    {
+        size_t head = sizeof(s_mouse_report_desc_plain) - MOUSE_DESC_TAIL, k = 0;
+        memcpy(s_mouse_report_desc, s_mouse_report_desc_plain, head);
+        k = head;
+        if (s_mouse_pan) {
+            memcpy(s_mouse_report_desc + k, s_mouse_pan_items, sizeof(s_mouse_pan_items));
+            k += sizeof(s_mouse_pan_items);
+        }
+        memcpy(s_mouse_report_desc + k, s_mouse_report_desc_plain + head, MOUSE_DESC_TAIL);
+        s_mouse_desc_len = (uint16_t)(k + MOUSE_DESC_TAIL);
+    }
     uint8_t itf_mouse = itf_cdc + (s_with_cdc ? 2 : 0);
     const uint8_t mouse[] = { TUD_HID_DESCRIPTOR(itf_mouse, MOUSE_STRING_INDEX, HID_ITF_PROTOCOL_NONE,
-                                                 sizeof(s_mouse_report_desc), EP_MOUSE_IN, 8, 1) };
+                                                 s_mouse_desc_len, EP_MOUSE_IN, 8, 1) };
     uint16_t mouse_len = s_with_mouse ? sizeof(mouse) : 0;
     uint16_t total = TUD_CONFIG_DESC_LEN + s_drv->itf_desc_len + cdc_len + mouse_len;
     configASSERT(total <= sizeof(s_config_desc));
@@ -203,8 +231,10 @@ static bool is_mouse(uint8_t instance)
     return s_with_mouse && instance == s_mouse_inst;
 }
 
+
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
 {
+    if (is_mouse(instance)) s_mouse_desc_read = true;
     return is_mouse(instance) ? s_mouse_report_desc : s_drv->hid_report_desc;
 }
 
@@ -509,8 +539,22 @@ static void apply_layout(pad_out_t *o)
 
 // The USB mouse: movement built up from the sensors, the borrowed buttons,
 // and the wheel from a stick (about 15 notches a second at full tilt).
+
+static void log_mouse(void)
+{
+    if (s_with_mouse) {
+        ESP_LOGI(TAG, "USB mouse included (%s; %s; HID instance %u)",
+                 settings_get().pad_mouse == PAD_MOUSE_POINTER ? "pointer only" : "with buttons",
+                 s_mouse_pan ? "with sideways scroll" : "no sideways scroll", s_mouse_inst);
+    }
+}
+
 static void send_mouse(const pad_out_t *o)
 {
+    if (s_mouse_desc_read && !s_mouse_logged_desc) {
+        s_mouse_logged_desc = true;
+        ESP_LOGI(TAG, "USB mouse: the PC read its report descriptor");
+    }
     static uint8_t last_buttons;
     static float wheel_acc, pan_acc;
     static int64_t last_t;
@@ -539,8 +583,14 @@ static void send_mouse(const pad_out_t *o)
     if (dy < -32767) dy = -32767;
     uint8_t r[7] = { o->mouse_buttons, (uint8_t)dx, (uint8_t)((uint16_t)dx >> 8),
                      (uint8_t)dy, (uint8_t)((uint16_t)dy >> 8), (uint8_t)(int8_t)wheel, (uint8_t)(int8_t)pan };
-    if (tud_hid_n_report(s_mouse_inst, 0, r, sizeof(r))) {
+    if (tud_hid_n_report(s_mouse_inst, 0, r, s_mouse_pan ? 7 : 6)) {
         last_buttons = o->mouse_buttons;
+        if (!s_mouse_logged_first) {
+            s_mouse_logged_first = true;
+            ESP_LOGI(TAG, "USB mouse: first report sent (move %ld %ld)", (long)dx, (long)dy);
+        }
+    } else if (++s_mouse_fail == 1 || s_mouse_fail % 500 == 0) {
+        ESP_LOGW(TAG, "USB mouse: report not accepted (%lu so far)", (unsigned long)s_mouse_fail);
     }
 }
 
@@ -675,6 +725,7 @@ static void switch_to(int target)
     }
     ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s; controllers stay connected", s_drv->name, s_drv->vid,
              s_drv->pid, s_with_cdc ? "" : ", log port off");
+    log_mouse();
     log_motion_flips();
 }
 
@@ -749,5 +800,6 @@ void usb_gamepad_start(void)
     ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s. Change mode: press BOOT or hold - and + for 3 s. "
                   "Configurator: hold BOOT 2 s or Capture + Home for 3 s",
              s_drv->name, s_drv->vid, s_drv->pid, s_with_cdc ? "" : ", log port off");
+    log_mouse();
     log_motion_flips();
 }
