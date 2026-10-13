@@ -764,11 +764,16 @@ static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t
     }
     tp->grip_mode = false;
     // Lying on its rail side (mouse use), mouse grips such as Nintendo's lift
-    // the sensor a little off the surface: allow 1.5x the lift-off distance.
-    uint32_t dist_limit = limit_dist[lvl];
-    if (l->tp_mouse_pose) dist_limit = dist_limit * 3 / 2;
+    // the sensor a little off the surface. Measured on a cloth mat: bare
+    // Joy-Con distance 142 / roughness 2840, in a grip 652 / 4424 (over
+    // Strict's 4000 roughness limit). Allow 1.5x both limits there.
+    uint32_t dist_limit = limit_dist[lvl], rough_limit = limit_rough[lvl];
+    if (l->tp_mouse_pose) {
+        dist_limit = dist_limit * 3 / 2;
+        rough_limit = rough_limit * 3 / 2;
+    }
     bool on = in->mouse_distance != 0 && in->mouse_distance < dist_limit &&
-              in->mouse_roughness < limit_rough[lvl];
+              in->mouse_roughness < rough_limit;
     if (st.pad_mouse != PAD_MOUSE_OFF) {
         // Mouse setting: the sensor is a USB mouse while the Joy-Con lies on
         // its rail side on a surface; no trackpad / touchpad finger at all.

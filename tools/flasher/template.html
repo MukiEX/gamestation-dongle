@@ -483,11 +483,10 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Joy-Con in a mouse grip (Nintendo's or another): the pointer / trackpad works when sliding it, and stops when you lift it. Note the grip and the Lift-off setting",
-    "Configurator Live input with the Joy-Con in the grip on the table: note the 'distance' number (and with it lifted a little), so the allowance can be tuned",
-    "Bare Joy-Con on its rail side: lifting it still stops the pointer (not too loose now)",
+    "Joy-Con in a mouse grip, Lift-off = Strict: the pointer / trackpad works when sliding it on the cloth mat, and stops when you lift it",
+    "Same on another surface (desk, wood...): note the distance / rough numbers in Live input if it doesn't track",
+    "Bare Joy-Con on its rail side: lifting it still stops the pointer",
     "Charging grip: after GL / GR, Live input shows 'charging grip'; keep the 'status byte' log lines from putting the Joy-Cons in and out of the grip",
-    "Defaults after flashing: XInput USB ID = Dongle's own, Sensor when held = Grip sense",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
