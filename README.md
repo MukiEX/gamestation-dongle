@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.0.1
+## Status: 1.0.2
 
 | Step | What | State |
 |---|---|---|
@@ -203,7 +203,9 @@ trackpads.
   left pad, right Joy-Con → right pad. Lifting it lifts the finger. The finger
   starts at the pad's centre and, at the edge, lifts for one report and lands
   at the centre again; Steam reads trackpads as relative motion, so the
-  movement continues. *Trackpad speed* (with fine steps from 0.1× to 0.9× of
+  movement continues. Lying on its rail side, the Joy-Con may be up to 1.5×
+  the usual lift-off distance from the surface, so it also works in mouse
+  grips (Nintendo's and others) that raise the sensor slightly. *Trackpad speed* (with fine steps from 0.1× to 0.9× of
   speed 1; default 0.3×) and *Trackpad lift-off* are in the configurator, which
   also shows both trackpads live with each sensor's raw distance and roughness.
 * **Grip sense (optional):** with *Sensor when held* set to *Grip sense*, a

@@ -483,11 +483,11 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "After flashing 1.0.1 the configurator shows XInput USB ID = Dongle's own and Sensor when held = Grip sense (new defaults, applied once)",
-    "Joy-Cons in the charging grip: press GL or GR once. The log says 'in the charging grip ... its sensor is ignored' and the configurator's Live input shows 'charging grip' for both",
-    "Then take the Joy-Cons out and lay one on its rail side: the log says 'out of the charging grip' for it and its trackpad / mouse works again",
-    "Status byte: put the Joy-Cons into the charging grip and take them out again (with and without the grip's USB cable plugged in). Keep the log: the 'status byte' lines may show a grip or charging bit",
-    "Everything else still works as in 1.0.0",
+    "Joy-Con in a mouse grip (Nintendo's or another): the pointer / trackpad works when sliding it, and stops when you lift it. Note the grip and the Lift-off setting",
+    "Configurator Live input with the Joy-Con in the grip on the table: note the 'distance' number (and with it lifted a little), so the allowance can be tuned",
+    "Bare Joy-Con on its rail side: lifting it still stops the pointer (not too loose now)",
+    "Charging grip: after GL / GR, Live input shows 'charging grip'; keep the 'status byte' log lines from putting the Joy-Cons in and out of the grip",
+    "Defaults after flashing: XInput USB ID = Dongle's own, Sensor when held = Grip sense",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

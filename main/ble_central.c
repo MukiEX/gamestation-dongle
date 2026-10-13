@@ -763,7 +763,11 @@ static void trackpad_update(link_t *l, const ns2_input_t *in, const pad_motion_t
         return;
     }
     tp->grip_mode = false;
-    bool on = in->mouse_distance != 0 && in->mouse_distance < limit_dist[lvl] &&
+    // Lying on its rail side (mouse use), mouse grips such as Nintendo's lift
+    // the sensor a little off the surface: allow 1.5x the lift-off distance.
+    uint32_t dist_limit = limit_dist[lvl];
+    if (l->tp_mouse_pose) dist_limit = dist_limit * 3 / 2;
+    bool on = in->mouse_distance != 0 && in->mouse_distance < dist_limit &&
               in->mouse_roughness < limit_rough[lvl];
     if (st.pad_mouse != PAD_MOUSE_OFF) {
         // Mouse setting: the sensor is a USB mouse while the Joy-Con lies on
