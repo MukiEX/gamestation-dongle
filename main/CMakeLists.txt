@@ -30,6 +30,10 @@ idf_component_register(
         lwip
 )
 
+# esp_tinyusb owns the string-descriptor callback; wrapping it lets the
+# dongle add the Microsoft OS string (0xEE) for the generic XInput ID.
+target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=tud_descriptor_string_cb")
+
 # Diagnostic build: `DONGLE_DIAG=1` in the environment when first configuring.
 # Kept in the CMake cache, so an automatic re-configure (new source files...)
 # without the variable doesn't silently turn it back into a normal build.

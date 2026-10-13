@@ -72,6 +72,14 @@ Controller's USB protocol (Steam, SDL games, Chrome's gamepad support, a
 Switch). Windows' generic game-controller view shows nonsense for it, as it
 does for a real wired Pro Controller.
 
+**XInput USB ID:** with the real Xbox 360 ID (045E:028E, the default),
+Windows' Xbox driver takes the whole USB device, so in XInput mode the log
+port and the USB mouse don't appear. *XInput USB ID = Dongle's own* uses
+303A:8246 instead: Windows splits the device into its parts and still uses its
+Xbox driver for the controller, found by its interface class and a Microsoft
+OS "XUSB10" compatible ID. A few games that look for the real Xbox ID may not
+recognise it.
+
 Every mode also has the serial log port unless you turn it off in the
 configurator, which consoles may need. Turning it off only removes the
 dongle's own USB COM port; the board's second (UART) USB port always carries

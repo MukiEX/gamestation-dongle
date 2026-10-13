@@ -101,6 +101,7 @@ void settings_init(void)
         // "mousespd2": 0.6.9 moved the default to speed 3 (older saves are left behind).
         s.mouse_speed = get_u8(h, "mousespd2", s.mouse_speed, SETTINGS_PAD_SPEED_MAX);
         s.pad_hscroll = get_u8(h, "hscroll", s.pad_hscroll, 1);
+        s.xinput_generic = get_u8(h, "xigeneric", s.xinput_generic, 1);
         if (s.mouse_speed == 0) s.mouse_speed = 1;
         s.pad_lift = get_u8(h, "padlift", s.pad_lift, SETTINGS_PAD_LIFT_MAX);
         s.pad_grip = get_u8(h, "padgrip", s.pad_grip, 1);
@@ -178,6 +179,7 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "padspd3", s.pad_speed);
         nvs_set_u8(h, "mousespd2", s.mouse_speed);
         nvs_set_u8(h, "hscroll", s.pad_hscroll);
+        nvs_set_u8(h, "xigeneric", s.xinput_generic);
         nvs_set_u8(h, "padlift", s.pad_lift);
         nvs_set_u8(h, "padgrip", s.pad_grip);
         nvs_set_u8(h, "padds", s.pad_ds_touch);
@@ -186,6 +188,7 @@ void settings_set(const settings_t *in)
         nvs_close(h);
     }
     char fd[20], fs[20];
+    if (s.xinput_generic) ESP_LOGI(TAG, "saved: XInput uses the dongle's own USB ID");
     ESP_LOGI(TAG, "saved: %s; log port %s; rumble %u/10; %s buttons; deadzone %u%%; hotkeys %s; GL %s, GR %s; "
                   "DS4 motion %s; Switch Pro motion %s",
              settings_out_mode_name(s.out_mode), s.log_port ? "on" : "off", s.rumble_strength,

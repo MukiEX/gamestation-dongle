@@ -186,6 +186,15 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
         Controller: the sensor feeds the trackpads / touchpad as below. Takes effect when you exit.</div>
     </div>
     <div class="row">
+      <label>XInput USB ID</label>
+      <div class="seg" id="xinputGeneric">
+        <button data-v="false">Xbox 360</button><button data-v="true">Dongle's own</button>
+      </div>
+      <div class="hint">XInput mode only. With the Xbox 360 ID, Windows' Xbox driver takes the whole USB device, so the USB mouse and the log port don't appear.
+        Dongle's own ID (303A:8246) lets them appear; Windows still uses its Xbox driver for the controller, but a few games that look for the real Xbox ID may not.
+        Takes effect when you exit.</div>
+    </div>
+    <div class="row">
       <label for="mouseSpeed">Mouse speed</label>
       <div class="rangeval"><input type="range" id="mouseSpeed" min="1" max="19" step="1"><output id="mouseSpeedOut"></output></div>
       <div class="hint">USB mouse / Pointer only: how far the pointer moves. Speed 5 = one pixel per sensor step; default 3.</div>
@@ -342,6 +351,7 @@ function showSettings() {
   seg("padMouse", String(+settings.padMouse || 0));
   $("mouseSpeed").value = settings.mouseSpeed;
   seg("padHscroll", String(!!settings.padHscroll));
+  seg("xinputGeneric", String(!!settings.xinputGeneric));
   $("mouseSpeedOut").textContent = padSpeedName(settings.mouseSpeed);
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
@@ -411,6 +421,10 @@ for (const id of ["flipDs4", "flipSwitch"]) {
 }
 $("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
 $("mouseSpeed").addEventListener("input", () => save({ mouseSpeed: +$("mouseSpeed").value }));
+$("xinputGeneric").addEventListener("click", (e) => {
+  const v = e.target.dataset && e.target.dataset.v;
+  if (v !== undefined) save({ xinputGeneric: v === "true" });
+});
 $("padHscroll").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
   if (v !== undefined) save({ padHscroll: v === "true" });

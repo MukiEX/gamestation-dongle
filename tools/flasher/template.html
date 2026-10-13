@@ -463,12 +463,13 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "XInput + Joy-Con mouse sensor = Pointer only (Save & exit): does Windows show 'Joy-Con 2 Dongle mouse', and does a Joy-Con on its rail side on a table move the pointer? The log should show 'USB mouse included', 'the PC read its report descriptor', 'lying on its rail side' and 'first report sent'; note which of these appear",
-    "Same, but with Mouse stick sideways = Nothing (Save & exit): does the pointer move now?",
-    "If it works: USB mouse (full) with Mouse stick sideways = Sideways scroll: stick sideways scrolls left / right; note if backwards on either Joy-Con",
+    "Configurator: XInput USB ID = Dongle's own, Joy-Con mouse sensor = Pointer only, then Save & exit in XInput mode. Windows still shows an Xbox 360 controller (joy.cpl / Steam / a game) and the log says 'USB started as XInput (Xbox 360) (303a:8246)'",
+    "Same: Device Manager now shows a 'Joy-Con 2 Dongle mouse' (an extra HID-compliant mouse) and a Joy-Con on its rail side on a table moves the pointer",
+    "Same: the dongle's own COM (log) port appears too",
+    "XInput USB ID = Xbox 360: everything is as before (045e:028e, no extra mouse)",
+    "USB mouse (full) with Mouse stick sideways = Sideways scroll: stick sideways scrolls left / right; note if backwards on either Joy-Con",
     "DualSense mode in a game (Palworld): rumble starts and stops with the game; no leftover hum once it stops",
     "Grip sense on: the configurator's Live input shows 'distance ... rough ...' under each trackpad. Note the numbers with your palm over the sensor, palm away, and in the charging grip",
-    "Everything else still works as before",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

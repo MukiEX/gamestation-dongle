@@ -145,8 +145,19 @@ static uint8_t drv_tag(void)
     return 0x0F;  // configurator
 }
 
+// XInput with its own USB ID. With the Xbox 360 ID (045E:028E) Windows puts
+// its Xbox driver on the whole device, so the log port and the USB mouse never
+// appear. With another ID Windows splits the device into its interfaces and
+// finds the Xbox driver for the XInput one by its class (FF/5D/01) and by the
+// Microsoft OS "XUSB10" compatible ID served below.
+#define XINPUT_GENERIC_VID 0x303A
+#define XINPUT_GENERIC_PID 0x8246
+#define MS_OS_VENDOR_CODE  0x20
+static bool s_xinput_generic;  // the current USB device uses the generic XInput ID
+
 static void build_descriptors(void)
 {
+    s_xinput_generic = s_drv == &out_xinput && settings_get().xinput_generic;
     uint8_t mac[6] = { 0 };
     esp_read_mac(mac, ESP_MAC_BASE);
     mac[5] ^= (uint8_t)(drv_tag() << 4);
@@ -166,8 +177,8 @@ static void build_descriptors(void)
         .bDeviceSubClass = iad ? MISC_SUBCLASS_COMMON : s_drv->dev_subclass,
         .bDeviceProtocol = iad ? MISC_PROTOCOL_IAD : s_drv->dev_protocol,
         .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-        .idVendor = s_drv->vid,
-        .idProduct = s_drv->pid,
+        .idVendor = s_xinput_generic ? XINPUT_GENERIC_VID : s_drv->vid,
+        .idProduct = s_xinput_generic ? XINPUT_GENERIC_PID : s_drv->pid,
         .bcdDevice = s_drv->bcd_device,
         .iManufacturer = 1,
         .iProduct = 2,
@@ -224,6 +235,40 @@ static void build_descriptors(void)
     s_strings[5] = "Joy-Con 2 Dongle log";
     s_strings[CONFIG_MAC_STRING_INDEX] = config_server_host_mac_string();
     s_strings[MOUSE_STRING_INDEX] = "Joy-Con 2 Dongle mouse";
+}
+
+// Microsoft OS 1.0 descriptors (generic XInput ID only). esp_tinyusb owns
+// tud_descriptor_string_cb, so string 0xEE is added by wrapping it at link
+// time (see CMakeLists.txt).
+uint16_t const *__real_tud_descriptor_string_cb(uint8_t index, uint16_t langid);
+uint16_t const *__wrap_tud_descriptor_string_cb(uint8_t index, uint16_t langid)
+{
+    if (index == 0xEE && s_xinput_generic) {
+        static uint16_t d[9];
+        const char *sig = "MSFT100";
+        d[0] = (TUSB_DESC_STRING << 8) | 18;
+        for (int i = 0; i < 7; i++) d[1 + i] = (uint8_t)sig[i];
+        d[8] = MS_OS_VENDOR_CODE;  // bMS_VendorCode, bPad = 0
+        return d;
+    }
+    return __real_tud_descriptor_string_cb(index, langid);
+}
+
+bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *req)
+{
+    if (stage != CONTROL_STAGE_SETUP) return true;
+    if (!s_xinput_generic || req->bRequest != MS_OS_VENDOR_CODE || req->wIndex != 0x0004) return false;
+    // Extended compat ID: interface 0 (XInput) = "XUSB10".
+    static uint8_t d[40];
+    memset(d, 0, sizeof(d));
+    d[0] = sizeof(d);           // dwLength
+    d[4] = 0x00; d[5] = 0x01;   // bcdVersion 1.00
+    d[6] = 0x04;                // wIndex
+    d[8] = 1;                   // bCount
+    d[16] = 0;                  // bFirstInterfaceNumber
+    d[17] = 0x01;               // reserved
+    memcpy(&d[18], "XUSB10", 6);
+    return tud_control_xfer(rhport, req, d, req->wLength < sizeof(d) ? req->wLength : sizeof(d));
 }
 
 static bool is_mouse(uint8_t instance)
@@ -723,8 +768,8 @@ static void switch_to(int target)
         vTaskDelay(pdMS_TO_TICKS(200));
         esp_restart();
     }
-    ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s; controllers stay connected", s_drv->name, s_drv->vid,
-             s_drv->pid, s_with_cdc ? "" : ", log port off");
+    ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s; controllers stay connected", s_drv->name,
+             s_device_desc.idVendor, s_device_desc.idProduct, s_with_cdc ? "" : ", log port off");
     log_mouse();
     log_motion_flips();
 }
@@ -799,7 +844,7 @@ void usb_gamepad_start(void)
     xTaskCreatePinnedToCore(report_task, "usb_report", 4096, NULL, 7, &s_task, 1);
     ESP_LOGI(TAG, "USB started as %s (%04x:%04x)%s. Change mode: press BOOT or hold - and + for 3 s. "
                   "Configurator: hold BOOT 2 s or Capture + Home for 3 s",
-             s_drv->name, s_drv->vid, s_drv->pid, s_with_cdc ? "" : ", log port off");
+             s_drv->name, s_device_desc.idVendor, s_device_desc.idProduct, s_with_cdc ? "" : ", log port off");
     log_mouse();
     log_motion_flips();
 }
