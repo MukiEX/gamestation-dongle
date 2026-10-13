@@ -100,7 +100,8 @@ button, its trigger (ZL / ZR) the right button, its stick press the middle
 button and its stick up / down the wheel; those leave the controller meanwhile.
 Held normally it is a controller half as usual. *Pointer only* gives the same
 pointer but leaves every button on the controller. *Mouse speed* sets the
-pointer speed (5 = one pixel per sensor step). The trackpads and touchpad then
+pointer speed (5 = one pixel per sensor step; default 3). With *Mouse stick
+sideways* on (the default), pushing the stick sideways scrolls left / right. The trackpads and touchpad then
 get nothing from the sensors. Some consoles may refuse the extra USB device.
 
 Each output mode has its own USB serial number and controller MAC, so Steam

@@ -353,6 +353,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddBoolToObject(o, "padDsTouch", s->pad_ds_touch);
     cJSON_AddNumberToObject(o, "padMouse", s->pad_mouse);
     cJSON_AddNumberToObject(o, "mouseSpeed", s->mouse_speed);
+    cJSON_AddBoolToObject(o, "padHscroll", s->pad_hscroll);
     return o;
 }
 
@@ -464,6 +465,7 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "padMouse")) && cJSON_IsNumber(v)) s.pad_mouse = (uint8_t)v->valueint;
     else if (v && cJSON_IsBool(v)) s.pad_mouse = cJSON_IsTrue(v) ? PAD_MOUSE_FULL : PAD_MOUSE_OFF;  // pre-0.6.7 page
     if ((v = cJSON_GetObjectItem(j, "mouseSpeed")) && cJSON_IsNumber(v)) s.mouse_speed = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "padHscroll")) && cJSON_IsBool(v)) s.pad_hscroll = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);
         if (g < GRIP_COUNT) s.grip_gl = g;
@@ -567,7 +569,7 @@ static void ws_task(void *arg)
 {
     (void)arg;
     static const char *mode_names[] = { "none", "pro", "pair", "left", "right" };
-    char last[360] = "";
+    char last[448] = "";
     int64_t last_sent = 0;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(16));
@@ -577,7 +579,7 @@ static void ws_task(void *arg)
         }
         pad_out_t o;
         pad_get_output(&o);
-        char msg[360];
+        char msg[448];
         int n = snprintf(msg, sizeof(msg), "{\"layout\":\"%s\",\"buttons\":%lu,\"lx\":%.3f,\"ly\":%.3f,\"rx\":%.3f,\"ry\":%.3f",
                          mode_names[o.mode < 5 ? o.mode : 0], (unsigned long)o.buttons, o.lx, o.ly, o.rx, o.ry);
         if (o.motion.valid) {
@@ -588,6 +590,8 @@ static void ws_task(void *arg)
         if (o.tp[0].valid || o.tp[1].valid) {
             n += snprintf(msg + n, sizeof(msg) - n, ",\"tp\":[%d,%d,%d,%d,%d,%d]",
                           tp_state(&o.tp[0]), o.tp[0].x, o.tp[0].y, tp_state(&o.tp[1]), o.tp[1].x, o.tp[1].y);
+            n += snprintf(msg + n, sizeof(msg) - n, ",\"tpRaw\":[%u,%u,%d,%u,%u,%d]",
+                          o.tp[0].dist, o.tp[0].rough, o.tp[0].mouse_pose, o.tp[1].dist, o.tp[1].rough, o.tp[1].mouse_pose);
         }
         n += snprintf(msg + n, sizeof(msg) - n, "}");
         int64_t now = esp_timer_get_time();

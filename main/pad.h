@@ -78,6 +78,7 @@ typedef struct {
     // the controller above).
     uint8_t mouse_buttons;  // bit 0 left, 1 right, 2 middle
     float mouse_wheel;      // -1..1, + = scroll up
+    float mouse_pan;        // -1..1, + = scroll right
 } pad_out_t;
 
 // Mouse movement from the Joy-Con sensors (Mouse setting), in pixels: the

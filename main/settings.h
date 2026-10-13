@@ -58,7 +58,8 @@ typedef struct {
     uint8_t pad_lift;        // 0..2: how far off the surface still counts as touching
     bool pad_grip;           // held normally (not on its rail side): sensor = grip sensor
     bool pad_ds_touch;       // DS4 / DualSense: the mouse sensors drive the touchpad
-    uint8_t mouse_speed;     // USB mouse speed, same 1..19 steps (default 14 = speed 5 = 1 pixel per count)
+    uint8_t mouse_speed;     // USB mouse speed, same 1..19 steps (default 12 = speed 3)
+    bool pad_hscroll;        // USB mouse: stick sideways = sideways scroll
     uint8_t pad_mouse;       // PAD_MOUSE_*: the mouse sensors drive a USB mouse instead (all modes)
 } settings_t;
 

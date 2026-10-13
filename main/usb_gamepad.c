@@ -107,6 +107,13 @@ static const uint8_t s_mouse_report_desc[] = {
     0x75, 0x08,        //     Report Size (8)
     0x95, 0x01,        //     Report Count (1)
     0x81, 0x06,        //     Input (Data, Var, Rel)
+    0x05, 0x0C,        //     Usage Page (Consumer)
+    0x0A, 0x38, 0x02,  //     Usage (AC Pan): sideways scroll
+    0x15, 0x81,        //     Logical Minimum (-127)
+    0x25, 0x7F,        //     Logical Maximum (127)
+    0x75, 0x08,        //     Report Size (8)
+    0x95, 0x01,        //     Report Count (1)
+    0x81, 0x06,        //     Input (Data, Var, Rel)
     0xC0,              //   End Collection
     0xC0,              // End Collection
 };
@@ -505,7 +512,7 @@ static void apply_layout(pad_out_t *o)
 static void send_mouse(const pad_out_t *o)
 {
     static uint8_t last_buttons;
-    static float wheel_acc;
+    static float wheel_acc, pan_acc;
     static int64_t last_t;
     int64_t now = esp_timer_get_time();
     float dt = last_t ? (now - last_t) / 1e6f : 0.0f;
@@ -517,17 +524,21 @@ static void send_mouse(const pad_out_t *o)
     int wheel = (int)wheel_acc;
     wheel_acc -= wheel;
     if (o->mouse_wheel == 0.0f) wheel_acc = 0.0f;
+    pan_acc += o->mouse_pan * 15.0f * (dt > 0.1f ? 0.1f : dt);
+    int pan = (int)pan_acc;
+    pan_acc -= pan;
+    if (o->mouse_pan == 0.0f) pan_acc = 0.0f;
     int32_t dx, dy;
     pad_mouse_take(&dx, &dy);
-    if (dx == 0 && dy == 0 && wheel == 0 && o->mouse_buttons == last_buttons) {
+    if (dx == 0 && dy == 0 && wheel == 0 && pan == 0 && o->mouse_buttons == last_buttons) {
         return;
     }
     if (dx > 32767) dx = 32767;
     if (dx < -32767) dx = -32767;
     if (dy > 32767) dy = 32767;
     if (dy < -32767) dy = -32767;
-    uint8_t r[6] = { o->mouse_buttons, (uint8_t)dx, (uint8_t)((uint16_t)dx >> 8),
-                     (uint8_t)dy, (uint8_t)((uint16_t)dy >> 8), (uint8_t)(int8_t)wheel };
+    uint8_t r[7] = { o->mouse_buttons, (uint8_t)dx, (uint8_t)((uint16_t)dx >> 8),
+                     (uint8_t)dy, (uint8_t)((uint16_t)dy >> 8), (uint8_t)(int8_t)wheel, (uint8_t)(int8_t)pan };
     if (tud_hid_n_report(s_mouse_inst, 0, r, sizeof(r))) {
         last_buttons = o->mouse_buttons;
     }

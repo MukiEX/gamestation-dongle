@@ -217,6 +217,8 @@ static void take_mouse_controls(pad_side_t *s, bool left, pad_out_t *o)
     s->buttons &= ~(sh | tr | st);
     float y = left ? s->ly : s->ry;
     if (y > 0.2f || y < -0.2f) o->mouse_wheel += y;
+    float x = left ? s->lx : s->rx;
+    if (settings_get().pad_hscroll && (x > 0.2f || x < -0.2f)) o->mouse_pan += x;
     if (left) s->lx = s->ly = 0.0f;
     else s->rx = s->ry = 0.0f;
 }

@@ -330,10 +330,17 @@ static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, u
         len--;
     }
     // [38] enable bits 3: 0x04 = "improved rumble emulation" (firmware 2.24+).
-    if (id == 0x02 && len >= 4 && ((buf[0] & 0x03) || (len > 38 && (buf[38] & 0x04)))) {
+    // SDL / Steam stop rumble by sending the effects report with all rumble
+    // bits off ("restore audio haptics"), which on a real DualSense silences
+    // the emulated rumble. A report that only changes LEDs (enable bits 2 set)
+    // leaves the motors alone.
+    bool rumble_bits = len >= 4 && ((buf[0] & 0x03) || (len > 38 && (buf[38] & 0x04)));
+    if (id == 0x02 && rumble_bits) {
         rumble_set_motors(buf[3], buf[2]);
-    } else if (id == 0x02 && len >= 4) {
-        if (s_out_logs++ < 4) ESP_LOGI(TAG, "effects report without rumble flags (%02x %02x)", buf[0], buf[1]);
+    } else if (id == 0x02 && len >= 4 && buf[1] == 0) {
+        rumble_set_motors(0, 0);
+    } else if (id == 0x02) {
+        // LED / lightbar update: nothing to do.
     } else if (id == 0x05 && len >= 5 && (buf[0] & 0x01)) {
         // A host that still takes this for a DualShock 4 sends the DS4 rumble
         // report; play it too ([4] strong, [3] weak).

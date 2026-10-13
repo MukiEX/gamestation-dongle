@@ -463,16 +463,12 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "After the update the configurator's Trackpad speed reads 0.3x (the new default), and Mouse speed reads 5",
-    "Steam Controller mode, trackpad bound as mouse: 0.3x feels right (note the speed you'd pick if not)",
-    "Steam running: switch the configurator through DS4, DualSense, Switch Pro and Steam Controller. Steam now shows each as its own type (it may treat each as a new controller once)",
-    "DualSense mode: rumble works in Steam (Identify / test rumble) and in a game. If not, note any 'ds5:' lines in the log",
-    "Grip sense: set Sensor when held = Grip sense. Live input (configurator) shows distance / rough under each trackpad. Held normally, palm over the rail-side sensor = 'grip: hand', palm away = 'grip: free'. Note the distance / rough numbers you see both ways",
-    "Grip sense in Steam Controller mode: the Motion tab shows 'grip: hand' / 'grip: free' following your palm. With the Joy-Cons in the charging grip, note what it shows",
-    "Joy-Con mouse sensor = Pointer only (then Save & exit): a Joy-Con on its rail side on a table moves the pointer, and its shoulder, trigger and stick all stay on the controller",
-    "USB mouse (full) still gives clicks / wheel as before; Mouse speed slider changes only the pointer, Trackpad speed only the trackpads / touchpad",
-    "The log shows a 'joy-con sensors:' line at start-up and a matching line after each 'saved:'",
-    "All other modes still work as before",
+    "DualSense mode in a game (Palworld): rumble starts and stops with the game; no leftover hum once it stops",
+    "DualSense and DS4: Steam's Identify / ping. (A real DualShock / DualSense may only flash its light here, so no buzz may be normal; just note what happens)",
+    "Grip sense on: the configurator's Live input now shows 'distance ... rough ...' and 'on its rail side' / 'upright / held' under each trackpad. Note the numbers with your palm over the sensor, palm away, and in the charging grip",
+    "USB mouse: Mouse speed now defaults to 3 (it resets to 3 once with this update)",
+    "USB mouse (full): stick sideways scrolls left / right (try a wide web page or a spreadsheet); note if the direction is backwards on either Joy-Con. Mouse stick sideways = Nothing turns it off",
+    "Pointer only and the controller modes still work as before",
     "First pairing after this flash: did both Joy-Cons connect first time? If not, note what you did and keep the log",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];

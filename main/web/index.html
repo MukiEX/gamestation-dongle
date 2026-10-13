@@ -188,7 +188,14 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
     <div class="row">
       <label for="mouseSpeed">Mouse speed</label>
       <div class="rangeval"><input type="range" id="mouseSpeed" min="1" max="19" step="1"><output id="mouseSpeedOut"></output></div>
-      <div class="hint">USB mouse / Pointer only: how far the pointer moves. Speed 5 = one pixel per sensor step.</div>
+      <div class="hint">USB mouse / Pointer only: how far the pointer moves. Speed 5 = one pixel per sensor step; default 3.</div>
+    </div>
+    <div class="row">
+      <label>Mouse stick sideways</label>
+      <div class="seg" id="padHscroll">
+        <button data-v="true">Sideways scroll</button><button data-v="false">Nothing</button>
+      </div>
+      <div class="hint">USB mouse (full): while a Joy-Con lies on its rail side, pushing its stick sideways scrolls left / right (up / down still scrolls vertically).</div>
     </div>
     <div class="row">
       <label for="padSpeed">Trackpad speed</label>
@@ -334,6 +341,7 @@ function showSettings() {
   seg("padDsTouch", String(settings.padDsTouch !== false));
   seg("padMouse", String(+settings.padMouse || 0));
   $("mouseSpeed").value = settings.mouseSpeed;
+  seg("padHscroll", String(!!settings.padHscroll));
   $("mouseSpeedOut").textContent = padSpeedName(settings.mouseSpeed);
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
@@ -403,6 +411,10 @@ for (const id of ["flipDs4", "flipSwitch"]) {
 }
 $("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
 $("mouseSpeed").addEventListener("input", () => save({ mouseSpeed: +$("mouseSpeed").value }));
+$("padHscroll").addEventListener("click", (e) => {
+  const v = e.target.dataset && e.target.dataset.v;
+  if (v !== undefined) save({ padHscroll: v === "true" });
+});
 $("padMouse").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
   if (v !== undefined) save({ padMouse: +v });
