@@ -7,15 +7,32 @@ A left and a right Joy-Con 2 automatically merge into a single controller.
 Based on [Switch2Connect](https://github.com/TommyWabg/Switch2Connect) by
 TommyWabg, so this project is **GPL-3.0**.
 
-## Status: step 5 of 5
+## Status: 1.0.0
 
 | Step | What | State |
 |---|---|---|
 | 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
-| 2 | XInput, DS4, Switch Pro output modes + rumble | **done (0.2.4)** |
-| 3 | Web configurator at 192.168.7.1, settings in flash | **done (0.3.4)** |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | gyro **done (0.4.3)**, back buttons, DualSense (0.5.0); audio haptics and Switch 2 Pro still to do |
-| 5 | Steam Controller (2026) mode with mouse-sensor trackpads | **this build (0.6.2)** |
+| 2 | XInput, DS4, Switch Pro output modes + rumble | done (0.2.4) |
+| 3 | Web configurator at 192.168.7.1, settings in flash | done (0.3.4) |
+| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | gyro, back buttons, DualSense done; audio haptics and Switch 2 Pro output still to do |
+| 5 | Steam Controller (2026) mode with mouse-sensor trackpads, Joy-Con mouse as USB mouse | done (1.0.0) |
+
+### Still open
+
+* **Grip sense** (*Sensor when held = Grip sense*): works, but needs tuning;
+  in the charging grip the sensor sees the grip itself and reads "hand".
+* **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
+* **First pairing after flashing:** occasionally a Joy-Con needs pairing a
+  couple of times. A log from a session where it happens is needed.
+* **Mouse pose flicker:** a Joy-Con can flip between "lying on its rail side"
+  and "upright again" within a fraction of a second (see the log). While it
+  lies on its side the USB mouse (full) borrows its shoulder, trigger and
+  stick, so a press mid-flip could briefly go to the mouse. If that turns out
+  to matter, require the pose to hold for about a quarter second before
+  switching.
+* **Steam's Identify / ping** doesn't buzz in DS4 / DualSense mode (it does in
+  Switch Pro mode); probably Steam only flashes the light bar for PlayStation
+  controllers.
 
 ### Controllers
 

@@ -345,7 +345,7 @@ footer a { color: inherit; }
     </section>
 
     <section class="panel" aria-labelledby="tests-title">
-      <h2 id="tests-title">Step 5 tests</h2>
+      <h2 id="tests-title">Release tests</h2>
       <p class="sub" style="margin-top:6px">Press <b>Start</b> on a test before doing it, so the log is labelled. Pick the result, add a note if anything was off, then save the report.</p>
       <ol class="tests" id="tests"></ol>
     </section>
@@ -463,10 +463,12 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "USB mouse (full): the new Scroll speed slider (1-10, default 5) changes how fast the stick scrolls, both up / down and sideways; note the speed you like",
-    "Rumble strength (configurator, near the top) at 10 / 10 is about twice as strong as 5 in a game",
-    "XInput with the dongle's own USB ID still works as in 0.6.11 (controller, mouse, log port)",
-    "Everything else still works as before",
+    "Flash 1.0.0: the log says 'Joy-Con 2 Dongle 1.0.0 starting' and your settings are kept",
+    "Both Joy-Cons connect and merge; the Pro Controller 2 works on its own",
+    "Every mode (XInput, DS4, DualSense, Switch Pro, Steam Controller, generic HID) shows up and its buttons, sticks and rumble work",
+    "Gyro in DS4 / DualSense / Switch Pro / Steam Controller (Motion tab or Steam)",
+    "Joy-Con mouse sensor: trackpads (Steam Controller), touchpad (DS4 / DualSense) and USB mouse all still work",
+    "Configurator opens, saves and exits without problems",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
@@ -691,7 +693,7 @@ __MD5_JS__
   // ---- Report ----
   function report() {
     const out = [];
-    out.push("Joy-Con 2 Dongle — step 5 test report");
+    out.push("Joy-Con 2 Dongle — test report");
     out.push("Saved: " + new Date().toString());
     out.push("Firmware: " + $("st-fw").textContent);
     out.push("Browser: " + navigator.userAgent);
@@ -725,7 +727,7 @@ __MD5_JS__
     const a = document.createElement("a");
     const d = new Date();
     a.href = URL.createObjectURL(blob);
-    a.download = "dongle-step1-report-" + d.toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".txt";
+    a.download = "dongle-report-" + d.toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".txt";
     document.body.appendChild(a);
     a.click();
     a.remove();

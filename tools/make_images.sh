@@ -5,15 +5,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VER="${1:?usage: make_images.sh <version>}"
-# Each image must carry the right version string: "<ver>-step*" for the
-# normal build, "...-diag" for the diagnostic one (catches a diagnostic build
+# Each image must carry the right version string: "<ver>" (pre-1.0 builds:
+# "<ver>-stepN") for the normal build, "...-diag" for the diagnostic one (catches a diagnostic build
 # dir that lost its DONGLE_DIAG switch).
 check_version() {  # $1 = app binary, $2 = "diag" or "normal"
   python3 - "$1" "$2" "$VER" <<'PY'
 import re, sys
 data = open(sys.argv[1], 'rb').read()
 want_diag = sys.argv[2] == 'diag'
-found = set(m.decode() for m in re.findall(rb'\b' + re.escape(sys.argv[3].encode()) + rb'-step[0-9]+(?:-diag)?\b', data))
+found = set(m.decode() for m in re.findall(rb'\b' + re.escape(sys.argv[3].encode()) + rb'(?:-step[0-9]+)?(?:-diag)?(?![\w.])', data))
 assert found, f"{sys.argv[1]}: no {sys.argv[3]} version string (stale build?)"
 ok = [v for v in found if v.endswith('-diag') == want_diag]
 assert ok, f"{sys.argv[1]}: version {sorted(found)} is not a {sys.argv[2]} build"
