@@ -463,13 +463,10 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Configurator: XInput USB ID = Dongle's own, Joy-Con mouse sensor = Pointer only, then Save & exit in XInput mode. Windows still shows an Xbox 360 controller (joy.cpl / Steam / a game) and the log says 'USB started as XInput (Xbox 360) (303a:8246)'",
-    "Same: Device Manager now shows a 'Joy-Con 2 Dongle mouse' (an extra HID-compliant mouse) and a Joy-Con on its rail side on a table moves the pointer",
-    "Same: the dongle's own COM (log) port appears too",
-    "XInput USB ID = Xbox 360: everything is as before (045e:028e, no extra mouse)",
-    "USB mouse (full) with Mouse stick sideways = Sideways scroll: stick sideways scrolls left / right; note if backwards on either Joy-Con",
-    "DualSense mode in a game (Palworld): rumble starts and stops with the game; no leftover hum once it stops",
-    "Grip sense on: the configurator's Live input shows 'distance ... rough ...' under each trackpad. Note the numbers with your palm over the sensor, palm away, and in the charging grip",
+    "USB mouse (full): the new Scroll speed slider (1-10, default 5) changes how fast the stick scrolls, both up / down and sideways; note the speed you like",
+    "Rumble strength (configurator, near the top) at 10 / 10 is about twice as strong as 5 in a game",
+    "XInput with the dongle's own USB ID still works as in 0.6.11 (controller, mouse, log port)",
+    "Everything else still works as before",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

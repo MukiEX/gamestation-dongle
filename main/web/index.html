@@ -200,6 +200,11 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="hint">USB mouse / Pointer only: how far the pointer moves. Speed 5 = one pixel per sensor step; default 3.</div>
     </div>
     <div class="row">
+      <label for="scrollSpeed">Scroll speed</label>
+      <div class="rangeval"><input type="range" id="scrollSpeed" min="1" max="10" step="1"><output id="scrollSpeedOut"></output></div>
+      <div class="hint">USB mouse (full): how fast the stick scrolls, up / down and sideways. Default 5.</div>
+    </div>
+    <div class="row">
       <label>Mouse stick sideways</label>
       <div class="seg" id="padHscroll">
         <button data-v="true">Sideways scroll</button><button data-v="false">Nothing</button>
@@ -351,6 +356,8 @@ function showSettings() {
   seg("padMouse", String(+settings.padMouse || 0));
   $("mouseSpeed").value = settings.mouseSpeed;
   seg("padHscroll", String(!!settings.padHscroll));
+  $("scrollSpeed").value = settings.scrollSpeed;
+  $("scrollSpeedOut").textContent = settings.scrollSpeed;
   seg("xinputGeneric", String(!!settings.xinputGeneric));
   $("mouseSpeedOut").textContent = padSpeedName(settings.mouseSpeed);
   $("gl").value = settings.gl;
@@ -425,6 +432,7 @@ $("xinputGeneric").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
   if (v !== undefined) save({ xinputGeneric: v === "true" });
 });
+$("scrollSpeed").addEventListener("input", () => save({ scrollSpeed: +$("scrollSpeed").value }));
 $("padHscroll").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
   if (v !== undefined) save({ padHscroll: v === "true" });

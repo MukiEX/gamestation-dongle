@@ -609,11 +609,13 @@ static void send_mouse(const pad_out_t *o)
     if (!tud_hid_n_ready(s_mouse_inst)) {
         return;  // movement keeps building up meanwhile
     }
-    wheel_acc += o->mouse_wheel * 15.0f * (dt > 0.1f ? 0.1f : dt);
+    // Scroll speed 5 = 15 wheel steps per second at full stick.
+    const float rate = 3.0f * settings_get().scroll_speed;
+    wheel_acc += o->mouse_wheel * rate * (dt > 0.1f ? 0.1f : dt);
     int wheel = (int)wheel_acc;
     wheel_acc -= wheel;
     if (o->mouse_wheel == 0.0f) wheel_acc = 0.0f;
-    pan_acc += o->mouse_pan * 15.0f * (dt > 0.1f ? 0.1f : dt);
+    pan_acc += o->mouse_pan * rate * (dt > 0.1f ? 0.1f : dt);
     int pan = (int)pan_acc;
     pan_acc -= pan;
     if (o->mouse_pan == 0.0f) pan_acc = 0.0f;

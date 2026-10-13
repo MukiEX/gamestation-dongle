@@ -25,6 +25,7 @@ static settings_t s_cur = {
     .pad_speed = 3,
     .mouse_speed = 12,
     .pad_hscroll = true,
+    .scroll_speed = 5,
     .pad_lift = 0,
     .pad_ds_touch = true,
 };
@@ -101,6 +102,8 @@ void settings_init(void)
         // "mousespd2": 0.6.9 moved the default to speed 3 (older saves are left behind).
         s.mouse_speed = get_u8(h, "mousespd2", s.mouse_speed, SETTINGS_PAD_SPEED_MAX);
         s.pad_hscroll = get_u8(h, "hscroll", s.pad_hscroll, 1);
+        s.scroll_speed = get_u8(h, "scrollspd", s.scroll_speed, 10);
+        if (s.scroll_speed == 0) s.scroll_speed = 1;
         s.xinput_generic = get_u8(h, "xigeneric", s.xinput_generic, 1);
         if (s.mouse_speed == 0) s.mouse_speed = 1;
         s.pad_lift = get_u8(h, "padlift", s.pad_lift, SETTINGS_PAD_LIFT_MAX);
@@ -129,9 +132,9 @@ static void log_pad(const settings_t *s, const char *what)
     char sp[8], ms[8];
     speed_name(s->pad_speed, sp, sizeof(sp));
     speed_name(s->mouse_speed, ms, sizeof(ms));
-    ESP_LOGI(TAG, "%s: mouse sensors -> %s; trackpad speed %s; mouse speed %s; sideways scroll %s; lift-off %s; sensor when held: %s; "
+    ESP_LOGI(TAG, "%s: mouse sensors -> %s; trackpad speed %s; mouse speed %s; scroll speed %u; sideways scroll %s; lift-off %s; sensor when held: %s; "
                   "DS4/DualSense touchpad %s",
-             what, mouse[s->pad_mouse <= PAD_MOUSE_MAX ? s->pad_mouse : 0], sp, ms, s->pad_hscroll ? "on" : "off", lift[s->pad_lift <= 2 ? s->pad_lift : 0],
+             what, mouse[s->pad_mouse <= PAD_MOUSE_MAX ? s->pad_mouse : 0], sp, ms, s->scroll_speed, s->pad_hscroll ? "on" : "off", lift[s->pad_lift <= 2 ? s->pad_lift : 0],
              s->pad_grip ? "grip sense" : "nothing", s->pad_ds_touch ? "on" : "off");
 }
 
@@ -158,6 +161,8 @@ void settings_set(const settings_t *in)
     if (s.pad_speed > SETTINGS_PAD_SPEED_MAX) s.pad_speed = SETTINGS_PAD_SPEED_MAX;
     if (s.pad_lift > SETTINGS_PAD_LIFT_MAX) s.pad_lift = SETTINGS_PAD_LIFT_MAX;
     if (s.pad_mouse > PAD_MOUSE_MAX) s.pad_mouse = PAD_MOUSE_OFF;
+    if (s.scroll_speed < 1) s.scroll_speed = 1;
+    if (s.scroll_speed > 10) s.scroll_speed = 10;
     if (s.mouse_speed < 1) s.mouse_speed = 1;
     if (s.mouse_speed > SETTINGS_PAD_SPEED_MAX) s.mouse_speed = SETTINGS_PAD_SPEED_MAX;
     portENTER_CRITICAL(&s_mux);
@@ -179,6 +184,7 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "padspd3", s.pad_speed);
         nvs_set_u8(h, "mousespd2", s.mouse_speed);
         nvs_set_u8(h, "hscroll", s.pad_hscroll);
+        nvs_set_u8(h, "scrollspd", s.scroll_speed);
         nvs_set_u8(h, "xigeneric", s.xinput_generic);
         nvs_set_u8(h, "padlift", s.pad_lift);
         nvs_set_u8(h, "padgrip", s.pad_grip);

@@ -60,6 +60,7 @@ typedef struct {
     bool pad_ds_touch;       // DS4 / DualSense: the mouse sensors drive the touchpad
     uint8_t mouse_speed;     // USB mouse speed, same 1..19 steps (default 12 = speed 3)
     bool xinput_generic;     // XInput mode uses its own USB ID instead of the Xbox 360 one
+    uint8_t scroll_speed;    // USB mouse wheel / sideways scroll from the stick: 1..10, 5 = default
     bool pad_hscroll;        // USB mouse: stick sideways = sideways scroll
     uint8_t pad_mouse;       // PAD_MOUSE_*: the mouse sensors drive a USB mouse instead (all modes)
 } settings_t;

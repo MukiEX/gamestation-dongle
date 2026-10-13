@@ -354,6 +354,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddNumberToObject(o, "padMouse", s->pad_mouse);
     cJSON_AddNumberToObject(o, "mouseSpeed", s->mouse_speed);
     cJSON_AddBoolToObject(o, "padHscroll", s->pad_hscroll);
+    cJSON_AddNumberToObject(o, "scrollSpeed", s->scroll_speed);
     cJSON_AddBoolToObject(o, "xinputGeneric", s->xinput_generic);
     return o;
 }
@@ -467,6 +468,7 @@ static esp_err_t h_settings(httpd_req_t *req)
     else if (v && cJSON_IsBool(v)) s.pad_mouse = cJSON_IsTrue(v) ? PAD_MOUSE_FULL : PAD_MOUSE_OFF;  // pre-0.6.7 page
     if ((v = cJSON_GetObjectItem(j, "mouseSpeed")) && cJSON_IsNumber(v)) s.mouse_speed = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "padHscroll")) && cJSON_IsBool(v)) s.pad_hscroll = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "scrollSpeed")) && cJSON_IsNumber(v)) s.scroll_speed = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "xinputGeneric")) && cJSON_IsBool(v)) s.xinput_generic = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);
