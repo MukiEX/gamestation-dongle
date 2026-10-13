@@ -129,6 +129,8 @@ footer a { color: inherit; }
 }
 .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 .tabpanel { display: grid; gap: 20px; }
+.usage-fig { margin: 16px 0; }
+.usage-fig svg { display: block; width: 100%; height: auto; max-width: 760px; }
 
 /* Log monitor */
 .stats { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -213,6 +215,7 @@ footer a { color: inherit; }
 
   <nav class="tabs" role="tablist" aria-label="Tool">
     <button class="tab" role="tab" id="tab-btn-flash" aria-controls="tab-flash" aria-selected="true">Flash</button>
+    <button class="tab" role="tab" id="tab-btn-use" aria-controls="tab-use" aria-selected="false">How to use</button>
     <button class="tab" role="tab" id="tab-btn-logs" aria-controls="tab-logs" aria-selected="false">Logs and tests</button>
     <button class="tab" role="tab" id="tab-btn-motion" aria-controls="tab-motion" aria-selected="false">Motion</button>
   </nav>
@@ -315,6 +318,21 @@ footer a { color: inherit; }
     <pre class="log" id="log" aria-live="polite"></pre>
   </section>
 
+  </div>
+
+  <div class="tabpanel" id="tab-use" role="tabpanel" aria-labelledby="tab-btn-use" hidden>
+    <section class="panel" aria-labelledby="use-title">
+      <h2 id="use-title">How to use</h2>
+      <p class="sub">Plug the dongle into a PC or console and pair your Joy-Con 2 (or Pro Controller 2) once: hold the small SYNC
+        button on the controller's rail until it connects. From then on, any button wakes it and it reconnects by itself.
+        A left and a right Joy-Con become one controller; a single Joy-Con works sideways on its own.
+        The dongle starts as an Xbox 360 controller; pick another type with the shortcuts below or in the configurator.</p>
+      <div class="usage-fig">__SVG_SHORTCUTS__</div>
+      <div class="usage-fig">__SVG_BOOT__</div>
+      <div class="usage-fig">__SVG_MODES__</div>
+      <p class="sub">In the configurator (http://192.168.7.1) you can also set rumble strength, stick deadzone, button layout,
+        what the Joy-Con mouse sensor does, and forget paired controllers. Your PC keeps its normal internet connection meanwhile.</p>
+    </section>
   </div>
 
   <div class="tabpanel" id="tab-logs" role="tabpanel" aria-labelledby="tab-btn-logs" hidden>
@@ -445,6 +463,7 @@ __MD5_JS__
 (function () {
   const tabs = [
     { btn: document.getElementById("tab-btn-flash"), panel: document.getElementById("tab-flash") },
+    { btn: document.getElementById("tab-btn-use"), panel: document.getElementById("tab-use") },
     { btn: document.getElementById("tab-btn-logs"), panel: document.getElementById("tab-logs") },
     { btn: document.getElementById("tab-btn-motion"), panel: document.getElementById("tab-motion") },
   ];
@@ -455,8 +474,9 @@ __MD5_JS__
     });
   }
   tabs.forEach((t, i) => t.btn.addEventListener("click", () => show(i)));
-  if (location.hash === "#logs") show(1);
-  if (location.hash === "#motion") show(2);
+  if (location.hash === "#use") show(1);
+  if (location.hash === "#logs") show(2);
+  if (location.hash === "#motion") show(3);
 })();
 
 // ---- Log monitor and test report -----------------------------------------

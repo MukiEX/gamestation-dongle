@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 150" width="760" height="150" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-label="Output modes in order: XInput, DualShock 4, DualSense, Switch Pro, Steam Controller, generic HID, then back to XInput">
+  <style>
+    .md-card { fill: #ffffff; stroke: #d9dde4; }
+    .md-pill { fill: #eef0f3; stroke: #8a93a0; stroke-width: 1.5; }
+    .md-first { fill: #e4002b; stroke: #e4002b; }
+    .md-ink { fill: #1d232b; }
+    .md-inv { fill: #ffffff; }
+    .md-muted { fill: #5d6573; }
+    .md-arrow { fill: none; stroke: #8a93a0; stroke-width: 2; }
+    .md-head { fill: #8a93a0; }
+    @media (prefers-color-scheme: dark) {
+      .md-card { fill: #171b21; stroke: #2a3039; }
+      .md-pill { fill: #232933; stroke: #6b7482; }
+      .md-first { fill: #ff3b52; stroke: #ff3b52; }
+      .md-ink { fill: #e8ebf0; }
+      .md-inv { fill: #160307; }
+      .md-muted { fill: #98a1ae; }
+      .md-arrow { stroke: #6b7482; }
+      .md-head { fill: #6b7482; }
+    }
+  </style>
+  <rect class="md-card" x="1" y="1" width="758" height="148" rx="14"/>
+  <g font-size="13.5" font-weight="600" text-anchor="middle">
+    <rect class="md-first" x="22" y="30" width="98" height="36" rx="18"/><text class="md-inv" x="71" y="53">XInput</text>
+    <rect class="md-pill" x="146" y="30" width="98" height="36" rx="18"/><text class="md-ink" x="195" y="53">DS4</text>
+    <rect class="md-pill" x="270" y="30" width="98" height="36" rx="18"/><text class="md-ink" x="319" y="53">DualSense</text>
+    <rect class="md-pill" x="394" y="30" width="98" height="36" rx="18"/><text class="md-ink" x="443" y="53">Switch Pro</text>
+    <rect class="md-pill" x="518" y="30" width="98" height="36" rx="18"/><text class="md-ink" x="567" y="53">Steam Ctrl</text>
+    <rect class="md-pill" x="642" y="30" width="98" height="36" rx="18"/><text class="md-ink" x="691" y="53">HID</text>
+  </g>
+  <g>
+    <path class="md-arrow" d="M122 48 H140"/><path class="md-head" d="M144 48 l-7 -4 v8 z"/>
+    <path class="md-arrow" d="M246 48 H264"/><path class="md-head" d="M268 48 l-7 -4 v8 z"/>
+    <path class="md-arrow" d="M370 48 H388"/><path class="md-head" d="M392 48 l-7 -4 v8 z"/>
+    <path class="md-arrow" d="M494 48 H512"/><path class="md-head" d="M516 48 l-7 -4 v8 z"/>
+    <path class="md-arrow" d="M618 48 H636"/><path class="md-head" d="M640 48 l-7 -4 v8 z"/>
+    <path class="md-arrow" d="M691 68 V86 H71 V74"/><path class="md-head" d="M71 70 l-4 7 h8 z"/>
+  </g>
+  <text class="md-muted" x="28" y="116" font-size="13">Each tap of BOOT (or 3 s of − and +) moves one step. The choice is saved, and the controllers</text>
+  <text class="md-muted" x="28" y="134" font-size="13">stay connected while the dongle switches; the PC sees it unplug and plug back in as the new type.</text>
+</svg>

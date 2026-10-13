@@ -50,6 +50,13 @@ t = (t.replace('__MD5_JS__', open('md5.js').read())
       .replace('__SRC_COMMIT__', commit)
       .replace('__SRC_SIZE__', f"{len(src) / 1024:.0f} KB")
       .replace('__FW_SIZE__', f"{first['size']:,} bytes ({first['size'] / 1024:.0f} KB)"))
+# Usage diagrams (docs/img), inlined so the page stays one file.
+def svg(name):
+    s = open(os.path.join(repo, 'docs', 'img', name)).read()
+    return re.sub(r'\s(width|height)="\d+"', '', s, count=2)
+t = (t.replace('__SVG_SHORTCUTS__', svg('shortcuts.svg'))
+      .replace('__SVG_BOOT__', svg('boot-button.svg'))
+      .replace('__SVG_MODES__', svg('modes.svg')))
 left = re.findall(r'__[A-Z0-9_]+__', t)
 assert not left, left
 open(out, 'w').write(t)

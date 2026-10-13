@@ -7,6 +7,29 @@ A left and a right Joy-Con 2 automatically merge into a single controller.
 Based on [Switch2Connect](https://github.com/TommyWabg/Switch2Connect) by
 TommyWabg, so this project is **GPL-3.0**.
 
+## Quick start
+
+1. **Flash** the firmware with the tool page (`dist/joycon2-dongle-tool.html`,
+   opened in Chrome or Edge), or with esptool (see [Flashing](#flashing)).
+2. **Plug** the dongle into the PC or console.
+3. **Pair** each controller once: hold the small **SYNC** button on its rail
+   until it connects (a short buzz and the player-1 LED). From then on any
+   button wakes it and it reconnects by itself. A left and a right Joy-Con
+   become one controller; a single Joy-Con works sideways on its own.
+4. **Play.** The dongle starts as an Xbox 360 controller. To change the
+   controller type or open the settings page, use the shortcuts below.
+
+![Controller shortcuts: hold − and + for 3 s for the next mode, Capture and Home for 3 s for the configurator, SYNC to pair](docs/img/shortcuts.svg)
+
+![BOOT button: tap for the next mode, release after 2–5 s for the configurator, hold 5 s to forget all pairings](docs/img/boot-button.svg)
+
+![Output modes in order: XInput, DS4, DualSense, Switch Pro, Steam Controller, generic HID](docs/img/modes.svg)
+
+The configurator (http://192.168.7.1) has everything else: rumble strength,
+stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
+does, and the list of paired controllers. Your PC keeps its normal internet
+connection while it's open.
+
 ## Status: 1.0.0
 
 | Step | What | State |

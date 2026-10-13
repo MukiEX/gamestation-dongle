@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" width="760" height="400" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-label="Controller shortcuts: hold minus and plus for 3 seconds for the next output mode; hold Capture and Home for 3 seconds for the configurator; hold SYNC to pair">
+  <style>
+    .jc-card { fill: #ffffff; stroke: #d9dde4; }
+    .jc-body { fill: #eef0f3; stroke: #8a93a0; stroke-width: 2; }
+    .jc-btn { fill: #c9ced6; stroke: #8a93a0; stroke-width: 1.5; }
+    .jc-ink { fill: #1d232b; }
+    .jc-muted { fill: #5d6573; }
+    .jc-mode { fill: #2f7de1; stroke: #2f7de1; }
+    .jc-cfg { fill: #e4002b; stroke: #e4002b; }
+    .jc-sync { fill: #1f9d63; stroke: #1f9d63; }
+    .jc-l-mode, .jc-l-cfg, .jc-l-sync { fill: none; stroke-width: 2; }
+    .jc-l-mode { stroke: #2f7de1; } .jc-l-cfg { stroke: #e4002b; } .jc-l-sync { stroke: #1f9d63; }
+    @media (prefers-color-scheme: dark) {
+      .jc-card { fill: #171b21; stroke: #2a3039; }
+      .jc-body { fill: #232933; stroke: #6b7482; }
+      .jc-btn { fill: #3a424e; stroke: #6b7482; }
+      .jc-ink { fill: #e8ebf0; }
+      .jc-muted { fill: #98a1ae; }
+      .jc-mode { fill: #4ea3ff; stroke: #4ea3ff; }
+      .jc-cfg { fill: #ff3b52; stroke: #ff3b52; }
+      .jc-sync { fill: #4cc38a; stroke: #4cc38a; }
+      .jc-l-mode { stroke: #4ea3ff; } .jc-l-cfg { stroke: #ff3b52; } .jc-l-sync { stroke: #4cc38a; }
+    }
+  </style>
+  <rect class="jc-card" x="1" y="1" width="758" height="398" rx="14"/>
+
+  <!-- Left Joy-Con -->
+  <path class="jc-body" d="M268 40 H200 A55 55 0 0 0 145 95 V285 A55 55 0 0 0 200 340 H268 Z"/>
+  <!-- Right Joy-Con -->
+  <path class="jc-body" d="M292 40 H360 A55 55 0 0 1 415 95 V285 A55 55 0 0 1 360 340 H292 Z"/>
+
+  <!-- Left: minus, stick, d-pad, capture -->
+  <rect class="jc-mode" x="238" y="66" width="18" height="6" rx="2"/>
+  <circle class="jc-btn" cx="205" cy="125" r="24"/>
+  <circle class="jc-btn" cx="205" cy="182" r="10"/>
+  <circle class="jc-btn" cx="205" cy="226" r="10"/>
+  <circle class="jc-btn" cx="183" cy="204" r="10"/>
+  <circle class="jc-btn" cx="227" cy="204" r="10"/>
+  <rect class="jc-cfg" x="226" y="262" width="16" height="16" rx="3"/>
+
+  <!-- Right: plus, ABXY, stick, home -->
+  <rect class="jc-mode" x="304" y="66" width="18" height="6" rx="2"/>
+  <rect class="jc-mode" x="310" y="60" width="6" height="18" rx="2"/>
+  <circle class="jc-btn" cx="355" cy="103" r="10"/>
+  <circle class="jc-btn" cx="355" cy="147" r="10"/>
+  <circle class="jc-btn" cx="333" cy="125" r="10"/>
+  <circle class="jc-btn" cx="377" cy="125" r="10"/>
+  <circle class="jc-btn" cx="355" cy="204" r="24"/>
+  <circle class="jc-cfg" cx="322" cy="270" r="9"/>
+
+  <!-- SYNC buttons on the rails -->
+  <rect class="jc-sync" x="263" y="168" width="5" height="22" rx="2"/>
+  <rect class="jc-sync" x="292" y="168" width="5" height="22" rx="2"/>
+
+  <!-- Callout: mode -->
+  <path class="jc-l-mode" d="M247 58 V30 H313 V56"/>
+  <path class="jc-l-mode" d="M313 30 H440"/>
+  <circle class="jc-mode" cx="440" cy="30" r="4"/>
+  <text class="jc-ink" x="452" y="35" font-size="16" font-weight="700">Hold − and + for 3 s</text>
+  <text class="jc-muted" x="452" y="56" font-size="14">Next output mode (saved)</text>
+
+  <!-- Callout: sync -->
+  <path class="jc-l-sync" d="M297 179 H440"/>
+  <circle class="jc-sync" cx="440" cy="179" r="4"/>
+  <text class="jc-ink" x="452" y="175" font-size="16" font-weight="700">Hold SYNC (on the rail)</text>
+  <text class="jc-muted" x="452" y="196" font-size="14">Pairs the controller. After that,</text>
+  <text class="jc-muted" x="452" y="214" font-size="14">any button reconnects it.</text>
+
+  <!-- Callout: configurator -->
+  <path class="jc-l-cfg" d="M234 280 V318 H322 V281"/>
+  <path class="jc-l-cfg" d="M322 318 H440"/>
+  <circle class="jc-cfg" cx="440" cy="318" r="4"/>
+  <text class="jc-ink" x="452" y="314" font-size="16" font-weight="700">Hold Capture and Home for 3 s</text>
+  <text class="jc-muted" x="452" y="335" font-size="14">Configurator: open http://192.168.7.1</text>
+  <text class="jc-muted" x="452" y="353" font-size="14">Do it again (or Save &amp; exit) to leave.</text>
+
+  <text class="jc-muted" x="28" y="384" font-size="12.5">Same buttons on the Pro Controller 2. Both shortcuts can be switched off in the configurator.</text>
+</svg>

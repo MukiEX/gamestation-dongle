@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 230" width="760" height="230" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-label="BOOT button: tap for next mode; hold 2 to 5 seconds and release for the configurator; hold 5 seconds to forget all paired controllers">
+  <style>
+    .bb-card { fill: #ffffff; stroke: #d9dde4; }
+    .bb-ink { fill: #1d232b; }
+    .bb-muted { fill: #5d6573; }
+    .bb-track { fill: #e6e9ee; }
+    .bb-tick { stroke: #8a93a0; stroke-width: 1.5; }
+    .bb-mode { fill: #2f7de1; }
+    .bb-cfg { fill: #e4002b; }
+    .bb-forget { fill: #c27a12; }
+    .bb-white { fill: #ffffff; }
+    @media (prefers-color-scheme: dark) {
+      .bb-card { fill: #171b21; stroke: #2a3039; }
+      .bb-ink { fill: #e8ebf0; }
+      .bb-muted { fill: #98a1ae; }
+      .bb-track { fill: #2a3039; }
+      .bb-tick { stroke: #6b7482; }
+      .bb-mode { fill: #4ea3ff; }
+      .bb-cfg { fill: #ff3b52; }
+      .bb-forget { fill: #f0a84a; }
+      .bb-white { fill: #0f1216; }
+    }
+  </style>
+  <rect class="bb-card" x="1" y="1" width="758" height="228" rx="14"/>
+  <text class="bb-ink" x="28" y="40" font-size="17" font-weight="700">The board's BOOT button: how long you hold it</text>
+
+  <!-- 0..6 s across x 40..720 : 113.3 px per second -->
+  <rect class="bb-track" x="40" y="70" width="680" height="34" rx="6"/>
+  <rect class="bb-mode" x="40" y="70" width="113" height="34" rx="6"/>
+  <rect class="bb-cfg" x="267" y="70" width="340" height="34"/>
+  <rect class="bb-forget" x="607" y="70" width="113" height="34" rx="6"/>
+  <rect class="bb-forget" x="607" y="70" width="12" height="34"/>
+  <text class="bb-white" x="96" y="92" font-size="13.5" font-weight="700" text-anchor="middle">tap</text>
+  <text class="bb-white" x="437" y="92" font-size="13.5" font-weight="700" text-anchor="middle">let go in here</text>
+  <text class="bb-white" x="663" y="92" font-size="13.5" font-weight="700" text-anchor="middle">keep holding</text>
+
+  <g class="bb-tick">
+    <line x1="40" y1="108" x2="40" y2="116"/><line x1="153" y1="108" x2="153" y2="116"/>
+    <line x1="267" y1="108" x2="267" y2="116"/><line x1="380" y1="108" x2="380" y2="116"/>
+    <line x1="493" y1="108" x2="493" y2="116"/><line x1="607" y1="108" x2="607" y2="116"/>
+    <line x1="720" y1="108" x2="720" y2="116"/>
+  </g>
+  <g class="bb-muted" font-size="12" text-anchor="middle">
+    <text x="40" y="130">0 s</text><text x="153" y="130">1 s</text><text x="267" y="130">2 s</text>
+    <text x="380" y="130">3 s</text><text x="493" y="130">4 s</text><text x="607" y="130">5 s</text>
+    <text x="720" y="130">6 s</text>
+  </g>
+
+  <rect class="bb-mode" x="40" y="156" width="12" height="12" rx="3"/>
+  <text class="bb-ink" x="60" y="167" font-size="14" font-weight="700">Tap: next output mode</text>
+  <text class="bb-muted" x="60" y="186" font-size="13">In the configurator: leave it</text>
+
+  <rect class="bb-cfg" x="290" y="156" width="12" height="12" rx="3"/>
+  <text class="bb-ink" x="310" y="167" font-size="14" font-weight="700">Release at 2–5 s: configurator</text>
+  <text class="bb-muted" x="310" y="186" font-size="13">Controllers buzz twice; open 192.168.7.1</text>
+
+  <rect class="bb-forget" x="555" y="156" width="12" height="12" rx="3"/>
+  <text class="bb-ink" x="575" y="167" font-size="14" font-weight="700">5 s: forget pairings</text>
+  <text class="bb-muted" x="575" y="186" font-size="13">Every controller must</text>
+  <text class="bb-muted" x="575" y="203" font-size="13">pair again (SYNC)</text>
+</svg>
