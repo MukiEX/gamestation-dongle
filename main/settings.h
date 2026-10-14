@@ -59,7 +59,7 @@ typedef struct {
     bool pad_grip;           // held normally (not on its rail side): sensor = grip sensor
     bool pad_ds_touch;       // DS4 / DualSense: the mouse sensors drive the touchpad
     uint8_t mouse_speed;     // USB mouse speed, same 1..19 steps (default 12 = speed 3)
-    bool display_flip;       // on-device display upside down
+    uint8_t display_rot;     // on-device display: 0/1 landscape, 2/3 portrait (each either way up)
     uint8_t display_bright;  // on-device display backlight 0..10
     bool xinput_generic;     // XInput mode uses its own USB ID instead of the Xbox 360 one
     uint8_t scroll_speed;    // USB mouse wheel / sideways scroll from the stick: 1..10, 5 = default

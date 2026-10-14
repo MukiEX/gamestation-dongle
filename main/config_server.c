@@ -360,7 +360,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddNumberToObject(o, "scrollSpeed", s->scroll_speed);
     cJSON_AddBoolToObject(o, "xinputGeneric", s->xinput_generic);
     cJSON_AddBoolToObject(o, "hasDisplay", DISPLAY_PRESENT);
-    cJSON_AddBoolToObject(o, "displayFlip", s->display_flip);
+    cJSON_AddNumberToObject(o, "displayRot", s->display_rot);
     cJSON_AddNumberToObject(o, "displayBright", s->display_bright);
     return o;
 }
@@ -476,7 +476,7 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "padHscroll")) && cJSON_IsBool(v)) s.pad_hscroll = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "scrollSpeed")) && cJSON_IsNumber(v)) s.scroll_speed = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "xinputGeneric")) && cJSON_IsBool(v)) s.xinput_generic = cJSON_IsTrue(v);
-    if ((v = cJSON_GetObjectItem(j, "displayFlip")) && cJSON_IsBool(v)) s.display_flip = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "displayRot")) && cJSON_IsNumber(v)) s.display_rot = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "displayBright")) && cJSON_IsNumber(v)) s.display_bright = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);

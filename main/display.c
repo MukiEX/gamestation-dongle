@@ -40,11 +40,12 @@ static const char *TAG = "display";
 #define PIN_LED_DI 40
 #define PIN_LED_CI 39
 
-#define W 160
-#define H 80
-// The 80x160 glass sits inside the controller's 132x162 memory.
-#define X_OFF 1
-#define Y_OFF 26
+// The 80x160 glass sits inside the controller's 132x162 memory: 26 columns
+// and 1 row in. Landscape (rotations 0/1) swaps the axes.
+#define LONG  160
+#define SHORT 80
+static int W = LONG, H = SHORT;
+static int X_OFF = 1, Y_OFF = 26;
 
 static esp_lcd_panel_io_handle_t s_io;
 static uint16_t *s_fb;              // RGB565, bytes swapped for the panel
@@ -129,11 +130,18 @@ static bool IRAM_ATTR on_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_eve
     return woke == pdTRUE;
 }
 
-static void set_orientation(bool flip)
+// Rotation 0/1: landscape, either way up. 2/3: portrait (stick upright),
+// either way up. MADCTL: MV swaps axes, MX/MY mirror; 0x08 = BGR.
+static void set_orientation(uint8_t rot)
 {
-    // MV (landscape) + BGR; MY or MX picks which way up.
-    uint8_t madctl = (flip ? 0x60 : 0xA0) | 0x08;
-    cmd(0x36, &madctl, 1);
+    static const uint8_t madctl[4] = { 0xA8, 0x68, 0x08, 0xC8 };
+    rot &= 3;
+    cmd(0x36, &madctl[rot], 1);
+    bool land = rot < 2;
+    W = land ? LONG : SHORT;
+    H = land ? SHORT : LONG;
+    X_OFF = land ? 1 : 26;
+    Y_OFF = land ? 26 : 1;
 }
 
 // ST7735S init (as Adafruit's "mini 160x80" / LILYGO's examples).
@@ -159,7 +167,7 @@ static void panel_init(void)
     cmd(0xC4, (const uint8_t[]){ 0x8A, 0xEE }, 2);
     cmd(0xC5, (const uint8_t[]){ 0x0E }, 1);
     cmd(0x21, NULL, 0);                                 // INVON (IPS glass)
-    set_orientation(settings_get().display_flip);
+    set_orientation(settings_get().display_rot);
     cmd(0x3A, (const uint8_t[]){ 0x05 }, 1);              // 16-bit colour
     cmd(0xE0, (const uint8_t[]){ 0x02, 0x1c, 0x07, 0x12, 0x37, 0x32, 0x29, 0x2d,
                                  0x29, 0x25, 0x2B, 0x39, 0x00, 0x01, 0x03, 0x10 }, 16);
@@ -209,7 +217,7 @@ typedef struct {
     bool dock;
     uint8_t mouse;
     uint8_t bright;
-    bool flip;
+    uint8_t rot;
 } view_t;
 
 static uint8_t bars(uint16_t mv)
@@ -227,7 +235,7 @@ static void collect(view_t *v)
     v->mounted = usb_gamepad_mounted();
     v->mouse = st.pad_mouse;
     v->bright = st.display_bright;
-    v->flip = st.display_flip;
+    v->rot = st.display_rot & 3;
     v->bat_l = v->bat_r = v->bat_pro = 255;
     ble_link_info_t links[4];
     int n = ble_central_links(links, 4);
@@ -302,8 +310,101 @@ static void chip(int x, int y, int w, const char *label, bool on, uint8_t bat)
     for (int i = 0; i < bat; i++) fill(bx + 2 + i * 3, by + 2, 2, 4, c);
 }
 
+static uint32_t status_line(const view_t *v, char *line, size_t n)
+{
+    uint32_t lc = MUTED;
+    if (v->mode == -1) {
+        snprintf(line, n, "Open 192.168.7.1");
+        lc = mode_color(v->mode);
+    } else if (!v->mounted) {
+        snprintf(line, n, "Waiting for the PC...");
+    } else if (v->pairing) {
+        snprintf(line, n, "Connecting...");
+    } else if (v->dock) {
+        snprintf(line, n, "In the charging grip");
+    } else if (v->mouse == PAD_MOUSE_FULL) {
+        snprintf(line, n, "USB mouse on");
+    } else if (v->mouse == PAD_MOUSE_POINTER) {
+        snprintf(line, n, "USB mouse pointer on");
+    } else {
+        snprintf(line, n, "Ready");
+    }
+    return lc;
+}
+
+// Word-wraps s into lines of at most `width` pixels; returns the y after it.
+static int text_wrap(const font_t *f, int x, int y, int width, const char *s, uint32_t c)
+{
+    char buf[48];
+    while (*s) {
+        int n = 0, fit = 0;
+        while (s[n]) {
+            int end = n;
+            while (s[end] && s[end] != ' ') end++;
+            snprintf(buf, sizeof(buf), "%.*s", end, s);
+            if (text_width(f, buf) > width && fit > 0) break;
+            fit = end;
+            n = s[end] ? end + 1 : end;
+        }
+        if (fit == 0) fit = n;
+        snprintf(buf, sizeof(buf), "%.*s", fit, s);
+        text(f, x, y, buf, c);
+        y += f->height;
+        s += fit;
+        while (*s == ' ') s++;
+    }
+    return y;
+}
+
+static void version_text(char *vs, size_t n)
+{
+    const char *ver = usb_gamepad_firmware_version();
+    snprintf(vs, n, "v%.*s", (int)strcspn(ver, "-"), ver);
+}
+
+// Portrait: 80 wide, 160 tall.
+static void render_portrait(const view_t *v)
+{
+    fill(0, 0, W, H, BG);
+    uint32_t mc = mode_color(v->mode);
+    fill(0, 0, W, 4, mc);
+    const char *t = mode_title(v->mode);
+    switch (v->mode) {  // short names fit the narrow screen in the big font
+    case -1:                  t = "Setup"; break;
+    case OUT_MODE_DS4:        t = "DS4"; break;
+    case OUT_MODE_DS5:        t = "DS5"; break;
+    case OUT_MODE_SWITCH_PRO: t = "Switch"; break;
+    case OUT_MODE_STEAM:      t = "Steam"; break;
+    case OUT_MODE_HID:        t = "HID"; break;
+    default: break;
+    }
+    const font_t *tf = text_width(&font_big, t) <= W - 8 ? &font_big : &font_small;
+    text(tf, 4, 9, t, INK);
+    if (v->pro) {
+        chip(4, 36, W - 8, "Pro", true, v->bat_pro);
+    } else if (v->l || v->r || v->pairing) {
+        chip(4, 36, W - 8, "Left", v->l, v->bat_l);
+        chip(4, 60, W - 8, "Right", v->r, v->bat_r);
+    }
+    char line[40];
+    uint32_t lc = status_line(v, line, sizeof(line));
+    if (!v->pro && !v->l && !v->r && !v->pairing) {
+        int y = text_wrap(&font_small, 4, 36, W - 8, "No controller: hold SYNC to pair", MUTED);
+        text_wrap(&font_small, 4, y + 8, W - 8, line, lc);
+    } else {
+        text_wrap(&font_small, 4, 92, W - 8, line, lc);
+    }
+    char vs[16];
+    version_text(vs, sizeof(vs));
+    text(&font_small, 4, H - 16, vs, DIM);
+}
+
 static void render(const view_t *v)
 {
+    if (W < H) {
+        render_portrait(v);
+        return;
+    }
     fill(0, 0, W, H, BG);
     uint32_t mc = mode_color(v->mode);
     fill(0, 0, 4, H, mc);
@@ -320,27 +421,10 @@ static void render(const view_t *v)
     }
 
     char line[40];
-    uint32_t lc = MUTED;
-    if (v->mode == -1) {
-        snprintf(line, sizeof(line), "Open 192.168.7.1");
-        lc = mc;
-    } else if (!v->mounted) {
-        snprintf(line, sizeof(line), "Waiting for the PC...");
-    } else if (v->pairing) {
-        snprintf(line, sizeof(line), "Connecting...");
-    } else if (v->dock) {
-        snprintf(line, sizeof(line), "In the charging grip");
-    } else if (v->mouse == PAD_MOUSE_FULL) {
-        snprintf(line, sizeof(line), "USB mouse on");
-    } else if (v->mouse == PAD_MOUSE_POINTER) {
-        snprintf(line, sizeof(line), "USB mouse pointer on");
-    } else {
-        snprintf(line, sizeof(line), "Ready");
-    }
+    uint32_t lc = status_line(v, line, sizeof(line));
     text(&font_small, 10, 63, line, lc);
-    const char *ver = usb_gamepad_firmware_version();
     char vs[16];
-    snprintf(vs, sizeof(vs), "v%.*s", (int)strcspn(ver, "-"), ver);
+    version_text(vs, sizeof(vs));
     text(&font_small, W - 4 - text_width(&font_small, vs), 63, vs, DIM);
 }
 
@@ -352,7 +436,7 @@ static void display_task(void *arg)
     for (;;) {
         collect(&now);
         if (memcmp(&now, &last, sizeof(now)) != 0) {
-            if (now.flip != last.flip) set_orientation(now.flip);
+            if (now.rot != last.rot) set_orientation(now.rot);
             if (now.bright != last.bright) backlight(now.bright);
             if (now.mode != last.mode) led_set(mode_color(now.mode), 2);
             render(&now);
@@ -380,7 +464,7 @@ void display_start(void)
     ledc_channel_config(&ch);
 
     spi_bus_config_t bus = { .mosi_io_num = PIN_MOSI, .miso_io_num = -1, .sclk_io_num = PIN_SCLK,
-                             .quadwp_io_num = -1, .quadhd_io_num = -1, .max_transfer_sz = W * H * 2 + 16 };
+                             .quadwp_io_num = -1, .quadhd_io_num = -1, .max_transfer_sz = LONG * SHORT * 2 + 16 };
     esp_err_t err = spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "SPI bus failed: %s", esp_err_to_name(err));
@@ -397,7 +481,7 @@ void display_start(void)
         ESP_LOGE(TAG, "LCD I/O failed: %s", esp_err_to_name(err));
         return;
     }
-    s_fb = heap_caps_malloc(W * H * 2, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    s_fb = heap_caps_malloc(LONG * SHORT * 2, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     if (s_fb == NULL) {
         ESP_LOGE(TAG, "no memory for the frame buffer");
         return;

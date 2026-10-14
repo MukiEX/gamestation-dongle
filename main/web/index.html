@@ -165,10 +165,10 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
     </div>
     <div class="row">
       <label>Orientation</label>
-      <div class="seg" id="displayFlip">
-        <button data-v="false">Normal</button><button data-v="true">Upside down</button>
+      <div class="seg" id="displayRot">
+        <button data-v="0">Landscape</button><button data-v="1">Landscape ↻</button><button data-v="2">Upright</button><button data-v="3">Upright ↻</button>
       </div>
-      <div class="hint">Turn the picture round if it reads upside down with the dongle plugged in. Applies live.</div>
+      <div class="hint">Landscape: the stick lies flat. Upright: it stands (e.g. plugged facing down into a dock). ↻ turns the picture round. Applies live.</div>
     </div>
   </section>
 
@@ -359,7 +359,7 @@ function showSettings() {
   if (settings.hasDisplay) {
     $("displayBright").value = settings.displayBright;
     $("displayBrightOut").textContent = settings.displayBright === 0 ? "off" : settings.displayBright + " / 10";
-    seg("displayFlip", String(!!settings.displayFlip));
+    seg("displayRot", String(settings.displayRot || 0));
   }
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
@@ -451,9 +451,9 @@ for (const id of ["flipDs4", "flipSwitch"]) {
 }
 $("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
 $("displayBright").addEventListener("input", () => save({ displayBright: +$("displayBright").value }));
-$("displayFlip").addEventListener("click", (e) => {
+$("displayRot").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
-  if (v !== undefined) save({ displayFlip: v === "true" });
+  if (v !== undefined) save({ displayRot: +v });
 });
 $("mouseSpeed").addEventListener("input", () => save({ mouseSpeed: +$("mouseSpeed").value }));
 $("xinputGeneric").addEventListener("click", (e) => {

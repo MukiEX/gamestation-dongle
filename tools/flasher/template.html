@@ -485,13 +485,12 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Dev board, normal 1.1.0 image: everything works as in 1.0.3 (no display, nothing else changed)",
-    "T-Dongle-S3 image: flash (hold the button while plugging in), replug: the screen lights up and shows the mode name (XInput) in large text, readable and not shifted or cut off at an edge",
-    "Colours: the stripe on the left is green in XInput, blue in DS4, red in Switch Pro; text white on near-black. If colours are swapped or inverted, note what you see",
-    "Pair Joy-Cons: the Left / Right chips light up with a battery gauge; note the gauge and the battery numbers if they look wrong",
-    "Change mode with the button or - and +: the name, stripe and the RGB LED colour follow; configurator shows 'Open 192.168.7.1'",
-    "Configurator Display section: brightness slider and Upside down work live. Note which orientation is right with the stick plugged in",
-    "T-Dongle-S3 as a controller: all modes, rumble, USB mouse work as on the dev board",
+    "T-Dongle-S3 image: the screen lights up and is readable (not shifted, cut off or wrong colours); note what you see",
+    "Configurator Display section: Upright or Upright ↻ shows the narrow layout the right way up with the stick plugged facing down into your dock. Note which one it is",
+    "Upright layout: mode name, Left / Right chips with battery, status line and version all fit; nothing overlaps or is cut off",
+    "Landscape and Landscape ↻ still work; brightness slider works live",
+    "Mode changes, pairing and the configurator update the screen and the RGB LED",
+    "Dev board image: everything as before",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
