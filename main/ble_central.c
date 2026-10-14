@@ -193,6 +193,7 @@ static uint8_t s_own_addr_type;
 static uint8_t s_own_mac[6];   // little-endian (ble_addr_t.val order)
 static volatile bool s_synced;
 static volatile int s_connecting = -1;
+static int64_t s_connect_started;
 
 static int gap_event(struct ble_gap_event *event, void *arg);
 
@@ -1115,7 +1116,12 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         char mac[18];
         fmt_mac(l->addr.val, mac);
         ESP_LOGI(TAG, "link %d: connected to %s%s", idx, mac, l->pairing ? " (pairing mode)" : "");
-        ble_gap_set_prefered_le_phy(l->conn, BLE_GAP_LE_PHY_2M_MASK, BLE_GAP_LE_PHY_2M_MASK, 0);
+        if (!l->hid) {
+            // 2M PHY for Switch 2 controllers. BLE gamepads stay on 1M: the
+            // M64 Pro dropped the link right after switching (supervision
+            // timeout during pairing).
+            ble_gap_set_prefered_le_phy(l->conn, BLE_GAP_LE_PHY_2M_MASK, BLE_GAP_LE_PHY_2M_MASK, 0);
+        }
         if (l->hid) {
             // HID over GATT needs an encrypted (bonded) link first.
             int src = ble_gap_security_initiate(l->conn);
@@ -1163,6 +1169,11 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         if (event->enc_change.status != 0) {
             ESP_LOGW(TAG, "link %d: pairing / encryption failed (status=%d)", link_index(l),
                      event->enc_change.status);
+            for (uint8_t t = 0; t <= 3; t++) {  // pair from scratch next time
+                ble_addr_t a = { .type = t };
+                memcpy(a.val, l->addr.val, 6);
+                ble_gap_unpair(&a);
+            }
             fail_link(l, "encryption failed");
             return 0;
         }
@@ -1773,6 +1784,16 @@ static bool hid_setup(link_t *l)
     }
     l->role = PAD_ROLE_FULL;
     l->pid = PAD_PID_BLE_HID;
+    // Remember the identity address: gamepads like the M64 Pro advertise with
+    // changing (private) addresses, which resolve to this once bonded.
+    struct ble_gap_conn_desc idd;
+    if (ble_gap_conn_find(l->conn, &idd) == 0 && memcmp(idd.peer_id_addr.val, l->addr.val, 6) != 0) {
+        char a1[18], a2[18];
+        fmt_mac(l->addr.val, a1);
+        fmt_mac(idd.peer_id_addr.val, a2);
+        ESP_LOGI(TAG, "link %d: %s is %s (identity address, type %u)", idx, a1, a2, idd.peer_id_addr.type);
+        l->addr = idd.peer_id_addr;
+    }
     bonds_remember(l->addr.val, PAD_PID_BLE_HID);
     ESP_LOGI(TAG, "link %d: BLE gamepad ready (%d input reports)", idx, subs);
 
@@ -1910,6 +1931,16 @@ static void hid_notify(link_t *l, uint16_t attr, const uint8_t *buf, uint16_t le
 
 static void start_connect(const ev_t *ev)
 {
+    if (ev->pid == PAD_PID_BLE_HID && ev->pairing && ev->addr.type >= BLE_ADDR_PUBLIC_ID) {
+        // A gamepad in pairing mode that the controller still resolves from
+        // old keys: drop them and connect to its next (unresolved) advert.
+        char m[18];
+        fmt_mac(ev->addr.val, m);
+        ESP_LOGI(TAG, "%s: dropping old keys before pairing again", m);
+        ble_gap_unpair(&ev->addr);
+        bonds_forget(ev->addr.val);
+        return;
+    }
     int idx = link_alloc();
     if (idx < 0) {
         return;
@@ -1935,6 +1966,23 @@ static void start_connect(const ev_t *ev)
         .min_ce_len = 0,
         .max_ce_len = CONN_MAX_CE,
     };
+    if (l->hid) {
+        // Gentler start for generic gamepads (7.5-15 ms, 6 s timeout, no
+        // event-length cap); 7.5 ms is requested again once set up.
+        p.itvl_max = 12;
+        p.supervision_timeout = 600;
+        p.max_ce_len = 0;
+        if (ev->pairing) {
+            // Pairing mode: start clean, so stale keys from an earlier attempt
+            // (on either side) can't break encryption.
+            for (uint8_t t = 0; t <= 3; t++) {
+                ble_addr_t a = { .type = t };
+                memcpy(a.val, ev->addr.val, 6);
+                ble_gap_unpair(&a);
+            }
+        }
+    }
+    s_connect_started = esp_timer_get_time();
     char mac[18];
     fmt_mac(ev->addr.val, mac);
     ESP_LOGI(TAG, "connecting to %s %s%s",
@@ -2043,6 +2091,17 @@ static void ctrl_task(void *arg)
         scan_update();
 
         int64_t now = esp_timer_get_time();
+        // A connection attempt that never reports back (seen with a BLE
+        // gamepad): cancel it so scanning resumes.
+        int cidx = s_connecting;
+        if (cidx >= 0 && now - s_connect_started > (CONNECT_TIMEOUT_MS + 2000) * 1000LL) {
+            ESP_LOGW(TAG, "connection attempt %d stuck; cancelling", cidx);
+            ble_gap_conn_cancel();
+            s_connecting = -1;
+            if (s_links[cidx].state == LS_CONNECTING) {
+                link_free(&s_links[cidx]);
+            }
+        }
         s_deadzone = settings_get().deadzone_pct / 100.0f;
         static int64_t last_rate_t;
         static uint32_t rate_counts[MAX_LINKS];

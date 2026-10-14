@@ -485,10 +485,9 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Flash 1.2.1 and replug. If the NVIDIA remote reconnects, the log says 'not a gamepad ... forgetting it' once and leaves it alone",
-    "Turn off / disconnect the Joy-Cons. Hold the M64 Pro close to the dongle and put it in its Bluetooth pairing mode. Keep the log: the 'seen ...' lines list every Bluetooth device around (name, appearance, rssi); note which one is the M64 Pro",
-    "If it pairs ('BLE gamepad ready'): press every button once, slowly (A, B, each C button, Z, L, R, Start, each d-pad direction), then move the stick in a circle",
-    "If it doesn't: note what the M64 Pro's light does, and keep the log for a minute while it's in pairing mode",
+    "Flash 1.2.2 to the dongle you test with. Joy-Cons off. Hold the M64 Pro close and put it in pairing mode. The log should go 'M64_Controller ... gamepad candidate', 'connected', 'encrypted (bonded ...)', report map lines, 'BLE gamepad ready'. Note how far it gets",
+    "If ready: press every button once, slowly (A, B, each C button, Z, L, R, Start, each d-pad direction), then move the stick in a circle",
+    "Turn the M64 Pro off, then on (not in pairing mode): does it reconnect by itself? Keep the log either way",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
