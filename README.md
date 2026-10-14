@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.1.2
+## Status: 1.1.3
 
 | Step | What | State |
 |---|---|---|
@@ -73,8 +73,10 @@ connection while it's open.
   facing down into a dock, with a narrow layout), each either way up.
   The stick plugs straight into a USB-A port; its button is the BOOT button
   (same presses as below). To flash it, hold the button while plugging it in.
-  The battery gauge uses the voltage each controller reports (3.5–4.1 V =
-  empty–full) and is a rough guide.
+  The battery gauge uses the value each controller reports, calibrated
+  against the Switch 2's own gauge (about 3260 = full, 3170 = just over half;
+  4 bars from 3240, 3 from 3170, 2 from 3100, 1 from 3000) and is a rough
+  guide. The configurator's Controllers list shows the raw number.
 
 ### Controllers
 

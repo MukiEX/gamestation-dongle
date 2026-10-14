@@ -485,10 +485,9 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Configurator: the Orientation buttons sit in a 2 x 2 block and fit the panel",
-    "Battery: with both Joy-Cons connected, the configurator's Controllers list shows 'battery <number>' next to the reports/s. Note the numbers (and roughly how charged each Joy-Con is)",
-    "Keep the log for a minute: the 'input reports/s' lines now end with 'battery ... (bytes 29-36: ...)'; those bytes tell me where the real battery value is",
-    "If you can: note the numbers again with a Joy-Con charging in the grip, or nearly flat",
+    "T-Dongle-S3 screen: the Left / Right chips now show battery bars (full Joy-Con 4 bars, the half one about 3). Compare with the Switch 2's gauge",
+    "When a Joy-Con gets low, note the configurator's battery number and what the Switch 2 shows, so the low end can be calibrated",
+    "Orientation buttons sit in a 2 x 2 block; everything else as in 1.1.2",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

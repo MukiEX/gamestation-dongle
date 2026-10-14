@@ -223,8 +223,13 @@ typedef struct {
 static uint8_t bars(uint16_t mv)
 {
     if (mv < 2500 || mv > 4600) return 255;  // not a plausible reading
-    int b = (mv - 3500) * 4 / (4100 - 3500) + 1;
-    return (uint8_t)(b < 0 ? 0 : b > 4 ? 4 : b);
+    // Joy-Con 2 reports a lower value than its cell voltage. Calibrated
+    // against the Switch 2's own gauge: 3262 = full, 3176 = a bit over half.
+    if (mv >= 3240) return 4;
+    if (mv >= 3170) return 3;
+    if (mv >= 3100) return 2;
+    if (mv >= 3000) return 1;
+    return 0;
 }
 
 static void collect(view_t *v)
