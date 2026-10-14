@@ -181,6 +181,7 @@ typedef struct {
     ble_addr_t addr;
     uint16_t pid;
     bool pairing;
+    uint8_t adv_type;    // advert event type that triggered the connect
     int64_t t;
 } ev_t;
 
@@ -396,6 +397,8 @@ static bool parse_adv(const struct ble_gap_disc_desc *d, uint16_t *pid, bool *pa
 typedef struct {
     uint8_t mac[6];
     bool used, hid_uuid, discoverable, logged;
+    bool connectable;     // seen with a connectable advert (ADV_IND / ADV_DIRECT_IND)
+    uint8_t types;        // bit per advert event type seen
     uint16_t appearance;
     char name[24];
 } adv_seen_t;
@@ -465,6 +468,20 @@ static bool hid_candidate(const adv_seen_t *e)
 
 #define HID_PAIR_MIN_RSSI (-75)   // pair only with a gamepad close to the dongle
 
+// Drops stored keys for an address, if there are any (quietly: NimBLE logs
+// an error for every address type it doesn't know).
+static void forget_keys(const uint8_t mac[6])
+{
+    for (uint8_t t = 0; t <= 3; t++) {
+        struct ble_store_key_sec key = { .peer_addr = { .type = t }, .idx = 0 };
+        struct ble_store_value_sec val;
+        memcpy(key.peer_addr.val, mac, 6);
+        if (ble_store_read_peer_sec(&key, &val) == 0) {
+            ble_gap_unpair(&key.peer_addr);
+        }
+    }
+}
+
 static void on_disc(const struct ble_gap_disc_desc *d)
 {
     ev_t ev = { .type = EV_ADV, .addr = d->addr, .t = esp_timer_get_time() };
@@ -483,6 +500,10 @@ static void on_disc(const struct ble_gap_disc_desc *d)
         }
         adv_seen_t *e = seen_entry(d->addr.val);
         merge_adv(d, e);
+        if (d->event_type < 8) e->types |= 1u << d->event_type;
+        if (d->event_type == BLE_HCI_ADV_RPT_EVTYPE_ADV_IND || d->event_type == BLE_HCI_ADV_RPT_EVTYPE_DIR_IND) {
+            e->connectable = true;
+        }
         bool cand = hid_candidate(e);
         bool bonded = bonds_lookup(d->addr.val) == PAD_PID_BLE_HID;
         // Survey: log each HID-ish or named device once, to identify gamepads.
@@ -490,15 +511,18 @@ static void on_disc(const struct ble_gap_disc_desc *d)
             e->logged = true;
             char mac[18];
             fmt_mac(d->addr.val, mac);
-            ESP_LOGI(TAG, "seen %s (type %u) \"%s\": appearance 0x%04x%s%s, rssi %d%s", mac, d->addr.type, e->name,
-                     e->appearance, e->hid_uuid ? ", HID service" : "", e->discoverable ? ", pairing mode" : "", d->rssi,
-                     cand ? " -> gamepad candidate" : "");
+            ESP_LOGI(TAG, "seen %s (type %u) \"%s\": appearance 0x%04x%s%s, rssi %d, adverts 0x%02x%s", mac,
+                     d->addr.type, e->name, e->appearance, e->hid_uuid ? ", HID service" : "",
+                     e->discoverable ? ", pairing mode" : "", d->rssi, e->types, cand ? " -> gamepad candidate" : "");
         }
         if (bonded) {
             ev.pid = PAD_PID_BLE_HID;
             ev.pairing = false;      // bonded: reconnect
             post(&ev);
         } else if (cand && e->discoverable) {
+            if (!e->connectable) {
+                return;  // wait for a connectable advert (scan responses carry the name)
+            }
             if (d->rssi < HID_PAIR_MIN_RSSI) {
                 static int64_t last_far;
                 int64_t now = esp_timer_get_time();
@@ -511,6 +535,7 @@ static void on_disc(const struct ble_gap_disc_desc *d)
             }
             ev.pid = PAD_PID_BLE_HID;
             ev.pairing = true;       // in pairing mode: pair with it
+            ev.adv_type = d->event_type;
             post(&ev);
         }
         return;
@@ -1096,6 +1121,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         int idx = s_connecting;
         s_connecting = -1;
         if (idx < 0) {
+            ESP_LOGI(TAG, "late connect event (status=%d)", event->connect.status);
             if (event->connect.status == 0) {
                 ble_gap_terminate(event->connect.conn_handle, BLE_ERR_REM_USER_CONN_TERM);
             }
@@ -1169,11 +1195,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         if (event->enc_change.status != 0) {
             ESP_LOGW(TAG, "link %d: pairing / encryption failed (status=%d)", link_index(l),
                      event->enc_change.status);
-            for (uint8_t t = 0; t <= 3; t++) {  // pair from scratch next time
-                ble_addr_t a = { .type = t };
-                memcpy(a.val, l->addr.val, 6);
-                ble_gap_unpair(&a);
-            }
+            forget_keys(l->addr.val);  // pair from scratch next time
             fail_link(l, "encryption failed");
             return 0;
         }
@@ -1975,19 +1997,19 @@ static void start_connect(const ev_t *ev)
         if (ev->pairing) {
             // Pairing mode: start clean, so stale keys from an earlier attempt
             // (on either side) can't break encryption.
-            for (uint8_t t = 0; t <= 3; t++) {
-                ble_addr_t a = { .type = t };
-                memcpy(a.val, ev->addr.val, 6);
-                ble_gap_unpair(&a);
-            }
+            forget_keys(ev->addr.val);
         }
     }
     s_connect_started = esp_timer_get_time();
     char mac[18];
     fmt_mac(ev->addr.val, mac);
-    ESP_LOGI(TAG, "connecting to %s %s%s",
-             ev->pid == PAD_PID_BLE_HID ? "BLE gamepad" : ev->pid ? pad_role_name(pad_role_for_pid(ev->pid)) : "controller",
-             mac, ev->pairing ? " (pairing)" : "");
+    ESP_LOGI(TAG, "connecting to %s %s (type %u)%s", ev->pid == PAD_PID_BLE_HID ? "BLE gamepad"
+             : ev->pid ? pad_role_name(pad_role_for_pid(ev->pid)) : "controller",
+             mac, ev->addr.type, ev->pairing ? " (pairing)" : "");
+    if (l->hid) {
+        ESP_LOGI(TAG, "  from advert type %u; interval %u-%u, timeout %u", ev->adv_type, p.itvl_min, p.itvl_max,
+                 p.supervision_timeout);
+    }
     int rc = ble_gap_connect(s_own_addr_type, &ev->addr, CONNECT_TIMEOUT_MS, &p, gap_event, NULL);
     if (rc != 0) {
         ESP_LOGW(TAG, "ble_gap_connect failed rc=%d", rc);
@@ -2095,8 +2117,10 @@ static void ctrl_task(void *arg)
         // gamepad): cancel it so scanning resumes.
         int cidx = s_connecting;
         if (cidx >= 0 && now - s_connect_started > (CONNECT_TIMEOUT_MS + 2000) * 1000LL) {
-            ESP_LOGW(TAG, "connection attempt %d stuck; cancelling", cidx);
-            ble_gap_conn_cancel();
+            bool active = ble_gap_conn_active();
+            int crc = ble_gap_conn_cancel();
+            ESP_LOGW(TAG, "connection attempt %d stuck (NimBLE connecting: %s); cancelled rc=%d", cidx,
+                     active ? "yes" : "no", crc);
             s_connecting = -1;
             if (s_links[cidx].state == LS_CONNECTING) {
                 link_free(&s_links[cidx]);
