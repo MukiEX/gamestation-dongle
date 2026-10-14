@@ -38,7 +38,7 @@ CONFIG_BT_NIMBLE_EXT_SCAN=n
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=8
 CONFIG_BT_NIMBLE_MAX_BONDS=8
 CONFIG_BT_NIMBLE_MAX_CCCDS=24
-CONFIG_BT_NIMBLE_NVS_PERSIST=n
+CONFIG_BT_NIMBLE_NVS_PERSIST=y
 CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=256
 # Bigger mbuf pool / more concurrent GATT procedures: two Joy-Cons at 7.5 ms plus
 # rumble writes exhaust the defaults (learned the hard way by Switch2Connect).

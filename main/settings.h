@@ -61,6 +61,7 @@ typedef struct {
     uint8_t mouse_speed;     // USB mouse speed, same 1..19 steps (default 12 = speed 3)
     uint8_t display_rot;     // on-device display: 0/1 landscape, 2/3 portrait (each either way up)
     uint8_t display_bright;  // on-device display backlight 0..10
+    bool ble_hid;            // pair with / connect generic Bluetooth LE HID gamepads
     bool xinput_generic;     // XInput mode uses its own USB ID instead of the Xbox 360 one
     uint8_t scroll_speed;    // USB mouse wheel / sideways scroll from the stick: 1..10, 5 = default
     bool pad_hscroll;        // USB mouse: stick sideways = sideways scroll

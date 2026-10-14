@@ -25,6 +25,7 @@ static settings_t s_cur = {
     .pad_speed = 3,
     .mouse_speed = 12,
     .pad_hscroll = true,
+    .ble_hid = true,
     .display_bright = 6,
     .scroll_speed = 5,
     .pad_lift = 0,
@@ -105,6 +106,7 @@ void settings_init(void)
         // "mousespd2": 0.6.9 moved the default to speed 3 (older saves are left behind).
         s.mouse_speed = get_u8(h, "mousespd2", s.mouse_speed, SETTINGS_PAD_SPEED_MAX);
         s.pad_hscroll = get_u8(h, "hscroll", s.pad_hscroll, 1);
+        s.ble_hid = get_u8(h, "blehid", s.ble_hid, 1);
         s.display_rot = get_u8(h, "disprot", s.display_rot, 3);
         s.display_bright = get_u8(h, "dispbright", s.display_bright, 10);
         s.scroll_speed = get_u8(h, "scrollspd", s.scroll_speed, 10);
@@ -192,6 +194,7 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "padspd3", s.pad_speed);
         nvs_set_u8(h, "mousespd2", s.mouse_speed);
         nvs_set_u8(h, "hscroll", s.pad_hscroll);
+        nvs_set_u8(h, "blehid", s.ble_hid);
         nvs_set_u8(h, "disprot", s.display_rot);
         nvs_set_u8(h, "dispbright", s.display_bright);
         nvs_set_u8(h, "scrollspd", s.scroll_speed);

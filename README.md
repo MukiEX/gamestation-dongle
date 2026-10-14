@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.1.3
+## Status: 1.2.0
 
 | Step | What | State |
 |---|---|---|
@@ -111,6 +111,22 @@ its normal internet connection: the dongle hands out an address but no route.
 dongle back into a controller. A configurator tab left open from an earlier
 session reloads itself instead of changing anything. The Bluetooth controllers stay connected the
 whole time. Settings are stored on the dongle.
+
+### Other Bluetooth gamepads (experimental)
+
+Standard Bluetooth LE gamepads (HID over GATT), such as the ModRetro M64 Pro,
+can pair with the dongle and work as one full controller in every output
+mode. Put the gamepad in its pairing mode (the one for a phone or PC) while
+no other controller is connected; the dongle pairs and bonds with it (keys
+kept in flash), and afterwards it reconnects on its own. Buttons follow the
+usual Android / Xbox Bluetooth numbering (1 = south, 2 = east, 4 = west,
+5 = north, 7 / 8 = L / R, 9 / 10 = ZL / ZR, 11 = −, 12 = +, 13 = Home,
+14 / 15 = stick presses), the hat is the d-pad, X / Y the left stick and
+Z / Rz (or Rx / Ry) the right stick. No rumble or motion yet. The log lists
+each gamepad's report map and every input report, so other layouts can be
+mapped. Turn it off with *Other Bluetooth gamepads* in the configurator.
+The ESP32-S3 can't use Bluetooth SCI, so the M64 Pro runs at the normal
+7.5 ms interval, like the Joy-Cons.
 
 ### Output modes
 

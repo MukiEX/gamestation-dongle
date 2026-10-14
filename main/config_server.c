@@ -265,6 +265,7 @@ static const char *pid_name(uint16_t pid)
     case NS2_PID_JOYCON_L: return "Joy-Con L";
     case NS2_PID_JOYCON_R: return "Joy-Con R";
     case NS2_PID_PRO2:     return "Pro Controller 2";
+    case PAD_PID_BLE_HID:  return "BLE gamepad";
     default:               return "controller";
     }
 }
@@ -359,6 +360,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddBoolToObject(o, "padHscroll", s->pad_hscroll);
     cJSON_AddNumberToObject(o, "scrollSpeed", s->scroll_speed);
     cJSON_AddBoolToObject(o, "xinputGeneric", s->xinput_generic);
+    cJSON_AddBoolToObject(o, "bleHid", s->ble_hid);
     cJSON_AddBoolToObject(o, "hasDisplay", DISPLAY_PRESENT);
     cJSON_AddNumberToObject(o, "displayRot", s->display_rot);
     cJSON_AddNumberToObject(o, "displayBright", s->display_bright);
@@ -398,7 +400,7 @@ static esp_err_t h_state(httpd_req_t *req)
         mac_str(links[i].mac, m);
         cJSON *e = cJSON_CreateObject();
         cJSON_AddStringToObject(e, "mac", m);
-        cJSON_AddStringToObject(e, "role", pad_role_name(links[i].role));
+        cJSON_AddStringToObject(e, "role", links[i].hid ? "BLE gamepad" : pad_role_name(links[i].role));
         cJSON_AddBoolToObject(e, "ready", links[i].ready);
         cJSON_AddNumberToObject(e, "rate", links[i].rate);
         cJSON_AddNumberToObject(e, "battery", links[i].battery_mv);
@@ -477,6 +479,7 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "padHscroll")) && cJSON_IsBool(v)) s.pad_hscroll = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "scrollSpeed")) && cJSON_IsNumber(v)) s.scroll_speed = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "xinputGeneric")) && cJSON_IsBool(v)) s.xinput_generic = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "bleHid")) && cJSON_IsBool(v)) s.ble_hid = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "displayRot")) && cJSON_IsNumber(v)) s.display_rot = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "displayBright")) && cJSON_IsNumber(v)) s.display_bright = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "gl")) && cJSON_IsString(v)) {

@@ -10,6 +10,12 @@
 //               pair (if the controller was in SYNC mode), player LED,
 //               connection buzz --> READY: input flows into pad.c
 //
+// Generic Bluetooth LE HID gamepads (HID over GATT, e.g. ModRetro M64 Pro)
+// take a second path: connect --> SMP pairing / encryption (bonded, stored
+// in NVS) --> [ctrl task] HID service discovery, report map, subscribe input
+// reports --> READY as a full controller. Their reports are decoded with
+// hid_gamepad.c and mapped like a standard (Android-style) gamepad.
+//
 // NimBLE callbacks run in the NimBLE host task and never block or issue GATT
 // writes from notification context. Everything that waits on a command reply
 // runs in ctrl_task.
@@ -27,11 +33,13 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
 #include "host/ble_gap.h"
 #include "host/ble_gatt.h"
 #include "host/ble_hs.h"
+#include "host/ble_store.h"
 #include "host/ble_uuid.h"
 #include "host/util/util.h"
 #include "nimble/nimble_port.h"
@@ -40,6 +48,7 @@
 #include "services/gatt/ble_svc_gatt.h"
 
 #include "bonds.h"
+#include "hid_gamepad.h"
 #include "ns2_proto.h"
 #include "pad.h"
 #include "rumble.h"
@@ -134,6 +143,27 @@ typedef struct {
     bool status_seen;
     uint8_t status_logs;
     uint8_t last_status; // top byte of the button field, logged on change
+
+    // Generic BLE HID gamepad (hid == true).
+    bool hid;
+    uint16_t hid_start, hid_end;   // HID service handle range
+    uint16_t h_map, h_proto;
+    struct {
+        uint16_t val, cccd, ref;
+        uint8_t id, type;          // from the Report Reference descriptor (type 1 = input)
+        uint8_t last[32];
+        uint8_t last_len;
+    } rep[8];
+    int n_rep;
+    hid_layout_t *layout;          // allocated once per link slot
+    hid_state_t hst;
+    uint16_t hid_logs;             // input reports logged this connection
+    int64_t hid_log_window;
+    uint8_t hid_log_burst;
+    SemaphoreHandle_t gsem;        // synchronous GATT helpers (ctrl task)
+    int gstatus;
+    uint8_t *gbuf;
+    size_t glen, gcap;
 } link_t;
 
 typedef enum {
@@ -142,6 +172,7 @@ typedef enum {
     EV_LINK_GONE,
     EV_FORGET,
     EV_FORGET_ONE,
+    EV_HID_SECURED,
 } ev_type_t;
 
 typedef struct {
@@ -197,8 +228,12 @@ static int link_alloc(void)
     for (int i = 0; i < MAX_LINKS; i++) {
         if (s_links[i].state == LS_FREE) {
             QueueHandle_t q = s_links[i].ackq;
+            SemaphoreHandle_t gs = s_links[i].gsem;
+            hid_layout_t *lay = s_links[i].layout;
             memset(&s_links[i], 0, sizeof(s_links[i]));
             s_links[i].ackq = q;
+            s_links[i].gsem = gs;
+            s_links[i].layout = lay;
             s_links[i].conn = BLE_HS_CONN_HANDLE_NONE;
             s_links[i].state = LS_CONNECTING;
             idx = i;
@@ -355,6 +390,63 @@ static bool parse_adv(const struct ble_gap_disc_desc *d, uint16_t *pid, bool *pa
     return false;
 }
 
+// Bluetooth LE HID gamepads: advertise the HID service (0x1812) and/or a
+// gamepad / joystick appearance. Returns false for anything else (and for
+// keyboards and mice).
+static bool parse_hid_adv(const struct ble_gap_disc_desc *d, bool *discoverable, uint16_t *appearance,
+                          char *name, size_t name_len)
+{
+    const uint8_t *p = d->data;
+    uint8_t len = d->length_data, pos = 0;
+    bool hid_uuid = false;
+    *discoverable = false;
+    *appearance = 0;
+    name[0] = 0;
+    while (pos < len) {
+        uint8_t ad_len = p[pos];
+        if (ad_len == 0 || pos + 1 + ad_len > len) break;
+        uint8_t type = p[pos + 1];
+        const uint8_t *v = &p[pos + 2];
+        int vlen = ad_len - 1;
+        if (type == 0x01 && vlen >= 1) *discoverable = (v[0] & 0x03) != 0;  // limited / general discoverable
+        if ((type == 0x02 || type == 0x03) && vlen >= 2) {
+            for (int i = 0; i + 1 < vlen; i += 2) {
+                if ((v[i] | (v[i + 1] << 8)) == 0x1812) hid_uuid = true;
+            }
+        }
+        if (type == 0x19 && vlen >= 2) *appearance = (uint16_t)(v[0] | (v[1] << 8));
+        if ((type == 0x08 || type == 0x09) && vlen > 0) {
+            int n = vlen < (int)name_len - 1 ? vlen : (int)name_len - 1;
+            memcpy(name, v, n);
+            name[n] = 0;
+        }
+        pos += 1 + ad_len;
+    }
+    if (*appearance == 0x03C1 || *appearance == 0x03C2) return false;  // keyboard, mouse
+    bool pad_look = *appearance == 0x03C3 || *appearance == 0x03C4;    // joystick, gamepad
+    return pad_look || hid_uuid;
+}
+
+// Logs each BLE HID device once (per boot) so a test log shows what's around.
+static void note_hid_device(const struct ble_gap_disc_desc *d, bool discoverable, uint16_t appearance,
+                            const char *name)
+{
+    static uint8_t seen[8][6];
+    static int n_seen;
+    for (int i = 0; i < n_seen; i++) {
+        if (memcmp(seen[i], d->addr.val, 6) == 0) return;
+    }
+    if (n_seen < 8) memcpy(seen[n_seen++], d->addr.val, 6);
+    char mac[18];
+    fmt_mac(d->addr.val, mac);
+    ESP_LOGI(TAG, "BLE HID device %s (address type %u) \"%s\": appearance 0x%04x, %s, rssi %d", mac,
+             d->addr.type, name, appearance, discoverable ? "in pairing mode" : "not in pairing mode", d->rssi);
+    char hex[3 * 31 + 1];
+    int n = 0;
+    for (int i = 0; i < d->length_data && i < 31; i++) n += snprintf(hex + n, sizeof(hex) - n, "%02x ", d->data[i]);
+    ESP_LOGI(TAG, "  advert: %s", hex);
+}
+
 static void on_disc(const struct ble_gap_disc_desc *d)
 {
     ev_t ev = { .type = EV_ADV, .addr = d->addr, .t = esp_timer_get_time() };
@@ -368,6 +460,22 @@ static void on_disc(const struct ble_gap_disc_desc *d)
     uint16_t pid = 0;
     bool pairing = false, ours = false;
     if (!parse_adv(d, &pid, &pairing, &ours)) {
+        bool disc;
+        uint16_t app;
+        char name[32];
+        if (!parse_hid_adv(d, &disc, &app, name, sizeof(name))) {
+            return;
+        }
+        note_hid_device(d, disc, app, name);
+        if (bonds_lookup(d->addr.val) == PAD_PID_BLE_HID) {
+            ev.pid = PAD_PID_BLE_HID;
+            ev.pairing = false;      // bonded: reconnect
+            post(&ev);
+        } else if (disc && settings_get().ble_hid) {
+            ev.pid = PAD_PID_BLE_HID;
+            ev.pairing = true;       // in pairing mode: pair with it
+            post(&ev);
+        }
         return;
     }
     if (pad_role_for_pid(pid) == PAD_ROLE_NONE) {
@@ -896,6 +1004,8 @@ static void handle_input(link_t *l, const uint8_t *data, size_t len)
     pad_update(l->role, &s);
 }
 
+static void hid_notify(link_t *l, uint16_t attr, const uint8_t *buf, uint16_t len);
+
 static void handle_notify(const struct ble_gap_event *event)
 {
     link_t *l = link_by_conn(event->notify_rx.conn_handle);
@@ -911,6 +1021,10 @@ static void handle_notify(const struct ble_gap_event *event)
         return;
     }
     uint16_t attr = event->notify_rx.attr_handle;
+    if (l->hid) {
+        hid_notify(l, attr, buf, len);
+        return;
+    }
     if (attr == l->h_input) {
         if (l->state == LS_READY) {
             handle_input(l, buf, len);
@@ -966,6 +1080,15 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         fmt_mac(l->addr.val, mac);
         ESP_LOGI(TAG, "link %d: connected to %s%s", idx, mac, l->pairing ? " (pairing mode)" : "");
         ble_gap_set_prefered_le_phy(l->conn, BLE_GAP_LE_PHY_2M_MASK, BLE_GAP_LE_PHY_2M_MASK, 0);
+        if (l->hid) {
+            // HID over GATT needs an encrypted (bonded) link first.
+            int src = ble_gap_security_initiate(l->conn);
+            if (src != 0) {
+                ESP_LOGW(TAG, "link %d: could not start pairing (rc=%d)", idx, src);
+                fail_link(l, "pairing failed to start");
+            }
+            return 0;
+        }
         // Switch 2 controllers use a plain link: no SMP / bonding here.
         int rc = ble_gattc_exchange_mtu(l->conn, on_mtu, NULL);
         if (rc != 0) {
@@ -995,6 +1118,51 @@ static int gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_NOTIFY_RX:
         handle_notify(event);
         return 0;
+
+    case BLE_GAP_EVENT_ENC_CHANGE: {
+        link_t *l = link_by_conn(event->enc_change.conn_handle);
+        if (l == NULL || !l->hid) {
+            return 0;
+        }
+        if (event->enc_change.status != 0) {
+            ESP_LOGW(TAG, "link %d: pairing / encryption failed (status=%d)", link_index(l),
+                     event->enc_change.status);
+            fail_link(l, "encryption failed");
+            return 0;
+        }
+        struct ble_gap_conn_desc desc;
+        if (ble_gap_conn_find(l->conn, &desc) == 0) {
+            ESP_LOGI(TAG, "link %d: encrypted (%s, key size %u)", link_index(l),
+                     desc.sec_state.bonded ? "bonded" : "not bonded", desc.sec_state.key_size);
+        }
+        ev_t ev = { .type = EV_HID_SECURED, .link = link_index(l) };
+        post(&ev);
+        return 0;
+    }
+
+    case BLE_GAP_EVENT_REPEAT_PAIRING: {
+        // The controller lost our bond (or was paired elsewhere): forget the
+        // old keys and pair again.
+        struct ble_gap_conn_desc desc;
+        if (ble_gap_conn_find(event->repeat_pairing.conn_handle, &desc) == 0) {
+            ble_store_util_delete_peer(&desc.peer_id_addr);
+        }
+        ESP_LOGI(TAG, "conn %u: pairing again (old keys dropped)", event->repeat_pairing.conn_handle);
+        return BLE_GAP_REPEAT_PAIRING_RETRY;
+    }
+
+    case BLE_GAP_EVENT_PASSKEY_ACTION: {
+        // "Just works" is the norm for gamepads; accept a numeric comparison.
+        struct ble_sm_io io = { .action = event->passkey.params.action };
+        if (io.action == BLE_SM_IOACT_NUMCMP) {
+            io.numcmp_accept = 1;
+            ble_sm_inject_io(event->passkey.conn_handle, &io);
+        } else {
+            ESP_LOGW(TAG, "conn %u: controller wants passkey action %d; not supported",
+                     event->passkey.conn_handle, io.action);
+        }
+        return 0;
+    }
 
     case BLE_GAP_EVENT_CONN_UPDATE_REQ:
         // Keep every link pinned at 7.5 ms instead of the controller's slower request.
@@ -1340,6 +1508,352 @@ static bool link_init(link_t *l)
 }
 
 // ---------------------------------------------------------------------------
+// Generic Bluetooth LE HID gamepads (ctrl task, synchronous GATT)
+// ---------------------------------------------------------------------------
+
+#define GATT_WAIT_MS 3000
+#define HID_MAP_MAX  1024
+
+static bool gatt_wait(link_t *l)
+{
+    if (xSemaphoreTake(l->gsem, pdMS_TO_TICKS(GATT_WAIT_MS)) != pdTRUE) {
+        l->gstatus = BLE_HS_ETIMEOUT;
+        return false;
+    }
+    return l->gstatus == 0;
+}
+
+static int g_mtu_cb(uint16_t conn, const struct ble_gatt_error *err, uint16_t mtu, void *arg)
+{
+    link_t *l = arg;
+    l->gstatus = err->status;
+    if (err->status == 0) ESP_LOGI(TAG, "link %d: MTU %u", link_index(l), mtu);
+    xSemaphoreGive(l->gsem);
+    return 0;
+}
+
+static int g_svc_cb(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_svc *svc, void *arg)
+{
+    link_t *l = arg;
+    if (err->status == 0) {
+        l->hid_start = svc->start_handle;
+        l->hid_end = svc->end_handle;
+        return 0;
+    }
+    l->gstatus = err->status == BLE_HS_EDONE ? 0 : err->status;
+    xSemaphoreGive(l->gsem);
+    return 0;
+}
+
+static int g_chr_cb(uint16_t conn, const struct ble_gatt_error *err, const struct ble_gatt_chr *chr, void *arg)
+{
+    link_t *l = arg;
+    if (err->status == 0) {
+        if (l->n_chrs < MAX_CHRS) {
+            chr_t *c = &l->chrs[l->n_chrs++];
+            c->def_handle = chr->def_handle;
+            c->val_handle = chr->val_handle;
+            c->props = chr->properties;
+            c->kind = CHR_OTHER;
+            uint16_t u = chr->uuid.u.type == BLE_UUID_TYPE_16 ? ble_uuid_u16(&chr->uuid.u) : 0;
+            if (u == 0x2A4B) l->h_map = chr->val_handle;
+            if (u == 0x2A4E) l->h_proto = chr->val_handle;
+            if (u == 0x2A4D && l->n_rep < 8) {
+                l->rep[l->n_rep].val = chr->val_handle;
+                l->rep[l->n_rep].type = (chr->properties & BLE_GATT_CHR_F_NOTIFY) ? 1 : 0;  // until the reference says
+                l->n_rep++;
+            }
+        }
+        return 0;
+    }
+    l->gstatus = err->status == BLE_HS_EDONE ? 0 : err->status;
+    xSemaphoreGive(l->gsem);
+    return 0;
+}
+
+static int g_dsc_cb(uint16_t conn, const struct ble_gatt_error *err, uint16_t chr_val, const struct ble_gatt_dsc *dsc,
+                    void *arg)
+{
+    link_t *l = arg;
+    if (err->status == 0) {
+        uint16_t u = dsc->uuid.u.type == BLE_UUID_TYPE_16 ? ble_uuid_u16(&dsc->uuid.u) : 0;
+        for (int i = 0; i < l->n_rep; i++) {
+            if (l->rep[i].val != chr_val) continue;
+            if (u == 0x2902) l->rep[i].cccd = dsc->handle;
+            if (u == 0x2908) l->rep[i].ref = dsc->handle;
+        }
+        return 0;
+    }
+    l->gstatus = err->status == BLE_HS_EDONE ? 0 : err->status;
+    xSemaphoreGive(l->gsem);
+    return 0;
+}
+
+static int g_read_cb(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg)
+{
+    link_t *l = arg;
+    if (err->status == 0 && attr != NULL) {
+        uint16_t n = OS_MBUF_PKTLEN(attr->om);
+        if (l->glen + n > l->gcap) n = (uint16_t)(l->gcap - l->glen);
+        os_mbuf_copydata(attr->om, 0, n, l->gbuf + l->glen);
+        l->glen += n;
+        return 0;  // read_long: more may follow
+    }
+    l->gstatus = err->status == BLE_HS_EDONE ? 0 : err->status;
+    xSemaphoreGive(l->gsem);
+    return 0;
+}
+
+static int g_write_cb(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg)
+{
+    link_t *l = arg;
+    l->gstatus = err->status;
+    xSemaphoreGive(l->gsem);
+    return 0;
+}
+
+static void log_hex(int idx, const char *what, const uint8_t *d, size_t n)
+{
+    for (size_t i = 0; i < n; i += 32) {
+        char line[3 * 32 + 1];
+        int k = 0;
+        for (size_t j = i; j < n && j < i + 32; j++) k += snprintf(line + k, sizeof(line) - k, "%02x ", d[j]);
+        ESP_LOGI(TAG, "link %d: %s +%03u: %s", idx, what, (unsigned)i, line);
+    }
+}
+
+static bool hid_setup(link_t *l)
+{
+    int idx = link_index(l);
+    xSemaphoreTake(l->gsem, 0);
+
+    if (ble_gattc_exchange_mtu(l->conn, g_mtu_cb, l) == 0) gatt_wait(l);
+
+    static const ble_uuid16_t hid_uuid = BLE_UUID16_INIT(0x1812);
+    l->hid_start = l->hid_end = 0;
+    if (ble_gattc_disc_svc_by_uuid(l->conn, &hid_uuid.u, g_svc_cb, l) != 0 || !gatt_wait(l) || l->hid_start == 0) {
+        ESP_LOGW(TAG, "link %d: no HID service (status %d)", idx, l->gstatus);
+        return false;
+    }
+    l->n_chrs = 0;
+    l->n_rep = 0;
+    l->h_map = l->h_proto = 0;
+    if (ble_gattc_disc_all_chrs(l->conn, l->hid_start, l->hid_end, g_chr_cb, l) != 0 || !gatt_wait(l)) {
+        ESP_LOGW(TAG, "link %d: HID characteristic discovery failed (%d)", idx, l->gstatus);
+        return false;
+    }
+    ESP_LOGI(TAG, "link %d: HID service 0x%04x-0x%04x, %d characteristics, %d reports, map 0x%04x",
+             idx, l->hid_start, l->hid_end, l->n_chrs, l->n_rep, l->h_map);
+
+    // Descriptors (CCCD, Report Reference) of each report.
+    for (int i = 0; i < l->n_rep; i++) {
+        uint16_t end = chr_end_handle(l, l->rep[i].val);
+        if (end > l->hid_end) end = l->hid_end;
+        if (end > l->rep[i].val && ble_gattc_disc_all_dscs(l->conn, l->rep[i].val, end, g_dsc_cb, l) == 0) {
+            gatt_wait(l);
+        }
+        if (l->rep[i].ref) {
+            uint8_t ref[2] = { 0 };
+            l->gbuf = ref; l->glen = 0; l->gcap = 2;
+            if (ble_gattc_read(l->conn, l->rep[i].ref, g_read_cb, l) == 0 && gatt_wait(l) && l->glen == 2) {
+                l->rep[i].id = ref[0];
+                l->rep[i].type = ref[1];
+            }
+        }
+        ESP_LOGI(TAG, "link %d: report 0x%04x: id %u, type %u (%s), CCCD 0x%04x", idx, l->rep[i].val, l->rep[i].id,
+                 l->rep[i].type, l->rep[i].type == 1 ? "input" : l->rep[i].type == 2 ? "output" : "feature/other",
+                 l->rep[i].cccd);
+    }
+
+    // Report map.
+    if (l->h_map == 0) {
+        ESP_LOGW(TAG, "link %d: no report map", idx);
+        return false;
+    }
+    uint8_t *map = malloc(HID_MAP_MAX);
+    if (map == NULL) return false;
+    l->gbuf = map; l->glen = 0; l->gcap = HID_MAP_MAX;
+    if (ble_gattc_read_long(l->conn, l->h_map, 0, g_read_cb, l) != 0 || !gatt_wait(l)) {
+        ESP_LOGW(TAG, "link %d: report map read failed (%d)", idx, l->gstatus);
+        free(map);
+        return false;
+    }
+    size_t map_len = l->glen;
+    ESP_LOGI(TAG, "link %d: report map, %u bytes", idx, (unsigned)map_len);
+    log_hex(idx, "map", map, map_len);
+    if (l->layout == NULL) l->layout = malloc(sizeof(hid_layout_t));
+    if (l->layout == NULL) { free(map); return false; }
+    hid_parse(map, map_len, l->layout);
+    free(map);
+    char nm[32];
+    for (int i = 0; i < l->layout->n; i++) {
+        const hid_field_t *f = &l->layout->f[i];
+        if (f->page == 0x09 && i > 0 && l->layout->f[i - 1].page == 0x09 && !f->array) continue;  // one line per button run
+        ESP_LOGI(TAG, "link %d: field id %u bit %u size %u: %s%s [%ld..%ld]", idx, f->report_id, f->bit_off, f->size,
+                 hid_usage_name(f->page, f->usage, nm, sizeof(nm)), f->array ? " (array)" : f->page == 0x09 ? "..." : "",
+                 (long)f->lmin, (long)f->lmax);
+    }
+    if (l->layout->truncated) ESP_LOGW(TAG, "link %d: report map has more fields than handled", idx);
+    hid_state_init(l->layout, &l->hst);
+
+    // Report protocol (not boot), then subscribe every input report.
+    if (l->h_proto) {
+        static const uint8_t report_mode = 0x01;
+        ble_gattc_write_no_rsp_flat(l->conn, l->h_proto, &report_mode, 1);
+    }
+    int subs = 0;
+    for (int i = 0; i < l->n_rep; i++) {
+        if (l->rep[i].type != 1 || l->rep[i].cccd == 0) continue;
+        static const uint8_t notify_on[2] = { 0x01, 0x00 };
+        if (ble_gattc_write_flat(l->conn, l->rep[i].cccd, notify_on, 2, g_write_cb, l) == 0 && gatt_wait(l)) {
+            subs++;
+        } else {
+            ESP_LOGW(TAG, "link %d: subscribing report %u failed (%d)", idx, l->rep[i].id, l->gstatus);
+        }
+    }
+    if (subs == 0) {
+        ESP_LOGW(TAG, "link %d: no input reports to subscribe to", idx);
+        return false;
+    }
+
+    if (!role_available(PAD_ROLE_FULL, idx)) {
+        ESP_LOGI(TAG, "link %d: another controller is in use, ignoring this gamepad", idx);
+        return false;
+    }
+    l->role = PAD_ROLE_FULL;
+    l->pid = PAD_PID_BLE_HID;
+    bonds_remember(l->addr.val, PAD_PID_BLE_HID);
+    ESP_LOGI(TAG, "link %d: BLE gamepad ready (%d input reports)", idx, subs);
+
+    struct ble_gap_upd_params upd = {
+        .itvl_min = CONN_ITVL, .itvl_max = CONN_ITVL, .latency = 0,
+        .supervision_timeout = CONN_SUPERV_TO, .min_ce_len = 0, .max_ce_len = CONN_MAX_CE,
+    };
+    struct ble_gap_conn_desc cd;
+    if (ble_gap_conn_find(l->conn, &cd) == 0) {
+        ESP_LOGI(TAG, "link %d: connection interval %.2f ms", idx, cd.conn_itvl * 1.25f);
+        if (cd.conn_itvl != CONN_ITVL) ble_gap_update_params(l->conn, &upd);
+    }
+    return true;
+}
+
+static void handle_hid_secured(int idx)
+{
+    link_t *l = &s_links[idx];
+    if (l->state != LS_DISCOVERY || !l->hid) {
+        return;
+    }
+    l->state = LS_INIT;
+    if (!hid_setup(l)) {
+        if (link_alive(l)) {
+            ble_gap_terminate(l->conn, BLE_ERR_REM_USER_CONN_TERM);
+        }
+        return;
+    }
+    l->settled = false;
+    l->logged_press = false;
+    l->settle_deadline = esp_timer_get_time() + SETTLE_US;
+    bool promoted = false;
+    portENTER_CRITICAL(&s_links_mux);
+    if (l->state == LS_INIT) {
+        l->state = LS_READY;
+        promoted = true;
+    }
+    portEXIT_CRITICAL(&s_links_mux);
+    if (promoted) {
+        pad_link_up(l->role);
+    }
+}
+
+// Standard (Android / Xbox BLE) gamepad numbering -> positional Switch
+// naming: button 1 = south (B), 2 = east (A), 4 = west (Y), 5 = north (X),
+// 7 / 8 = L / R, 9 / 10 = ZL / ZR, 11 = select (-), 12 = start (+),
+// 13 = home, 14 / 15 = stick presses.
+static uint32_t hid_map_buttons(const hid_state_t *h)
+{
+    static const uint32_t map[16] = {
+        NS2_BTN_B, NS2_BTN_A, NS2_BTN_C, NS2_BTN_Y, NS2_BTN_X, 0, NS2_BTN_L, NS2_BTN_R,
+        NS2_BTN_ZL, NS2_BTN_ZR, NS2_BTN_MINUS, NS2_BTN_PLUS, NS2_BTN_HOME, NS2_BTN_LSTICK, NS2_BTN_RSTICK, NS2_BTN_CAPT,
+    };
+    uint32_t b = 0;
+    for (int i = 0; i < 16; i++) {
+        if (h->buttons & (1u << i)) b |= map[i];
+    }
+    static const uint32_t hat[8] = {
+        NS2_BTN_UP, NS2_BTN_UP | NS2_BTN_RIGHT, NS2_BTN_RIGHT, NS2_BTN_RIGHT | NS2_BTN_DOWN,
+        NS2_BTN_DOWN, NS2_BTN_DOWN | NS2_BTN_LEFT, NS2_BTN_LEFT, NS2_BTN_LEFT | NS2_BTN_UP,
+    };
+    if (h->hat >= 0 && h->hat < 8) b |= hat[h->hat];
+    if (h->home) b |= NS2_BTN_HOME;
+    if (h->back) b |= NS2_BTN_MINUS;
+    if (h->menu) b |= NS2_BTN_PLUS;
+    if (h->has[HID_AX_BRAKE] && h->brake > 0.5f) b |= NS2_BTN_ZL;
+    if (h->has[HID_AX_ACCEL] && h->accel > 0.5f) b |= NS2_BTN_ZR;
+    return b;
+}
+
+static void stick(float x, float y, float dz, float *ox, float *oy)
+{
+    float m = sqrtf(x * x + y * y);
+    if (m <= dz) { *ox = *oy = 0.0f; return; }
+    float k = (m > 1.0f ? 1.0f : m);
+    k = (k - dz) / (1.0f - dz) / m;
+    *ox = x * k;
+    *oy = y * k;
+}
+
+static void hid_notify(link_t *l, uint16_t attr, const uint8_t *buf, uint16_t len)
+{
+    int r = -1;
+    for (int i = 0; i < l->n_rep; i++) {
+        if (l->rep[i].val == attr) { r = i; break; }
+    }
+    if (r < 0 || l->layout == NULL) {
+        return;
+    }
+    l->input_count++;
+    // Log every change while testing (up to 20 per second, 3000 per connection).
+    uint8_t n = len < sizeof(l->rep[r].last) ? (uint8_t)len : (uint8_t)sizeof(l->rep[r].last);
+    if (n != l->rep[r].last_len || memcmp(l->rep[r].last, buf, n) != 0) {
+        memcpy(l->rep[r].last, buf, n);
+        l->rep[r].last_len = n;
+        int64_t now = esp_timer_get_time();
+        if (now - l->hid_log_window > 1000000) { l->hid_log_window = now; l->hid_log_burst = 0; }
+        if (l->hid_logs < 3000 && l->hid_log_burst < 20) {
+            l->hid_logs++;
+            l->hid_log_burst++;
+            char hex[3 * 32 + 1];
+            int k = 0;
+            for (int i = 0; i < n; i++) k += snprintf(hex + k, sizeof(hex) - k, "%02x ", buf[i]);
+            ESP_LOGI(TAG, "link %d: report %u: %s", link_index(l), l->rep[r].id, hex);
+        }
+    }
+    if (l->state != LS_READY) {
+        return;
+    }
+    hid_decode(l->layout, l->rep[r].id, buf, len, &l->hst);
+    const hid_state_t *h = &l->hst;
+    pad_side_t s = { .buttons = hid_map_buttons(h) };
+    if (!l->settled) {
+        if (s.buttons == 0 || esp_timer_get_time() >= l->settle_deadline) l->settled = true;
+        else return;
+    }
+    if (!l->logged_press && s.buttons != 0) {
+        l->logged_press = true;
+        ESP_LOGI(TAG, "link %d (BLE gamepad): first button press 0x%08lx (HID buttons 0x%08lx)", link_index(l),
+                 (unsigned long)s.buttons, (unsigned long)h->buttons);
+    }
+    float dz = s_deadzone;
+    stick(h->x, -h->y, dz, &s.lx, &s.ly);  // HID +y is down; pad +y is up
+    if (h->has[HID_AX_Z] || h->has[HID_AX_RZ]) {
+        stick(h->z, -h->rz, dz, &s.rx, &s.ry);
+    } else {
+        stick(h->rx, -h->ry, dz, &s.rx, &s.ry);
+    }
+    pad_update(PAD_ROLE_FULL, &s);
+}
+
+// ---------------------------------------------------------------------------
 // Control task
 // ---------------------------------------------------------------------------
 
@@ -1354,6 +1868,7 @@ static void start_connect(const ev_t *ev)
     l->adv_pid = ev->pid;
     l->role = pad_role_for_pid(ev->pid);  // provisional, confirmed after reading info
     l->pairing = ev->pairing;
+    l->hid = ev->pid == PAD_PID_BLE_HID;
     s_connecting = idx;
 
     if (ble_gap_disc_active()) {
@@ -1371,7 +1886,8 @@ static void start_connect(const ev_t *ev)
     };
     char mac[18];
     fmt_mac(ev->addr.val, mac);
-    ESP_LOGI(TAG, "connecting to %s %s%s", ev->pid ? pad_role_name(pad_role_for_pid(ev->pid)) : "controller",
+    ESP_LOGI(TAG, "connecting to %s %s%s",
+             ev->pid == PAD_PID_BLE_HID ? "BLE gamepad" : ev->pid ? pad_role_name(pad_role_for_pid(ev->pid)) : "controller",
              mac, ev->pairing ? " (pairing)" : "");
     int rc = ble_gap_connect(s_own_addr_type, &ev->addr, CONNECT_TIMEOUT_MS, &p, gap_event, NULL);
     if (rc != 0) {
@@ -1430,6 +1946,7 @@ static void handle_gatt_ready(int idx)
 static void forget_all(void)
 {
     bonds_clear();
+    ble_store_clear();  // BLE gamepad keys
     for (int i = 0; i < MAX_LINKS; i++) {
         if (s_links[i].state >= LS_DISCOVERY) {
             ble_gap_terminate(s_links[i].conn, BLE_ERR_REM_USER_CONN_TERM);
@@ -1442,6 +1959,11 @@ static void forget_one(const uint8_t mac[6])
     char m[18];
     fmt_mac(mac, m);
     bool known = bonds_forget(mac);
+    for (uint8_t t = 0; t <= 1; t++) {  // BLE gamepad keys (public or random address)
+        ble_addr_t a = { .type = t };
+        memcpy(a.val, mac, 6);
+        ble_gap_unpair(&a);
+    }
     ESP_LOGW(TAG, "%s %s", m, known ? "forgotten" : "was not remembered");
     for (int i = 0; i < MAX_LINKS; i++) {
         if (s_links[i].state >= LS_DISCOVERY && memcmp(s_links[i].addr.val, mac, 6) == 0) {
@@ -1464,6 +1986,7 @@ static void ctrl_task(void *arg)
             case EV_FORGET:     forget_all(); break;
             case EV_FORGET_ONE: forget_one(ev.addr.val); break;
             case EV_LINK_GONE:  break;
+            case EV_HID_SECURED: handle_hid_secured(ev.link); break;
             }
         }
         scan_update();
@@ -1484,7 +2007,7 @@ static void ctrl_task(void *arg)
                 // Controllers stream input constantly (~125/s), even untouched.
                 // A ready link with none for 3 s is stuck: drop it so it can
                 // reconnect cleanly instead of sitting there lit but dead.
-                if (s_links[i].state == LS_READY && s_rate[i] == 0) {
+                if (s_links[i].state == LS_READY && s_rate[i] == 0 && !s_links[i].hid) {
                     if (++silent[i] >= 3) {
                         silent[i] = 0;
                         ESP_LOGW(TAG, "link %d (%s): connected but no input for 3 s (%lu reports in total); "
@@ -1502,7 +2025,10 @@ static void ctrl_task(void *arg)
             last_stats = now;
             for (int i = 0; i < MAX_LINKS; i++) {
                 uint32_t c = s_links[i].input_count;
-                if (s_links[i].state == LS_READY) {
+                if (s_links[i].state == LS_READY && s_links[i].hid) {
+                    ESP_LOGI(TAG, "link %d (BLE gamepad): %.0f input reports/s", i,
+                             (c >= last_counts[i] ? c - last_counts[i] : c) / secs);
+                } else if (s_links[i].state == LS_READY) {
                     const uint8_t *b = s_links[i].bat_raw;
                     ESP_LOGI(TAG, "link %d (%s): %.0f input reports/s; battery %u (bytes 29-36: "
                                   "%02x %02x %02x %02x %02x %02x %02x %02x)", i, pad_role_name(s_links[i].role),
@@ -1621,11 +2147,14 @@ static void rumble_task(void *arg)
     }
 }
 
+void ble_store_config_init(void);
+
 void ble_central_start(void)
 {
     s_evq = xQueueCreate(16, sizeof(ev_t));
     for (int i = 0; i < MAX_LINKS; i++) {
         s_links[i].ackq = xQueueCreate(4, sizeof(ack_t));
+        s_links[i].gsem = xSemaphoreCreateBinary();
         s_links[i].state = LS_FREE;
         s_links[i].conn = BLE_HS_CONN_HANDLE_NONE;
     }
@@ -1637,6 +2166,16 @@ void ble_central_start(void)
     }
     ble_hs_cfg.reset_cb = on_reset;
     ble_hs_cfg.sync_cb = on_sync;
+    // Security, for BLE HID gamepads only (Switch 2 controllers never ask):
+    // "just works" bonding, keys kept in NVS.
+    ble_hs_cfg.sm_io_cap = BLE_HS_IO_NO_INPUT_OUTPUT;
+    ble_hs_cfg.sm_bonding = 1;
+    ble_hs_cfg.sm_mitm = 0;
+    ble_hs_cfg.sm_sc = 1;
+    ble_hs_cfg.sm_our_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    ble_hs_cfg.store_status_cb = ble_store_util_status_rr;
+    ble_store_config_init();
     ble_svc_gap_init();
     ble_svc_gatt_init();
     ble_svc_gap_device_name_set("Joy-Con 2 Dongle");
@@ -1674,6 +2213,7 @@ int ble_central_links(ble_link_info_t *out, int max)
         out[n].rate = s_rate[i];
         out[n].battery_mv = st == LS_READY ? l->battery_mv : 0;
         out[n].in_dock = l->in_dock;
+        out[n].hid = l->hid;
         n++;
     }
     return n;

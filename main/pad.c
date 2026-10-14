@@ -24,6 +24,7 @@ pad_role_t pad_role_for_pid(uint16_t pid)
     case NS2_PID_JOYCON_L: return PAD_ROLE_LEFT;
     case NS2_PID_JOYCON_R: return PAD_ROLE_RIGHT;
     case NS2_PID_PRO2:     return PAD_ROLE_FULL;
+    case PAD_PID_BLE_HID:  return PAD_ROLE_FULL;
     default:               return PAD_ROLE_NONE;
     }
 }

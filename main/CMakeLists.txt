@@ -15,6 +15,7 @@ idf_component_register(
         "out_switchpro.c"
         "config_server.c"
         "display.c"
+        "hid_gamepad.c"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "web/index.html"
     REQUIRES

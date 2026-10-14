@@ -87,6 +87,10 @@ typedef struct {
 void pad_mouse_add(float dx, float dy);
 void pad_mouse_take(int32_t *dx, int32_t *dy);
 
+// Pseudo product ID for generic Bluetooth LE HID gamepads (e.g. ModRetro
+// M64 Pro); they connect as a full controller like the Pro Controller 2.
+#define PAD_PID_BLE_HID 0xB1E0
+
 pad_role_t pad_role_for_pid(uint16_t pid);
 const char *pad_role_name(pad_role_t role);
 

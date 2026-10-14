@@ -485,9 +485,11 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "T-Dongle-S3 screen: the Left / Right chips now show battery bars (full Joy-Con 4 bars, the half one about 3). Compare with the Switch 2's gauge",
-    "When a Joy-Con gets low, note the configurator's battery number and what the Switch 2 shows, so the low end can be calibrated",
-    "Orientation buttons sit in a 2 x 2 block; everything else as in 1.1.2",
+    "Turn off / disconnect the Joy-Cons. Put the M64 Pro in its Bluetooth pairing mode (the phone / PC one). The log shows 'BLE HID device ... in pairing mode', then 'connecting to BLE gamepad', 'encrypted (bonded ...)', the report map lines and 'BLE gamepad ready'. Note how far it gets",
+    "Press every button once, slowly, one at a time (A, B, each C button, Z, L, R, Start, each d-pad direction), then move the stick in a circle. Keep the log: the 'report' lines show each one",
+    "Steam / a gamepad tester: which buttons and stick already work, and which are wrong or missing (they'll be mapped from the log)",
+    "Turn the M64 Pro off and on (or press a button): it reconnects by itself without pairing mode. Also after unplugging the dongle",
+    "Joy-Cons still pair and work as before once the M64 Pro is off",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

@@ -212,6 +212,7 @@ typedef struct {
     int mode;           // out_mode_t, or -1 for the configurator
     bool mounted;
     bool l, r, pro;     // ready controllers
+    bool pad;           // the full controller is a BLE gamepad
     bool pairing;       // a controller is connecting
     uint8_t bat_l, bat_r, bat_pro;  // 0..4 bars, 255 = unknown
     bool dock;
@@ -254,7 +255,7 @@ static void collect(view_t *v)
         switch (links[i].role) {
         case PAD_ROLE_LEFT:  v->l = true; v->bat_l = b; break;
         case PAD_ROLE_RIGHT: v->r = true; v->bat_r = b; break;
-        case PAD_ROLE_FULL:  v->pro = true; v->bat_pro = b; break;
+        case PAD_ROLE_FULL:  v->pro = true; v->bat_pro = b; v->pad = links[i].hid; break;
         default: break;
         }
     }
@@ -386,7 +387,7 @@ static void render_portrait(const view_t *v)
     const font_t *tf = text_width(&font_big, t) <= W - 8 ? &font_big : &font_small;
     text(tf, 4, 9, t, INK);
     if (v->pro) {
-        chip(4, 36, W - 8, "Pro", true, v->bat_pro);
+        chip(4, 36, W - 8, v->pad ? "Pad" : "Pro", true, v->bat_pro);
     } else if (v->l || v->r || v->pairing) {
         chip(4, 36, W - 8, "Left", v->l, v->bat_l);
         chip(4, 60, W - 8, "Right", v->r, v->bat_r);
@@ -416,7 +417,7 @@ static void render(const view_t *v)
     text(&font_big, 10, 1, mode_title(v->mode), INK);
 
     if (v->pro) {
-        chip(10, 30, 70, "Pro", true, v->bat_pro);
+        chip(10, 30, 70, v->pad ? "Pad" : "Pro", true, v->bat_pro);
     } else if (v->l || v->r || v->pairing) {
         chip(10, 30, 66, "Left", v->l, v->bat_l);
         chip(84, 30, 66, "Right", v->r, v->bat_r);

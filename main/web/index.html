@@ -155,6 +155,13 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       </div>
       <div class="hint">Hold − and + for 3 s: next controller type. Hold Capture and Home for 3 s: this page.</div>
     </div>
+    <div class="row">
+      <label>Other Bluetooth gamepads</label>
+      <div class="seg" id="bleHid">
+        <button data-v="true">On</button><button data-v="false">Off</button>
+      </div>
+      <div class="hint">Experimental: standard Bluetooth LE gamepads (e.g. ModRetro M64 Pro) in their pairing mode pair with the dongle and work as one full controller. Off: only Switch 2 controllers.</div>
+    </div>
   </section>
 
   <section id="dispSection" hidden>
@@ -365,6 +372,7 @@ function showSettings() {
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
   seg("hotkeys", settings.hotkeys);
+  seg("bleHid", settings.bleHid);
   if ((settings.flipDs4 || 0) || (settings.flipSwitch || 0)) $("adv").open = true;
   for (const id of ["flipDs4", "flipSwitch"]) {
     const m = settings[id] || 0;
@@ -428,7 +436,7 @@ function save(patch) {
   }, 150);
 }
 
-for (const id of ["layout", "logPort", "hotkeys"]) {
+for (const id of ["layout", "logPort", "hotkeys", "bleHid"]) {
   $(id).addEventListener("click", (e) => {
     const v = e.target.dataset && e.target.dataset.v;
     if (v === undefined) return;
