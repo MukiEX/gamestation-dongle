@@ -21,6 +21,9 @@ void usb_gamepad_enter_config(void);
 void usb_gamepad_exit_config(void);
 bool usb_gamepad_in_config(void);
 
+// The PC has set up the current USB device.
+bool usb_gamepad_mounted(void);
+
 // Re-enumerates in the current mode, e.g. after the log port setting changed.
 void usb_gamepad_reapply(void);
 

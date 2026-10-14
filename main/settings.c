@@ -25,6 +25,7 @@ static settings_t s_cur = {
     .pad_speed = 3,
     .mouse_speed = 12,
     .pad_hscroll = true,
+    .display_bright = 6,
     .scroll_speed = 5,
     .pad_lift = 0,
     .pad_ds_touch = true,
@@ -104,6 +105,8 @@ void settings_init(void)
         // "mousespd2": 0.6.9 moved the default to speed 3 (older saves are left behind).
         s.mouse_speed = get_u8(h, "mousespd2", s.mouse_speed, SETTINGS_PAD_SPEED_MAX);
         s.pad_hscroll = get_u8(h, "hscroll", s.pad_hscroll, 1);
+        s.display_flip = get_u8(h, "dispflip", s.display_flip, 1);
+        s.display_bright = get_u8(h, "dispbright", s.display_bright, 10);
         s.scroll_speed = get_u8(h, "scrollspd", s.scroll_speed, 10);
         if (s.scroll_speed == 0) s.scroll_speed = 1;
         // "...2" keys: 1.0.1 changed these defaults (on), so older saves are left behind.
@@ -164,6 +167,7 @@ void settings_set(const settings_t *in)
     if (s.pad_speed > SETTINGS_PAD_SPEED_MAX) s.pad_speed = SETTINGS_PAD_SPEED_MAX;
     if (s.pad_lift > SETTINGS_PAD_LIFT_MAX) s.pad_lift = SETTINGS_PAD_LIFT_MAX;
     if (s.pad_mouse > PAD_MOUSE_MAX) s.pad_mouse = PAD_MOUSE_OFF;
+    if (s.display_bright > 10) s.display_bright = 10;
     if (s.scroll_speed < 1) s.scroll_speed = 1;
     if (s.scroll_speed > 10) s.scroll_speed = 10;
     if (s.mouse_speed < 1) s.mouse_speed = 1;
@@ -187,6 +191,8 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "padspd3", s.pad_speed);
         nvs_set_u8(h, "mousespd2", s.mouse_speed);
         nvs_set_u8(h, "hscroll", s.pad_hscroll);
+        nvs_set_u8(h, "dispflip", s.display_flip);
+        nvs_set_u8(h, "dispbright", s.display_bright);
         nvs_set_u8(h, "scrollspd", s.scroll_speed);
         nvs_set_u8(h, "xigeneric2", s.xinput_generic);
         nvs_set_u8(h, "padlift", s.pad_lift);

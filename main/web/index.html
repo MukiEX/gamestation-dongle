@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Joy-Con 2 Dongle</title>
 <style>
+[hidden] { display: none !important; }
 :root {
   --bg: #f4f5f7; --card: #ffffff; --ink: #1c1f24; --muted: #66707c; --line: #dde1e6;
   --accent: #e4002b; --accent-ink: #ffffff; --ok: #1a7f37; --warn: #9a6700; --chip: #eef0f3;
@@ -152,6 +153,22 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
         <button data-v="true">On</button><button data-v="false">Off</button>
       </div>
       <div class="hint">Hold − and + for 3 s: next controller type. Hold Capture and Home for 3 s: this page.</div>
+    </div>
+  </section>
+
+  <section id="dispSection" hidden>
+    <h2>Display</h2>
+    <div class="row">
+      <label for="displayBright">Brightness</label>
+      <div class="rangeval"><input type="range" id="displayBright" min="0" max="10" step="1"><output id="displayBrightOut"></output></div>
+      <div class="hint">The dongle's own screen (LILYGO T-Dongle-S3). 0 turns it off. Applies live.</div>
+    </div>
+    <div class="row">
+      <label>Orientation</label>
+      <div class="seg" id="displayFlip">
+        <button data-v="false">Normal</button><button data-v="true">Upside down</button>
+      </div>
+      <div class="hint">Turn the picture round if it reads upside down with the dongle plugged in. Applies live.</div>
     </div>
   </section>
 
@@ -338,6 +355,12 @@ function layoutHint() {
 
 function showSettings() {
   $("mode").value = settings.mode;
+  $("dispSection").hidden = !settings.hasDisplay;
+  if (settings.hasDisplay) {
+    $("displayBright").value = settings.displayBright;
+    $("displayBrightOut").textContent = settings.displayBright === 0 ? "off" : settings.displayBright + " / 10";
+    seg("displayFlip", String(!!settings.displayFlip));
+  }
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
   seg("hotkeys", settings.hotkeys);
@@ -427,6 +450,11 @@ for (const id of ["flipDs4", "flipSwitch"]) {
   });
 }
 $("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
+$("displayBright").addEventListener("input", () => save({ displayBright: +$("displayBright").value }));
+$("displayFlip").addEventListener("click", (e) => {
+  const v = e.target.dataset && e.target.dataset.v;
+  if (v !== undefined) save({ displayFlip: v === "true" });
+});
 $("mouseSpeed").addEventListener("input", () => save({ mouseSpeed: +$("mouseSpeed").value }));
 $("xinputGeneric").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;

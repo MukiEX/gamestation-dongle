@@ -811,6 +811,11 @@ void usb_gamepad_exit_config(void)
     }
 }
 
+bool usb_gamepad_mounted(void)
+{
+    return s_mounted;
+}
+
 bool usb_gamepad_in_config(void)
 {
     return s_drv && s_drv->is_config;

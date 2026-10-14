@@ -111,6 +111,7 @@ typedef struct {
     uint8_t rumble_id;
     uint8_t rumble_tail;  // silent packets still to send after rumble stops
     volatile uint32_t input_count;
+    volatile uint16_t battery_mv;
     bool cmd_answered;  // last cmd_exchange got a reply (even a rejection)
 
     // Gyro zero-rate offset, learned whenever the controller lies still.
@@ -831,6 +832,7 @@ static void handle_input(link_t *l, const uint8_t *data, size_t len)
         return;
     }
     l->input_count++;
+    l->battery_mv = in.battery_mv;
 
     // Settle gate: ignore input until the first all-released frame (or a
     // timeout), so connect-time garbage or the held wake button can't fire.
@@ -1665,6 +1667,8 @@ int ble_central_links(ble_link_info_t *out, int max)
         out[n].role = l->role != PAD_ROLE_NONE ? l->role : pad_role_for_pid(l->adv_pid);
         out[n].ready = st == LS_READY;
         out[n].rate = s_rate[i];
+        out[n].battery_mv = st == LS_READY ? l->battery_mv : 0;
+        out[n].in_dock = l->in_dock;
         n++;
     }
     return n;

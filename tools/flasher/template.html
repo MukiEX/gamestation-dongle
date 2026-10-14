@@ -229,6 +229,8 @@ footer a { color: inherit; }
         <span><b>Normal</b><small>USB gamepad + log port. Use this for testing.</small></span></label>
       <label for="img-diag"><input type="radio" name="img" id="img-diag" value="1">
         <span><b>Diagnostic</b><small>No gamepad. Everything, including crash output, goes to the built-in port (USB JTAG/serial debug unit).</small></span></label>
+      <label for="img-tdongle"><input type="radio" name="img" id="img-tdongle" value="2">
+        <span><b>LILYGO T-Dongle-S3</b><small>Normal firmware for the T-Dongle-S3 USB stick, with its screen and RGB LED. To flash it, hold its button while plugging it in.</small></span></label>
     </fieldset>
     <dl class="fw" style="margin:12px 0 0">
       <div class="wide"><dt>Image</dt><dd id="fw-name">__FW_NAME__</dd></div>
@@ -483,10 +485,13 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Joy-Con in a mouse grip, Lift-off = Strict: the pointer / trackpad works when sliding it on the cloth mat, and stops when you lift it",
-    "Same on another surface (desk, wood...): note the distance / rough numbers in Live input if it doesn't track",
-    "Bare Joy-Con on its rail side: lifting it still stops the pointer",
-    "Charging grip: after GL / GR, Live input shows 'charging grip'; keep the 'status byte' log lines from putting the Joy-Cons in and out of the grip",
+    "Dev board, normal 1.1.0 image: everything works as in 1.0.3 (no display, nothing else changed)",
+    "T-Dongle-S3 image: flash (hold the button while plugging in), replug: the screen lights up and shows the mode name (XInput) in large text, readable and not shifted or cut off at an edge",
+    "Colours: the stripe on the left is green in XInput, blue in DS4, red in Switch Pro; text white on near-black. If colours are swapped or inverted, note what you see",
+    "Pair Joy-Cons: the Left / Right chips light up with a battery gauge; note the gauge and the battery numbers if they look wrong",
+    "Change mode with the button or - and +: the name, stripe and the RGB LED colour follow; configurator shows 'Open 192.168.7.1'",
+    "Configurator Display section: brightness slider and Upside down work live. Note which orientation is right with the stick plugged in",
+    "T-Dongle-S3 as a controller: all modes, rumble, USB mouse work as on the dev board",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

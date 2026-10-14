@@ -5,3 +5,5 @@ dependencies.lock
 
 build-diag/
 sdkconfig.diag.old
+build-tdongle/
+sdkconfig.tdongle.old

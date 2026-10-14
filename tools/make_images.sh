@@ -13,9 +13,10 @@ check_version() {  # $1 = app binary, $2 = "diag" or "normal"
 import re, sys
 data = open(sys.argv[1], 'rb').read()
 want_diag = sys.argv[2] == 'diag'
-found = set(m.decode() for m in re.findall(rb'\b' + re.escape(sys.argv[3].encode()) + rb'(?:-step[0-9]+)?(?:-diag)?(?![\w.])', data))
+found = set(m.decode() for m in re.findall(rb'\b' + re.escape(sys.argv[3].encode()) + rb'(?:-step[0-9]+)?(?:-diag|-tdongle)?(?![\w.])', data))
 assert found, f"{sys.argv[1]}: no {sys.argv[3]} version string (stale build?)"
-ok = [v for v in found if v.endswith('-diag') == want_diag]
+want = {'diag': '-diag', 'tdongle': '-tdongle'}.get(sys.argv[2], '')
+ok = [v for v in found if (v.endswith('-diag') or v.endswith('-tdongle')) == bool(want) and v.endswith(want)]
 assert ok, f"{sys.argv[1]}: version {sorted(found)} is not a {sys.argv[2]} build"
 print(sys.argv[1], 'is', ok[0])
 PY
@@ -37,6 +38,7 @@ PY
 # configurator page in particular) once shipped as 0.6.7.
 ninja -C build >/dev/null || { echo "normal build failed"; exit 1; }
 if [ -d build-diag ]; then ninja -C build-diag >/dev/null || { echo "diagnostic build failed"; exit 1; }; fi
+if [ -d build-tdongle ]; then ninja -C build-tdongle >/dev/null || { echo "T-Dongle-S3 build failed"; exit 1; }; fi
 python3 - build/joycon2_dongle.bin main/web/index.html <<'PY'
 import sys
 app, page = (open(p, 'rb').read() for p in sys.argv[1:])
@@ -49,4 +51,8 @@ merge build "joycon2-dongle-$VER-merged.bin"
 if [ -d build-diag ]; then
   check_version build-diag/joycon2_dongle.bin diag
   merge build-diag "joycon2-dongle-$VER-diag-merged.bin"
+fi
+if [ -d build-tdongle ]; then
+  check_version build-tdongle/joycon2_dongle.bin tdongle
+  merge build-tdongle "joycon2-dongle-$VER-tdongle-merged.bin"
 fi

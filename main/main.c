@@ -29,14 +29,18 @@
 #include "pad.h"
 #include "rumble.h"
 #include "settings.h"
+#include "display.h"
 #include "usb_gamepad.h"
 
 static const char *TAG = "main";
 
-#ifdef DONGLE_DIAG
-#define FW_VERSION       "1.0.3-diag"
+#define FW_BASE          "1.1.0"
+#if defined(DONGLE_DIAG)
+#define FW_VERSION       FW_BASE "-diag"
+#elif defined(DONGLE_BOARD_TDONGLE)
+#define FW_VERSION       FW_BASE "-tdongle"
 #else
-#define FW_VERSION       "1.0.3"
+#define FW_VERSION       FW_BASE
 #endif
 #define BOOT_GPIO        GPIO_NUM_0
 #define FORGET_HOLD_US   5000000
@@ -134,6 +138,7 @@ void app_main(void)
         ble_central_start();
     }
 
+    display_start();       // boards with a display only
     ESP_LOGI(TAG, "stage 5/5: button");
     xTaskCreatePinnedToCore(button_task, "button", 3072, NULL, 3, NULL, 1);
 #ifdef DONGLE_DIAG

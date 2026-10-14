@@ -23,6 +23,8 @@ typedef struct {
     pad_role_t role;
     bool ready;       // fully set up and sending input
     uint16_t rate;    // input reports per second
+    uint16_t battery_mv;  // last reported battery voltage (0 = not yet)
+    bool in_dock;     // in the charging grip (GL / GR seen)
 } ble_link_info_t;
 
 int ble_central_links(ble_link_info_t *out, int max);

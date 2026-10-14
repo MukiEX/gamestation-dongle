@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.0.3
+## Status: 1.1.0
 
 | Step | What | State |
 |---|---|---|
@@ -59,6 +59,20 @@ connection while it's open.
 * **Steam's Identify / ping** doesn't buzz in DS4 / DualSense mode (it does in
   Switch Pro mode); probably Steam only flashes the light bar for PlayStation
   controllers.
+
+### Boards
+
+* **ESP32-S3 N16R8 dev board** (the default image, `joycon2-dongle-<ver>-merged.bin`).
+* **LILYGO T-Dongle-S3** (`joycon2-dongle-<ver>-tdongle-merged.bin`, version
+  ends in `-tdongle`): the same firmware plus its 0.96" 160×80 screen and RGB
+  LED. The screen shows the output mode (with a colour per mode, also on the
+  LED), the connected controllers with a battery gauge, and a status line
+  (configurator address, waiting for the PC, charging grip, USB mouse).
+  Brightness and orientation are in the configurator's *Display* section.
+  The stick plugs straight into a USB-A port; its button is the BOOT button
+  (same presses as below). To flash it, hold the button while plugging it in.
+  The battery gauge uses the voltage each controller reports (3.5–4.1 V =
+  empty–full) and is a rough guide.
 
 ### Controllers
 
