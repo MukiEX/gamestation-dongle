@@ -26,6 +26,9 @@ typedef struct {
     hid_field_t f[HID_MAX_FIELDS];
     int n;
     bool truncated;
+    bool gamepad;        // has a Generic Desktop Joystick / Gamepad / Multi-axis collection
+    uint16_t app_page[4], app_usage[4];  // the first top-level (application) collections
+    int n_app;
 } hid_layout_t;
 
 // Neutral gamepad state decoded from input reports.

@@ -97,6 +97,16 @@ bool hid_parse(const uint8_t *map, size_t len, hid_layout_t *out)
                     }
                 }
             }
+            if (tag == 10 && u == 1) {  // application collection
+                uint32_t us = n_usages ? usages[0] : 0;
+                uint16_t pg = (uint16_t)(us >> 16), ug = (uint16_t)us;
+                if (out->n_app < 4) {
+                    out->app_page[out->n_app] = pg;
+                    out->app_usage[out->n_app] = ug;
+                    out->n_app++;
+                }
+                if (pg == 0x01 && (ug == 0x04 || ug == 0x05 || ug == 0x08)) out->gamepad = true;
+            }
             // Every main item (Input / Output / Feature / Collection) clears locals.
             n_usages = 0;
             have_range = false;

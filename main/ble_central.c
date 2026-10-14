@@ -390,62 +390,79 @@ static bool parse_adv(const struct ble_gap_disc_desc *d, uint16_t *pid, bool *pa
     return false;
 }
 
-// Bluetooth LE HID gamepads: advertise the HID service (0x1812) and/or a
-// gamepad / joystick appearance. Returns false for anything else (and for
-// keyboards and mice).
-static bool parse_hid_adv(const struct ble_gap_disc_desc *d, bool *discoverable, uint16_t *appearance,
-                          char *name, size_t name_len)
+// Bluetooth LE HID devices. Adverts and scan responses are merged per
+// address (the name and service list are often in the scan response).
+typedef struct {
+    uint8_t mac[6];
+    bool used, hid_uuid, discoverable, logged;
+    uint16_t appearance;
+    char name[24];
+} adv_seen_t;
+static adv_seen_t s_seen[16];
+static int s_seen_next;
+static uint8_t s_reject[4][6];   // non-gamepads found after connecting: ignored until reboot
+static int s_reject_next;
+
+static bool rejected(const uint8_t mac[6])
+{
+    for (int i = 0; i < 4; i++) {
+        if (memcmp(s_reject[i], mac, 6) == 0) return true;
+    }
+    return false;
+}
+
+static adv_seen_t *seen_entry(const uint8_t mac[6])
+{
+    for (int i = 0; i < 16; i++) {
+        if (s_seen[i].used && memcmp(s_seen[i].mac, mac, 6) == 0) return &s_seen[i];
+    }
+    adv_seen_t *e = &s_seen[s_seen_next];
+    s_seen_next = (s_seen_next + 1) % 16;
+    memset(e, 0, sizeof(*e));
+    e->used = true;
+    memcpy(e->mac, mac, 6);
+    return e;
+}
+
+static void merge_adv(const struct ble_gap_disc_desc *d, adv_seen_t *e)
 {
     const uint8_t *p = d->data;
     uint8_t len = d->length_data, pos = 0;
-    bool hid_uuid = false;
-    *discoverable = false;
-    *appearance = 0;
-    name[0] = 0;
     while (pos < len) {
         uint8_t ad_len = p[pos];
         if (ad_len == 0 || pos + 1 + ad_len > len) break;
         uint8_t type = p[pos + 1];
         const uint8_t *v = &p[pos + 2];
         int vlen = ad_len - 1;
-        if (type == 0x01 && vlen >= 1) *discoverable = (v[0] & 0x03) != 0;  // limited / general discoverable
+        if (type == 0x01 && vlen >= 1) e->discoverable = (v[0] & 0x03) != 0;  // limited / general discoverable
         if ((type == 0x02 || type == 0x03) && vlen >= 2) {
             for (int i = 0; i + 1 < vlen; i += 2) {
-                if ((v[i] | (v[i + 1] << 8)) == 0x1812) hid_uuid = true;
+                if ((v[i] | (v[i + 1] << 8)) == 0x1812) e->hid_uuid = true;
             }
         }
-        if (type == 0x19 && vlen >= 2) *appearance = (uint16_t)(v[0] | (v[1] << 8));
+        if (type == 0x19 && vlen >= 2) e->appearance = (uint16_t)(v[0] | (v[1] << 8));
         if ((type == 0x08 || type == 0x09) && vlen > 0) {
-            int n = vlen < (int)name_len - 1 ? vlen : (int)name_len - 1;
-            memcpy(name, v, n);
-            name[n] = 0;
+            int n = vlen < (int)sizeof(e->name) - 1 ? vlen : (int)sizeof(e->name) - 1;
+            memcpy(e->name, v, n);
+            e->name[n] = 0;
         }
         pos += 1 + ad_len;
     }
-    if (*appearance == 0x03C1 || *appearance == 0x03C2) return false;  // keyboard, mouse
-    bool pad_look = *appearance == 0x03C3 || *appearance == 0x03C4;    // joystick, gamepad
-    return pad_look || hid_uuid;
 }
 
-// Logs each BLE HID device once (per boot) so a test log shows what's around.
-static void note_hid_device(const struct ble_gap_disc_desc *d, bool discoverable, uint16_t appearance,
-                            const char *name)
+// Appearance 0x03C0..0x03CF is the HID category: 0x03C0 generic, 0x03C3
+// joystick, 0x03C4 gamepad. Others (keyboard, mouse, remote 0x0180...) are
+// not gamepads. No appearance at all is allowed if the HID service is listed;
+// the report map is checked after connecting.
+static bool hid_candidate(const adv_seen_t *e)
 {
-    static uint8_t seen[8][6];
-    static int n_seen;
-    for (int i = 0; i < n_seen; i++) {
-        if (memcmp(seen[i], d->addr.val, 6) == 0) return;
-    }
-    if (n_seen < 8) memcpy(seen[n_seen++], d->addr.val, 6);
-    char mac[18];
-    fmt_mac(d->addr.val, mac);
-    ESP_LOGI(TAG, "BLE HID device %s (address type %u) \"%s\": appearance 0x%04x, %s, rssi %d", mac,
-             d->addr.type, name, appearance, discoverable ? "in pairing mode" : "not in pairing mode", d->rssi);
-    char hex[3 * 31 + 1];
-    int n = 0;
-    for (int i = 0; i < d->length_data && i < 31; i++) n += snprintf(hex + n, sizeof(hex) - n, "%02x ", d->data[i]);
-    ESP_LOGI(TAG, "  advert: %s", hex);
+    uint16_t a = e->appearance;
+    if (a == 0x03C3 || a == 0x03C4) return true;
+    if (!e->hid_uuid) return false;
+    return a == 0 || a == 0x03C0;
 }
+
+#define HID_PAIR_MIN_RSSI (-75)   // pair only with a gamepad close to the dongle
 
 static void on_disc(const struct ble_gap_disc_desc *d)
 {
@@ -460,18 +477,37 @@ static void on_disc(const struct ble_gap_disc_desc *d)
     uint16_t pid = 0;
     bool pairing = false, ours = false;
     if (!parse_adv(d, &pid, &pairing, &ours)) {
-        bool disc;
-        uint16_t app;
-        char name[32];
-        if (!parse_hid_adv(d, &disc, &app, name, sizeof(name))) {
+        if (!settings_get().ble_hid || rejected(d->addr.val)) {
             return;
         }
-        note_hid_device(d, disc, app, name);
-        if (bonds_lookup(d->addr.val) == PAD_PID_BLE_HID) {
+        adv_seen_t *e = seen_entry(d->addr.val);
+        merge_adv(d, e);
+        bool cand = hid_candidate(e);
+        bool bonded = bonds_lookup(d->addr.val) == PAD_PID_BLE_HID;
+        // Survey: log each HID-ish or named device once, to identify gamepads.
+        if (!e->logged && (e->hid_uuid || e->appearance || e->name[0])) {
+            e->logged = true;
+            char mac[18];
+            fmt_mac(d->addr.val, mac);
+            ESP_LOGI(TAG, "seen %s (type %u) \"%s\": appearance 0x%04x%s%s, rssi %d%s", mac, d->addr.type, e->name,
+                     e->appearance, e->hid_uuid ? ", HID service" : "", e->discoverable ? ", pairing mode" : "", d->rssi,
+                     cand ? " -> gamepad candidate" : "");
+        }
+        if (bonded) {
             ev.pid = PAD_PID_BLE_HID;
             ev.pairing = false;      // bonded: reconnect
             post(&ev);
-        } else if (disc && settings_get().ble_hid) {
+        } else if (cand && e->discoverable) {
+            if (d->rssi < HID_PAIR_MIN_RSSI) {
+                static int64_t last_far;
+                int64_t now = esp_timer_get_time();
+                if (now - last_far > 5000000) {
+                    last_far = now;
+                    ESP_LOGI(TAG, "gamepad \"%s\" in pairing mode is too far away (rssi %d); bring it closer", e->name,
+                             d->rssi);
+                }
+                return;
+            }
             ev.pid = PAD_PID_BLE_HID;
             ev.pairing = true;       // in pairing mode: pair with it
             post(&ev);
@@ -1694,6 +1730,21 @@ static bool hid_setup(link_t *l)
                  (long)f->lmin, (long)f->lmax);
     }
     if (l->layout->truncated) ESP_LOGW(TAG, "link %d: report map has more fields than handled", idx);
+    bool controls = false;  // buttons, sticks or a hat, not just media keys
+    for (int i = 0; i < l->layout->n && !controls; i++) {
+        const hid_field_t *f = &l->layout->f[i];
+        if (f->page == 0x09) controls = true;
+        if (f->page == 0x01 && (f->usage == 0x30 || f->usage == 0x31 || f->usage == 0x39)) controls = true;
+    }
+    if (!l->layout->gamepad || !controls) {
+        ESP_LOGW(TAG, "link %d: not a gamepad (top-level collection page 0x%02x usage 0x%02x); forgetting it", idx,
+                 l->layout->n_app ? l->layout->app_page[0] : 0, l->layout->n_app ? l->layout->app_usage[0] : 0);
+        memcpy(s_reject[s_reject_next], l->addr.val, 6);
+        s_reject_next = (s_reject_next + 1) % 4;
+        bonds_forget(l->addr.val);
+        ble_gap_unpair(&l->addr);
+        return false;
+    }
     hid_state_init(l->layout, &l->hst);
 
     // Report protocol (not boot), then subscribe every input report.

@@ -485,11 +485,10 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Turn off / disconnect the Joy-Cons. Put the M64 Pro in its Bluetooth pairing mode (the phone / PC one). The log shows 'BLE HID device ... in pairing mode', then 'connecting to BLE gamepad', 'encrypted (bonded ...)', the report map lines and 'BLE gamepad ready'. Note how far it gets",
-    "Press every button once, slowly, one at a time (A, B, each C button, Z, L, R, Start, each d-pad direction), then move the stick in a circle. Keep the log: the 'report' lines show each one",
-    "Steam / a gamepad tester: which buttons and stick already work, and which are wrong or missing (they'll be mapped from the log)",
-    "Turn the M64 Pro off and on (or press a button): it reconnects by itself without pairing mode. Also after unplugging the dongle",
-    "Joy-Cons still pair and work as before once the M64 Pro is off",
+    "Flash 1.2.1 and replug. If the NVIDIA remote reconnects, the log says 'not a gamepad ... forgetting it' once and leaves it alone",
+    "Turn off / disconnect the Joy-Cons. Hold the M64 Pro close to the dongle and put it in its Bluetooth pairing mode. Keep the log: the 'seen ...' lines list every Bluetooth device around (name, appearance, rssi); note which one is the M64 Pro",
+    "If it pairs ('BLE gamepad ready'): press every button once, slowly (A, B, each C button, Z, L, R, Start, each d-pad direction), then move the stick in a circle",
+    "If it doesn't: note what the M64 Pro's light does, and keep the log for a minute while it's in pairing mode",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
