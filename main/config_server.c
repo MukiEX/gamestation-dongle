@@ -401,6 +401,7 @@ static esp_err_t h_state(httpd_req_t *req)
         cJSON_AddStringToObject(e, "role", pad_role_name(links[i].role));
         cJSON_AddBoolToObject(e, "ready", links[i].ready);
         cJSON_AddNumberToObject(e, "rate", links[i].rate);
+        cJSON_AddNumberToObject(e, "battery", links[i].battery_mv);
         cJSON_AddItemToArray(conn, e);
     }
 

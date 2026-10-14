@@ -57,6 +57,7 @@ select { font: inherit; color: inherit; background: var(--bg); border: 1px solid
   border-radius: 8px; padding: 7px 9px; }
 .seg { justify-self: start; display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; background: transparent; color: inherit; font: inherit; padding: 6px 12px; cursor: pointer; }
+.seg.grid2 { display: inline-grid; grid-template-columns: 1fr 1fr; }
 .seg button.on { background: var(--accent); color: var(--accent-ink); }
 .rangeval { display: flex; gap: 10px; align-items: center; }
 .rangeval output { min-width: 3.5em; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
@@ -165,7 +166,7 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
     </div>
     <div class="row">
       <label>Orientation</label>
-      <div class="seg" id="displayRot">
+      <div class="seg grid2" id="displayRot">
         <button data-v="0">Landscape</button><button data-v="1">Landscape ↻</button><button data-v="2">Upright</button><button data-v="3">Upright ↻</button>
       </div>
       <div class="hint">Landscape: the stick lies flat. Upright: it stands (e.g. plugged facing down into a dock). ↻ turns the picture round. Applies live.</div>
@@ -529,7 +530,7 @@ function renderLists(st) {
     li.querySelector(".dot").classList.add(l.ready ? "ok" : "wait");
     li.querySelector(".name").textContent = l.role;
     li.querySelectorAll(".mac")[0].textContent = l.mac;
-    li.querySelectorAll(".mac")[1].textContent = l.ready ? l.rate + " /s" : "connecting…";
+    li.querySelectorAll(".mac")[1].textContent = l.ready ? l.rate + " /s" + (l.battery ? " · battery " + l.battery : "") : "connecting…";
     c.appendChild(li);
   }
   const p = $("paired");
