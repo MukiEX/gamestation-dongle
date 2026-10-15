@@ -1233,7 +1233,19 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         return 0;
     }
 
-    case BLE_GAP_EVENT_CONN_UPDATE_REQ:
+    case BLE_GAP_EVENT_CONN_UPDATE_REQ: {
+        link_t *ul = link_by_conn(event->conn_update_req.conn_handle);
+        if (ul != NULL && ul->hid) {
+            // Generic gamepads get what they ask for (the M64 Pro dropped the
+            // link after being forced to 7.5 ms during setup).
+            const struct ble_gap_upd_params *pp = event->conn_update_req.peer_params;
+            if (pp != NULL) {
+                ESP_LOGI(TAG, "link %d: gamepad asks for interval %.2f-%.2f ms, latency %u, timeout %u ms; accepted",
+                         link_index(ul), pp->itvl_min * 1.25f, pp->itvl_max * 1.25f, pp->latency,
+                         pp->supervision_timeout * 10);
+            }
+            return 0;
+        }
         // Keep every link pinned at 7.5 ms instead of the controller's slower request.
         if (event->conn_update_req.self_params != NULL) {
             struct ble_gap_upd_params *p = event->conn_update_req.self_params;
@@ -1245,12 +1257,14 @@ static int gap_event(struct ble_gap_event *event, void *arg)
             p->max_ce_len = CONN_MAX_CE;
         }
         return 0;
+    }
 
     case BLE_GAP_EVENT_CONN_UPDATE: {
         struct ble_gap_conn_desc desc;
         if (ble_gap_conn_find(event->conn_update.conn_handle, &desc) == 0) {
-            ESP_LOGI(TAG, "conn %u: interval %.2f ms", event->conn_update.conn_handle,
-                     desc.conn_itvl * 1.25f);
+            ESP_LOGI(TAG, "conn %u: interval %.2f ms, latency %u, timeout %u ms (status %d)",
+                     event->conn_update.conn_handle, desc.conn_itvl * 1.25f, desc.conn_latency,
+                     desc.supervision_timeout * 10, event->conn_update.status);
         }
         return 0;
     }
@@ -1826,7 +1840,7 @@ static bool hid_setup(link_t *l)
     struct ble_gap_conn_desc cd;
     if (ble_gap_conn_find(l->conn, &cd) == 0) {
         ESP_LOGI(TAG, "link %d: connection interval %.2f ms", idx, cd.conn_itvl * 1.25f);
-        if (cd.conn_itvl != CONN_ITVL) ble_gap_update_params(l->conn, &upd);
+        (void)upd;  // the gamepad keeps the interval it negotiated
     }
     return true;
 }
@@ -1953,16 +1967,6 @@ static void hid_notify(link_t *l, uint16_t attr, const uint8_t *buf, uint16_t le
 
 static void start_connect(const ev_t *ev)
 {
-    if (ev->pid == PAD_PID_BLE_HID && ev->pairing && ev->addr.type >= BLE_ADDR_PUBLIC_ID) {
-        // A gamepad in pairing mode that the controller still resolves from
-        // old keys: drop them and connect to its next (unresolved) advert.
-        char m[18];
-        fmt_mac(ev->addr.val, m);
-        ESP_LOGI(TAG, "%s: dropping old keys before pairing again", m);
-        ble_gap_unpair(&ev->addr);
-        bonds_forget(ev->addr.val);
-        return;
-    }
     int idx = link_alloc();
     if (idx < 0) {
         return;
@@ -1994,11 +1998,8 @@ static void start_connect(const ev_t *ev)
         p.itvl_max = 12;
         p.supervision_timeout = 600;
         p.max_ce_len = 0;
-        if (ev->pairing) {
-            // Pairing mode: start clean, so stale keys from an earlier attempt
-            // (on either side) can't break encryption.
-            forget_keys(ev->addr.val);
-        }
+        // Keys from an earlier attempt are kept: if the gamepad no longer
+        // has them, encryption fails, they're dropped and it pairs again.
     }
     s_connect_started = esp_timer_get_time();
     char mac[18];

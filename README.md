@@ -47,6 +47,13 @@ connection while it's open.
   ignores it there once GL / GR has been pressed (see Steam Controller mode).
   The log now records each Joy-Con's "status byte" so a grip-attached bit, if
   there is one, can be found and used instead.
+* **ModRetro M64 Pro (BLE gamepad support, experimental):** found, connected
+  and bonded once (1.2.3 log: MTU 247, HID service with 3 reports), but the
+  link then went silent and timed out during setup, and some connection
+  attempts never complete. Unreleased changes in the source (accept the
+  gamepad's own connection parameters, connect to its resolved address
+  instead of dropping keys) are untested. On hold until the controller's
+  firmware is better documented or open source.
 * **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
 * **First pairing after flashing:** occasionally a Joy-Con needs pairing a
   couple of times. A log from a session where it happens is needed.
