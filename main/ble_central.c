@@ -190,6 +190,7 @@ typedef struct {
 
 static link_t s_links[MAX_LINKS];
 static volatile float s_deadzone = 0.03f;   // from settings, refreshed by ctrl_task
+static volatile bool s_m64_nso;             // M64 Pro: Switch Online layout (refreshed likewise)
 static volatile uint16_t s_rate[MAX_LINKS]; // input reports/s over the last second
 static portMUX_TYPE s_links_mux = portMUX_INITIALIZER_UNLOCKED;
 static QueueHandle_t s_evq;
@@ -1984,11 +1985,12 @@ static uint32_t hid_map_buttons(const hid_state_t *h)
 
 static uint32_t m64_map_buttons(const hid_state_t *h)
 {
-    // Positionally: A is the bottom face button, B the left one (as on
-    // Nintendo's N64 controller for Switch), Z the left trigger.
+    // Emulator layout (default), by position: A is the bottom face button,
+    // B the left one. Switch Online layout, as Nintendo maps an N64 game to
+    // a Pro Controller: A = A, B = B. Z is ZL either way.
     uint32_t b = 0;
-    if (h->buttons & M64_A) b |= NS2_BTN_B;
-    if (h->buttons & M64_B) b |= NS2_BTN_Y;
+    if (h->buttons & M64_A) b |= s_m64_nso ? NS2_BTN_A : NS2_BTN_B;
+    if (h->buttons & M64_B) b |= s_m64_nso ? NS2_BTN_B : NS2_BTN_Y;
     if (h->buttons & M64_Z) b |= NS2_BTN_ZL;
     if (h->buttons & M64_L) b |= NS2_BTN_L;
     if (h->buttons & M64_R) b |= NS2_BTN_R;
@@ -2234,6 +2236,7 @@ static void ctrl_task(void *arg)
             }
         }
         s_deadzone = settings_get().deadzone_pct / 100.0f;
+        s_m64_nso = settings_get().m64_nso;
         static int64_t last_rate_t;
         static uint32_t rate_counts[MAX_LINKS];
         if (now - last_rate_t >= 1000000) {

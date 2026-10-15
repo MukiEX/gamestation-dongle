@@ -162,6 +162,13 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       </div>
       <div class="hint">Experimental: standard Bluetooth LE gamepads (e.g. ModRetro M64 Pro) in their pairing mode pair with the dongle and work as one full controller. Off: only Switch 2 controllers.</div>
     </div>
+    <div class="row">
+      <label>M64 Pro layout</label>
+      <div class="seg" id="m64Nso">
+        <button data-v="false">Emulator</button><button data-v="true">Switch Online</button>
+      </div>
+      <div class="hint">Emulator: by position, N64 A = bottom face button (Xbox A), B = left (Xbox X). Switch Online: as Nintendo maps it, A = Switch A (right), B = Switch B (bottom). Both: Z = ZL / left trigger, C buttons = right stick, Start = +.</div>
+    </div>
   </section>
 
   <section id="dispSection" hidden>
@@ -367,12 +374,13 @@ function showSettings() {
   if (settings.hasDisplay) {
     $("displayBright").value = settings.displayBright;
     $("displayBrightOut").textContent = settings.displayBright === 0 ? "off" : settings.displayBright + " / 10";
-    seg("displayRot", String(settings.displayRot || 0));
+    seg("displayRot", String(settings.displayRot ?? 3));
   }
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
   seg("hotkeys", settings.hotkeys);
   seg("bleHid", settings.bleHid);
+  seg("m64Nso", !!settings.m64Nso);
   if ((settings.flipDs4 || 0) || (settings.flipSwitch || 0)) $("adv").open = true;
   for (const id of ["flipDs4", "flipSwitch"]) {
     const m = settings[id] || 0;
@@ -436,7 +444,7 @@ function save(patch) {
   }, 150);
 }
 
-for (const id of ["layout", "logPort", "hotkeys", "bleHid"]) {
+for (const id of ["layout", "logPort", "hotkeys", "bleHid", "m64Nso"]) {
   $(id).addEventListener("click", (e) => {
     const v = e.target.dataset && e.target.dataset.v;
     if (v === undefined) return;

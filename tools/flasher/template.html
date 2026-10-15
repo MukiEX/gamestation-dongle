@@ -486,8 +486,10 @@ __MD5_JS__
   const $ = (id) => document.getElementById(id);
   const TESTS = [
     "Hold the dongle's BOOT button 5 s (forget all pairings), Joy-Cons off, M64 Pro close and in pairing mode. Don't touch BOOT again after that. Pass if the log shows 'BLE gamepad ready' within a few seconds of 'connected', and no 'report reference … not read' warnings",
-    "Press A, B, Z, L, R, Start, each C button and each d-pad direction, and move the stick, in a gamepad tester (e.g. gamepad-tester.com or Steam's controller settings). Pass if each one shows up. Expected: A = bottom face button, B = left face button, Z = left trigger, L / R = bumpers, Start = Start, C buttons = right stick, d-pad = d-pad",
+    "Emulator layout (configurator: M64 Pro layout = Emulator): in a gamepad tester, A = bottom face button, B = left face button, Z = left trigger, L / R = bumpers, Start = Start, C buttons = right stick, d-pad = d-pad, stick = left stick",
+    "Switch Online layout (configurator: M64 Pro layout = Switch Online, applies without reconnecting): A = right face button (Switch A), B = bottom face button (Switch B); everything else as in test 2",
     "Turn the M64 Pro off and on (not in pairing mode). Pass if the log shows 'BLE gamepad ready' again and the buttons still work",
+    "T-Dongle only, optional: with no orientation ever saved, the screen starts as Upright ↻ (if you saved one before, that one is kept)",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

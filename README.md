@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.7
+## Status: 1.2.8
 
 | Step | What | State |
 |---|---|---|
@@ -53,7 +53,7 @@ connection while it's open.
   each Report Reference read waited 3 s for an end-of-read callback that
   NimBLE doesn't send for a single read, so setup took ~30 s (and the M64
   sometimes gave up and disconnected). Fixed in 1.2.7. To be confirmed: setup
-  time, the N64 layout, reconnecting on its own.
+  time, both N64 layouts, reconnecting on its own.
 * **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
 * **First pairing after flashing:** occasionally a Joy-Con needs pairing a
   couple of times. A log from a session where it happens is needed.
@@ -77,7 +77,8 @@ connection while it's open.
   (configurator address, waiting for the PC, charging grip, USB mouse).
   Brightness and orientation are in the configurator's *Display* section:
   *Landscape* (stick lying flat) or *Upright* (stick standing, e.g. plugged
-  facing down into a dock, with a narrow layout), each either way up.
+  facing down into a dock, with a narrow layout), each either way up. The
+  default is *Upright ↻* (plugged facing down).
   The stick plugs straight into a USB-A port; its button is the BOOT button
   (same presses as below). To flash it, hold the button while plugging it in.
   The battery gauge uses the value each controller reports, calibrated
@@ -130,9 +131,12 @@ usual Android / Xbox Bluetooth numbering (1 = south, 2 = east, 4 = west,
 5 = north, 7 / 8 = L / R, 9 / 10 = ZL / ZR, 11 = −, 12 = +, 13 = Home,
 14 / 15 = stick presses), the hat is the d-pad, X / Y the left stick and
 Z / Rz (or Rx / Ry) the right stick. The ModRetro M64 Pro (recognised by its
-name) gets its own N64 layout: A and B on the bottom and left face buttons,
-Z on ZL / left trigger, L / R on the bumpers, Start on +, the C buttons as a
-digital right stick, the d-pad and stick as usual. No rumble or motion yet. The log lists
+name) gets its own N64 layout, in two flavours (*M64 Pro layout* in the
+configurator): **Emulator** (default) puts A and B on the bottom and left
+face buttons by position (Xbox A / X), as N64 emulators expect; **Switch
+Online** maps them as Nintendo does for a Pro Controller (A = Switch A,
+B = Switch B). Both: Z on ZL / left trigger, L / R on the bumpers, Start on +,
+the C buttons as a digital right stick, the d-pad and stick as usual. No rumble or motion yet. The log lists
 each gamepad's report map and every input report, so other layouts can be
 mapped. Only gamepads and joysticks are paired: TV remotes, keyboards and
 mice are skipped by their advertised type, and anything whose report map has
