@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.3
+## Status: 1.2.4
 
 | Step | What | State |
 |---|---|---|
@@ -50,10 +50,9 @@ connection while it's open.
 * **ModRetro M64 Pro (BLE gamepad support, experimental):** found, connected
   and bonded once (1.2.3 log: MTU 247, HID service with 3 reports), but the
   link then went silent and timed out during setup, and some connection
-  attempts never complete. Unreleased changes in the source (accept the
-  gamepad's own connection parameters, connect to its resolved address
-  instead of dropping keys) are untested. On hold until the controller's
-  firmware is better documented or open source.
+  attempts never complete. 1.2.4 accepts the gamepad's own connection
+  parameters and reconnects to its resolved address instead of dropping
+  keys; to be tested together with ModRetro's controller firmware update.
 * **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
 * **First pairing after flashing:** occasionally a Joy-Con needs pairing a
   couple of times. A log from a session where it happens is needed.

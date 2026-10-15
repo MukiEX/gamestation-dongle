@@ -485,9 +485,9 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "T-Dongle (it got a connection before): flash 1.2.3, Joy-Cons off, M64 Pro close and in pairing mode for about a minute. Note how far the log gets",
-    "Dev board: the same, for comparison",
-    "If 'BLE gamepad ready' appears: press every button once, slowly, then move the stick in a circle",
+    "After the M64 Pro firmware update: hold the dongle's BOOT button 5 s (forget all pairings), Joy-Cons off, M64 Pro close and in pairing mode. Note how far the log gets ('connected', 'encrypted', report map, 'BLE gamepad ready')",
+    "If ready: press every button once, slowly (A, B, each C button, Z, L, R, Start, each d-pad direction), then move the stick in a circle",
+    "Turn the M64 Pro off and on (not in pairing mode): does it reconnect by itself?",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
