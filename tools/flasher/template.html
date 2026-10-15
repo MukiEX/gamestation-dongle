@@ -485,7 +485,7 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Hold the dongle's BOOT button 5 s (forget all pairings), Joy-Cons off, M64 Pro close and in pairing mode. Pass if the log shows 'BLE gamepad ready'; note how many seconds it took after 'connected'",
+    "Hold the dongle's BOOT button 5 s (forget all pairings), Joy-Cons off, M64 Pro close and in pairing mode. Don't touch BOOT again after that. Pass if the log shows 'BLE gamepad ready' within a few seconds of 'connected', and no 'report reference … not read' warnings",
     "Press A, B, Z, L, R, Start, each C button and each d-pad direction, and move the stick, in a gamepad tester (e.g. gamepad-tester.com or Steam's controller settings). Pass if each one shows up. Expected: A = bottom face button, B = left face button, Z = left trigger, L / R = bumpers, Start = Start, C buttons = right stick, d-pad = d-pad",
     "Turn the M64 Pro off and on (not in pairing mode). Pass if the log shows 'BLE gamepad ready' again and the buttons still work",
   ];

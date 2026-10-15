@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.6
+## Status: 1.2.7
 
 | Step | What | State |
 |---|---|---|
@@ -48,13 +48,12 @@ connection while it's open.
   The log now records each Joy-Con's "status byte" so a grip-attached bit, if
   there is one, can be found and used instead.
 * **ModRetro M64 Pro (BLE gamepad support, experimental):** connects,
-  pairs and streams input since 1.2.5 (with ModRetro's controller firmware
-  update; the connection is opened the way a Steam Deck does it). In 1.2.5
-  each report's descriptor lookup hung for 3 s, so setup took ~30 s and the
-  report IDs were never read, which left the buttons dead. 1.2.6 looks up all
-  descriptors in one go, falls back to the report map's IDs, and maps the
-  M64's N64 layout. To be confirmed: setup time, every button reaching the PC,
-  reconnecting on its own.
+  pairs and works since 1.2.6 (with ModRetro's controller firmware update;
+  the connection is opened the way a Steam Deck does it). In 1.2.5 and 1.2.6
+  each Report Reference read waited 3 s for an end-of-read callback that
+  NimBLE doesn't send for a single read, so setup took ~30 s (and the M64
+  sometimes gave up and disconnected). Fixed in 1.2.7. To be confirmed: setup
+  time, the N64 layout, reconnecting on its own.
 * **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
 * **First pairing after flashing:** occasionally a Joy-Con needs pairing a
   couple of times. A log from a session where it happens is needed.

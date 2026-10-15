@@ -1696,6 +1696,23 @@ static int g_read_cb(uint16_t conn, const struct ble_gatt_error *err, struct ble
     return 0;
 }
 
+// Single ble_gattc_read: unlike read_long, there's no EDONE call afterwards,
+// so the one callback has to finish the wait. (1.2.5/1.2.6 waited for an
+// EDONE that never comes: each Report Reference read "timed out" after 3 s.)
+static int g_read1_cb(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg)
+{
+    link_t *l = arg;
+    if (err->status == 0 && attr != NULL) {
+        uint16_t n = OS_MBUF_PKTLEN(attr->om);
+        if (l->glen + n > l->gcap) n = (uint16_t)(l->gcap - l->glen);
+        os_mbuf_copydata(attr->om, 0, n, l->gbuf + l->glen);
+        l->glen += n;
+    }
+    l->gstatus = err->status == BLE_HS_EDONE ? 0 : err->status;
+    xSemaphoreGive(l->gsem);
+    return 0;
+}
+
 static int g_write_cb(uint16_t conn, const struct ble_gatt_error *err, struct ble_gatt_attr *attr, void *arg)
 {
     link_t *l = arg;
@@ -1759,7 +1776,7 @@ static bool hid_setup(link_t *l)
         if (l->rep[i].ref) {
             uint8_t ref[2] = { 0 };
             l->gbuf = ref; l->glen = 0; l->gcap = 2;
-            if (ble_gattc_read(l->conn, l->rep[i].ref, g_read_cb, l) == 0 && gatt_wait(l) && l->glen == 2) {
+            if (ble_gattc_read(l->conn, l->rep[i].ref, g_read1_cb, l) == 0 && gatt_wait(l) && l->glen == 2) {
                 l->rep[i].id = ref[0];
                 l->rep[i].type = ref[1];
                 l->rep[i].has_ref = true;
