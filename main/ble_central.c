@@ -151,10 +151,13 @@ typedef struct {
     struct {
         uint16_t val, cccd, ref;
         uint8_t id, type;          // from the Report Reference descriptor (type 1 = input)
+        bool has_ref;              // id/type were read from the gamepad
         uint8_t last[32];
         uint8_t last_len;
     } rep[8];
     int n_rep;
+    char hid_name[24];             // GAP device name ("M64_Controller")
+    bool m64;                      // ModRetro M64 Pro: N64 button layout
     hid_layout_t *layout;          // allocated once per link slot
     hid_state_t hst;
     uint16_t hid_logs;             // input reports logged this connection
@@ -1654,16 +1657,22 @@ static int g_chr_cb(uint16_t conn, const struct ble_gatt_error *err, const struc
     return 0;
 }
 
+// One descriptor discovery over the whole HID service: each CCCD / Report
+// Reference belongs to the report characteristic just before it.
 static int g_dsc_cb(uint16_t conn, const struct ble_gatt_error *err, uint16_t chr_val, const struct ble_gatt_dsc *dsc,
                     void *arg)
 {
     link_t *l = arg;
     if (err->status == 0) {
         uint16_t u = dsc->uuid.u.type == BLE_UUID_TYPE_16 ? ble_uuid_u16(&dsc->uuid.u) : 0;
+        if (u != 0x2902 && u != 0x2908) return 0;
+        int best = -1;
         for (int i = 0; i < l->n_rep; i++) {
-            if (l->rep[i].val != chr_val) continue;
-            if (u == 0x2902) l->rep[i].cccd = dsc->handle;
-            if (u == 0x2908) l->rep[i].ref = dsc->handle;
+            if (l->rep[i].val < dsc->handle && (best < 0 || l->rep[i].val > l->rep[best].val)) best = i;
+        }
+        if (best >= 0 && dsc->handle <= chr_end_handle(l, l->rep[best].val)) {
+            if (u == 0x2902) l->rep[best].cccd = dsc->handle;
+            if (u == 0x2908) l->rep[best].ref = dsc->handle;
         }
         return 0;
     }
@@ -1712,6 +1721,17 @@ static bool hid_setup(link_t *l)
 
     if (ble_gattc_exchange_mtu(l->conn, g_mtu_cb, l) == 0) gatt_wait(l);
 
+    // Device name (GAP 0x2A00), to recognise gamepads with a known layout.
+    static const ble_uuid16_t name_uuid = BLE_UUID16_INIT(0x2A00);
+    memset(l->hid_name, 0, sizeof(l->hid_name));
+    l->gbuf = (uint8_t *)l->hid_name; l->glen = 0; l->gcap = sizeof(l->hid_name) - 1;
+    if (ble_gattc_read_by_uuid(l->conn, 1, 0xFFFF, &name_uuid.u, g_read_cb, l) == 0 && gatt_wait(l)) {
+        ESP_LOGI(TAG, "link %d: name \"%s\"", idx, l->hid_name);
+    } else {
+        ESP_LOGI(TAG, "link %d: no device name (%d)", idx, l->gstatus);
+    }
+    l->m64 = strncmp(l->hid_name, "M64", 3) == 0;
+
     static const ble_uuid16_t hid_uuid = BLE_UUID16_INIT(0x1812);
     l->hid_start = l->hid_end = 0;
     if (ble_gattc_disc_svc_by_uuid(l->conn, &hid_uuid.u, g_svc_cb, l) != 0 || !gatt_wait(l) || l->hid_start == 0) {
@@ -1728,19 +1748,23 @@ static bool hid_setup(link_t *l)
     ESP_LOGI(TAG, "link %d: HID service 0x%04x-0x%04x, %d characteristics, %d reports, map 0x%04x",
              idx, l->hid_start, l->hid_end, l->n_chrs, l->n_rep, l->h_map);
 
-    // Descriptors (CCCD, Report Reference) of each report.
+    // Descriptors (CCCD, Report Reference) of all reports, in one go. (Per
+    // report, each discovery with the M64 Pro hung until our 3 s timeout.)
+    int64_t t_dsc = esp_timer_get_time();
+    if (ble_gattc_disc_all_dscs(l->conn, l->hid_start, l->hid_end, g_dsc_cb, l) != 0 || !gatt_wait(l)) {
+        ESP_LOGW(TAG, "link %d: descriptor discovery incomplete (%d) after %lld ms", idx, l->gstatus,
+                 (esp_timer_get_time() - t_dsc) / 1000);
+    }
     for (int i = 0; i < l->n_rep; i++) {
-        uint16_t end = chr_end_handle(l, l->rep[i].val);
-        if (end > l->hid_end) end = l->hid_end;
-        if (end > l->rep[i].val && ble_gattc_disc_all_dscs(l->conn, l->rep[i].val, end, g_dsc_cb, l) == 0) {
-            gatt_wait(l);
-        }
         if (l->rep[i].ref) {
             uint8_t ref[2] = { 0 };
             l->gbuf = ref; l->glen = 0; l->gcap = 2;
             if (ble_gattc_read(l->conn, l->rep[i].ref, g_read_cb, l) == 0 && gatt_wait(l) && l->glen == 2) {
                 l->rep[i].id = ref[0];
                 l->rep[i].type = ref[1];
+                l->rep[i].has_ref = true;
+            } else {
+                ESP_LOGW(TAG, "link %d: report reference 0x%04x not read (%d)", idx, l->rep[i].ref, l->gstatus);
             }
         }
         ESP_LOGI(TAG, "link %d: report 0x%04x: id %u, type %u (%s), CCCD 0x%04x", idx, l->rep[i].val, l->rep[i].id,
@@ -1793,6 +1817,34 @@ static bool hid_setup(link_t *l)
         return false;
     }
     hid_state_init(l->layout, &l->hst);
+
+    // Input reports whose Report Reference couldn't be read: give them the
+    // map's input report IDs in order (both are normally in handle order).
+    {
+        uint8_t ids[8];
+        int n_ids = 0;
+        for (int i = 0; i < l->layout->n; i++) {
+            uint8_t id = l->layout->f[i].report_id;
+            bool dup = false;
+            for (int k = 0; k < n_ids; k++) dup |= ids[k] == id;
+            if (!dup && n_ids < 8) ids[n_ids++] = id;
+        }
+        int next = 0;
+        for (int i = 0; i < l->n_rep; i++) {
+            if (l->rep[i].has_ref) {
+                for (int k = 0; k < n_ids; k++) {
+                    if (ids[k] == l->rep[i].id && k >= next) next = k + 1;
+                }
+                continue;
+            }
+            if (l->rep[i].type == 1 && next < n_ids) {
+                l->rep[i].id = ids[next++];
+                ESP_LOGI(TAG, "link %d: report 0x%04x: assuming id %u (no report reference)", idx, l->rep[i].val,
+                         l->rep[i].id);
+            }
+        }
+    }
+    if (l->m64) ESP_LOGI(TAG, "link %d: ModRetro M64 Pro: N64 layout (C buttons -> right stick)", idx);
 
     // Report protocol (not boot), then subscribe every input report.
     if (l->h_proto) {
@@ -1900,6 +1952,34 @@ static uint32_t hid_map_buttons(const hid_state_t *h)
     return b;
 }
 
+// ModRetro M64 Pro (from its button test): HID buttons 1-10 are
+// A, B, Z, L, R, C-up, C-down, C-left, C-right, Start.
+#define M64_A      (1u << 0)
+#define M64_B      (1u << 1)
+#define M64_Z      (1u << 2)
+#define M64_L      (1u << 3)
+#define M64_R      (1u << 4)
+#define M64_CUP    (1u << 5)
+#define M64_CDOWN  (1u << 6)
+#define M64_CLEFT  (1u << 7)
+#define M64_CRIGHT (1u << 8)
+#define M64_START  (1u << 9)
+
+static uint32_t m64_map_buttons(const hid_state_t *h)
+{
+    // Positionally: A is the bottom face button, B the left one (as on
+    // Nintendo's N64 controller for Switch), Z the left trigger.
+    uint32_t b = 0;
+    if (h->buttons & M64_A) b |= NS2_BTN_B;
+    if (h->buttons & M64_B) b |= NS2_BTN_Y;
+    if (h->buttons & M64_Z) b |= NS2_BTN_ZL;
+    if (h->buttons & M64_L) b |= NS2_BTN_L;
+    if (h->buttons & M64_R) b |= NS2_BTN_R;
+    if (h->buttons & M64_START) b |= NS2_BTN_PLUS;
+    hid_state_t d = { .hat = h->hat };  // d-pad only
+    return b | hid_map_buttons(&d);
+}
+
 static void stick(float x, float y, float dz, float *ox, float *oy)
 {
     float m = sqrtf(x * x + y * y);
@@ -1941,7 +2021,7 @@ static void hid_notify(link_t *l, uint16_t attr, const uint8_t *buf, uint16_t le
     }
     hid_decode(l->layout, l->rep[r].id, buf, len, &l->hst);
     const hid_state_t *h = &l->hst;
-    pad_side_t s = { .buttons = hid_map_buttons(h) };
+    pad_side_t s = { .buttons = l->m64 ? m64_map_buttons(h) : hid_map_buttons(h) };
     if (!l->settled) {
         if (s.buttons == 0 || esp_timer_get_time() >= l->settle_deadline) l->settled = true;
         else return;
@@ -1953,7 +2033,11 @@ static void hid_notify(link_t *l, uint16_t attr, const uint8_t *buf, uint16_t le
     }
     float dz = s_deadzone;
     stick(h->x, -h->y, dz, &s.lx, &s.ly);  // HID +y is down; pad +y is up
-    if (h->has[HID_AX_Z] || h->has[HID_AX_RZ]) {
+    if (l->m64) {
+        // C buttons as a digital right stick, the usual N64 emulator layout.
+        s.ry = (h->buttons & M64_CUP ? 1.0f : 0.0f) - (h->buttons & M64_CDOWN ? 1.0f : 0.0f);
+        s.rx = (h->buttons & M64_CRIGHT ? 1.0f : 0.0f) - (h->buttons & M64_CLEFT ? 1.0f : 0.0f);
+    } else if (h->has[HID_AX_Z] || h->has[HID_AX_RZ]) {
         stick(h->z, -h->rz, dz, &s.rx, &s.ry);
     } else {
         stick(h->rx, -h->ry, dz, &s.rx, &s.ry);

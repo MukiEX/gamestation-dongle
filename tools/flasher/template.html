@@ -485,9 +485,9 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Unpair the M64 Pro from the Steam Deck first. Then hold the dongle's BOOT button 5 s (forget all pairings), Joy-Cons off, M64 Pro close and in pairing mode. Pass only if the log shows 'BLE gamepad ready'",
-    "Only if test 1 passed: press every button once, slowly, in this order: A, B, C-up, C-down, C-left, C-right, Z, L, R, Start. Then each d-pad direction, then move the stick in a circle",
-    "Only if test 1 passed: turn the M64 Pro off and on (not in pairing mode). Pass only if the log shows 'BLE gamepad ready' again",
+    "Hold the dongle's BOOT button 5 s (forget all pairings), Joy-Cons off, M64 Pro close and in pairing mode. Pass if the log shows 'BLE gamepad ready'; note how many seconds it took after 'connected'",
+    "Press A, B, Z, L, R, Start, each C button and each d-pad direction, and move the stick, in a gamepad tester (e.g. gamepad-tester.com or Steam's controller settings). Pass if each one shows up. Expected: A = bottom face button, B = left face button, Z = left trigger, L / R = bumpers, Start = Start, C buttons = right stick, d-pad = d-pad",
+    "Turn the M64 Pro off and on (not in pairing mode). Pass if the log shows 'BLE gamepad ready' again and the buttons still work",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

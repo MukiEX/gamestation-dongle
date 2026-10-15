@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.5
+## Status: 1.2.6
 
 | Step | What | State |
 |---|---|---|
@@ -47,16 +47,14 @@ connection while it's open.
   ignores it there once GL / GR has been pressed (see Steam Controller mode).
   The log now records each Joy-Con's "status byte" so a grip-attached bit, if
   there is one, can be found and used instead.
-* **ModRetro M64 Pro (BLE gamepad support, experimental):** found, connected
-  and bonded once (1.2.3 log: MTU 247, HID service with 3 reports), but the
-  link then went silent and timed out during setup, and some connection
-  attempts never complete. With ModRetro's firmware update, 1.2.4 never
-  connected at all. A Steam Deck capture showed a working host connects on
-  the first try with a 60 ms scan window and a 30-50 ms interval; the M64 then
-  asks for 7.5 ms with latency 10 itself. 1.2.5 connects the same way. The
-  capture also confirmed the report layout (report 1: hat, X, Y, 10 buttons,
-  battery), which the dongle's parser reads correctly; the button order still
-  needs mapping.
+* **ModRetro M64 Pro (BLE gamepad support, experimental):** connects,
+  pairs and streams input since 1.2.5 (with ModRetro's controller firmware
+  update; the connection is opened the way a Steam Deck does it). In 1.2.5
+  each report's descriptor lookup hung for 3 s, so setup took ~30 s and the
+  report IDs were never read, which left the buttons dead. 1.2.6 looks up all
+  descriptors in one go, falls back to the report map's IDs, and maps the
+  M64's N64 layout. To be confirmed: setup time, every button reaching the PC,
+  reconnecting on its own.
 * **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
 * **First pairing after flashing:** occasionally a Joy-Con needs pairing a
   couple of times. A log from a session where it happens is needed.
@@ -132,13 +130,16 @@ kept in flash), and afterwards it reconnects on its own. Buttons follow the
 usual Android / Xbox Bluetooth numbering (1 = south, 2 = east, 4 = west,
 5 = north, 7 / 8 = L / R, 9 / 10 = ZL / ZR, 11 = −, 12 = +, 13 = Home,
 14 / 15 = stick presses), the hat is the d-pad, X / Y the left stick and
-Z / Rz (or Rx / Ry) the right stick. No rumble or motion yet. The log lists
+Z / Rz (or Rx / Ry) the right stick. The ModRetro M64 Pro (recognised by its
+name) gets its own N64 layout: A and B on the bottom and left face buttons,
+Z on ZL / left trigger, L / R on the bumpers, Start on +, the C buttons as a
+digital right stick, the d-pad and stick as usual. No rumble or motion yet. The log lists
 each gamepad's report map and every input report, so other layouts can be
 mapped. Only gamepads and joysticks are paired: TV remotes, keyboards and
 mice are skipped by their advertised type, and anything whose report map has
 no buttons or sticks is dropped and forgotten after connecting. Turn it off with *Other Bluetooth gamepads* in the configurator.
-The ESP32-S3 can't use Bluetooth SCI, so the M64 Pro runs at the normal
-7.5 ms interval, like the Joy-Cons.
+The ESP32-S3 can't use Bluetooth SCI; the M64 Pro asks for a 7.5 ms
+interval itself, like the Joy-Cons use.
 
 ### Output modes
 
