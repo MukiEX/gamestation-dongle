@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.8
+## Status: 1.2.9
 
 | Step | What | State |
 |---|---|---|
@@ -136,7 +136,9 @@ configurator): **Emulator** (default) puts A and B on the bottom and left
 face buttons by position (Xbox A / X), as N64 emulators expect; **Switch
 Online** maps them as Nintendo does for a Pro Controller (A = Switch A,
 B = Switch B). Both: Z on ZL / left trigger, L / R on the bumpers, Start on +,
-the C buttons as a digital right stick, the d-pad and stick as usual. No rumble or motion yet. The log lists
+the C buttons as a digital right stick, the d-pad and stick as usual. The M64 Pro has no −, Home or
+Capture, so its shortcuts are **L + R + Start** held 3 s (next mode) and
+**L + R + Z + Start** held 3 s (configurator, and again to leave it). No rumble or motion yet. The log lists
 each gamepad's report map and every input report, so other layouts can be
 mapped. Only gamepads and joysticks are paired: TV remotes, keyboards and
 mice are skipped by their advertised type, and anything whose report map has

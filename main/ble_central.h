@@ -15,6 +15,10 @@ void ble_central_start(void);
 // Drops every connection and forgets every paired controller.
 void ble_central_forget_all(void);
 
+// True while a ModRetro M64 Pro is connected and ready (it has no Home /
+// Capture / - buttons, so the dongle's shortcuts use other combos for it).
+bool ble_central_m64_ready(void);
+
 // Forgets one controller (MAC little-endian, as stored) and drops its link.
 void ble_central_forget(const uint8_t mac[6]);
 

@@ -21,6 +21,7 @@
 #include "tinyusb_cdc_acm.h"
 #include "tusb.h"
 
+#include "ble_central.h"
 #include "ns2_proto.h"
 #include "out.h"
 #include "pad.h"
@@ -508,13 +509,24 @@ static void check_hotkeys(const pad_out_t *o)
 {
     static hotkey_t mode = { .combo = NS2_BTN_MINUS | NS2_BTN_PLUS, .armed = true };
     static hotkey_t config = { .combo = NS2_BTN_CAPT | NS2_BTN_HOME, .armed = true };
+    // ModRetro M64 Pro (no - / Home / Capture): L + R + Start for the next
+    // mode, L + R + Z + Start for the configurator.
+    static hotkey_t m64_mode = { .combo = NS2_BTN_L | NS2_BTN_R | NS2_BTN_PLUS, .armed = true };
+    static hotkey_t m64_config = { .combo = NS2_BTN_L | NS2_BTN_R | NS2_BTN_ZL | NS2_BTN_PLUS, .armed = true };
     if (!settings_get().mode_hotkeys) {
         return;
     }
-    if (hotkey(&mode, o->buttons) && !s_drv->is_config) {
+    bool m64 = ble_central_m64_ready();
+    bool next = hotkey(&mode, o->buttons);
+    bool cfg = hotkey(&config, o->buttons);
+    if (m64) {
+        next |= hotkey(&m64_mode, o->buttons);
+        cfg |= hotkey(&m64_config, o->buttons);
+    }
+    if (next && !s_drv->is_config) {
         usb_gamepad_next_mode();
     }
-    if (hotkey(&config, o->buttons)) {
+    if (cfg) {
         if (s_drv->is_config) {
             usb_gamepad_exit_config();
         } else {

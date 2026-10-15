@@ -1983,6 +1983,14 @@ static uint32_t hid_map_buttons(const hid_state_t *h)
 #define M64_CRIGHT (1u << 8)
 #define M64_START  (1u << 9)
 
+bool ble_central_m64_ready(void)
+{
+    for (int i = 0; i < MAX_LINKS; i++) {
+        if (s_links[i].state == LS_READY && s_links[i].hid && s_links[i].m64) return true;
+    }
+    return false;
+}
+
 static uint32_t m64_map_buttons(const hid_state_t *h)
 {
     // Emulator layout (default), by position: A is the bottom face button,
