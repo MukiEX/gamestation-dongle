@@ -485,9 +485,9 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "After the M64 Pro firmware update: hold the dongle's BOOT button 5 s (forget all pairings), Joy-Cons off, M64 Pro close and in pairing mode. Note how far the log gets ('connected', 'encrypted', report map, 'BLE gamepad ready')",
-    "If ready: press every button once, slowly (A, B, each C button, Z, L, R, Start, each d-pad direction), then move the stick in a circle",
-    "Turn the M64 Pro off and on (not in pairing mode): does it reconnect by itself?",
+    "Unpair the M64 Pro from the Steam Deck first. Then hold the dongle's BOOT button 5 s (forget all pairings), Joy-Cons off, M64 Pro close and in pairing mode. Pass only if the log shows 'BLE gamepad ready'",
+    "Only if test 1 passed: press every button once, slowly, in this order: A, B, C-up, C-down, C-left, C-right, Z, L, R, Start. Then each d-pad direction, then move the stick in a circle",
+    "Only if test 1 passed: turn the M64 Pro off and on (not in pairing mode). Pass only if the log shows 'BLE gamepad ready' again",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

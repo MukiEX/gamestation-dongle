@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.4
+## Status: 1.2.5
 
 | Step | What | State |
 |---|---|---|
@@ -50,9 +50,13 @@ connection while it's open.
 * **ModRetro M64 Pro (BLE gamepad support, experimental):** found, connected
   and bonded once (1.2.3 log: MTU 247, HID service with 3 reports), but the
   link then went silent and timed out during setup, and some connection
-  attempts never complete. 1.2.4 accepts the gamepad's own connection
-  parameters and reconnects to its resolved address instead of dropping
-  keys; to be tested together with ModRetro's controller firmware update.
+  attempts never complete. With ModRetro's firmware update, 1.2.4 never
+  connected at all. A Steam Deck capture showed a working host connects on
+  the first try with a 60 ms scan window and a 30-50 ms interval; the M64 then
+  asks for 7.5 ms with latency 10 itself. 1.2.5 connects the same way. The
+  capture also confirmed the report layout (report 1: hat, X, Y, 10 buttons,
+  battery), which the dongle's parser reads correctly; the button order still
+  needs mapping.
 * **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
 * **First pairing after flashing:** occasionally a Joy-Con needs pairing a
   couple of times. A log from a session where it happens is needed.

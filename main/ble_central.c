@@ -1993,10 +1993,15 @@ static void start_connect(const ev_t *ev)
         .max_ce_len = CONN_MAX_CE,
     };
     if (l->hid) {
-        // Gentler start for generic gamepads (7.5-15 ms, 6 s timeout, no
-        // event-length cap); 7.5 ms is requested again once set up.
-        p.itvl_max = 12;
-        p.supervision_timeout = 600;
+        // What a working host (Steam Deck / BlueZ) asks for: 60 ms scan
+        // window, 30-50 ms interval, no event-length cap. The gamepad then
+        // asks for its own interval (M64 Pro: 7.5 ms, latency 10), which
+        // is accepted. Our 7.5-15 ms start never connected to the M64 Pro.
+        p.scan_itvl = 0x0060;
+        p.scan_window = 0x0060;
+        p.itvl_min = 24;
+        p.itvl_max = 40;
+        p.supervision_timeout = 200;
         p.max_ce_len = 0;
         // Keys from an earlier attempt are kept: if the gamepad no longer
         // has them, encryption fails, they're dropped and it pairs again.
