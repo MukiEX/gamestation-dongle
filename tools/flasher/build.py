@@ -12,7 +12,8 @@ dist = '/home/claude/joycon2-dongle/dist'
 out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(dist, 'joycon2-dongle-tool.html')
 
 images = []
-for suffix, label in (('', ''), ('-diag', ' (diagnostic)'), ('-tdongle', ' (LILYGO T-Dongle-S3)')):
+for suffix, label in (('', ''), ('-diag', ' (diagnostic)'), ('-tdongle', ' (LILYGO T-Dongle-S3)'),
+                      ('-lcd147', ' (Waveshare ESP32-S3-LCD-1.47)')):
     path = os.path.join(dist, f'joycon2-dongle-{ver}{suffix}-merged.bin')
     if not os.path.exists(path):
         continue

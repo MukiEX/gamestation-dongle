@@ -13,10 +13,10 @@ check_version() {  # $1 = app binary, $2 = "diag" or "normal"
 import re, sys
 data = open(sys.argv[1], 'rb').read()
 want_diag = sys.argv[2] == 'diag'
-found = set(m.decode() for m in re.findall(rb'\b' + re.escape(sys.argv[3].encode()) + rb'(?:-step[0-9]+)?(?:-diag|-tdongle)?(?![\w.])', data))
+found = set(m.decode() for m in re.findall(rb'\b' + re.escape(sys.argv[3].encode()) + rb'(?:-step[0-9]+)?(?:-diag|-tdongle|-lcd147)?(?![\w.])', data))
 assert found, f"{sys.argv[1]}: no {sys.argv[3]} version string (stale build?)"
-want = {'diag': '-diag', 'tdongle': '-tdongle'}.get(sys.argv[2], '')
-ok = [v for v in found if (v.endswith('-diag') or v.endswith('-tdongle')) == bool(want) and v.endswith(want)]
+want = {'diag': '-diag', 'tdongle': '-tdongle', 'lcd147': '-lcd147'}.get(sys.argv[2], '')
+ok = [v for v in found if v.endswith(('-diag', '-tdongle', '-lcd147')) == bool(want) and v.endswith(want)]
 assert ok, f"{sys.argv[1]}: version {sorted(found)} is not a {sys.argv[2]} build"
 print(sys.argv[1], 'is', ok[0])
 PY
@@ -39,6 +39,7 @@ PY
 ninja -C build >/dev/null || { echo "normal build failed"; exit 1; }
 if [ -d build-diag ]; then ninja -C build-diag >/dev/null || { echo "diagnostic build failed"; exit 1; }; fi
 if [ -d build-tdongle ]; then ninja -C build-tdongle >/dev/null || { echo "T-Dongle-S3 build failed"; exit 1; }; fi
+if [ -d build-lcd147 ]; then ninja -C build-lcd147 >/dev/null || { echo "ESP32-S3-LCD-1.47 build failed"; exit 1; }; fi
 python3 - build/joycon2_dongle.bin main/web/index.html <<'PY'
 import sys
 app, page = (open(p, 'rb').read() for p in sys.argv[1:])
@@ -55,4 +56,8 @@ fi
 if [ -d build-tdongle ]; then
   check_version build-tdongle/joycon2_dongle.bin tdongle
   merge build-tdongle "joycon2-dongle-$VER-tdongle-merged.bin"
+fi
+if [ -d build-lcd147 ]; then
+  check_version build-lcd147/joycon2_dongle.bin lcd147
+  merge build-lcd147 "joycon2-dongle-$VER-lcd147-merged.bin"
 fi

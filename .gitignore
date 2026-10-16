@@ -7,3 +7,5 @@ build-diag/
 sdkconfig.diag.old
 build-tdongle/
 sdkconfig.tdongle.old
+build-lcd147/
+sdkconfig.lcd147.old

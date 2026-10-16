@@ -34,11 +34,13 @@
 
 static const char *TAG = "main";
 
-#define FW_BASE          "1.2.13"
+#define FW_BASE          "1.2.14"
 #if defined(DONGLE_DIAG)
 #define FW_VERSION       FW_BASE "-diag"
 #elif defined(DONGLE_BOARD_TDONGLE)
 #define FW_VERSION       FW_BASE "-tdongle"
+#elif defined(DONGLE_BOARD_LCD147)
+#define FW_VERSION       FW_BASE "-lcd147"
 #else
 #define FW_VERSION       FW_BASE
 #endif

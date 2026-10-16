@@ -1,11 +1,11 @@
-// On-device display (boards with one, e.g. the LILYGO T-Dongle-S3).
+// On-device display (boards with one: LILYGO T-Dongle-S3, Waveshare ESP32-S3-LCD-1.47).
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
 #include <stdbool.h>
 
-#ifdef DONGLE_BOARD_TDONGLE
+#if defined(DONGLE_BOARD_TDONGLE) || defined(DONGLE_BOARD_LCD147)
 #define DISPLAY_PRESENT 1
 #else
 #define DISPLAY_PRESENT 0

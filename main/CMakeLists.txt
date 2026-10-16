@@ -33,6 +33,7 @@ idf_component_register(
         esp_lcd
         esp_driver_spi
         esp_driver_ledc
+        esp_driver_rmt
 )
 
 # esp_tinyusb owns the string-descriptor callback; wrapping it lets the
@@ -46,6 +47,9 @@ if(DEFINED ENV{DONGLE_BOARD})
 endif()
 if(DONGLE_BOARD_NAME STREQUAL "tdongle")
     target_compile_definitions(${COMPONENT_LIB} PRIVATE DONGLE_BOARD_TDONGLE=1)
+elseif(DONGLE_BOARD_NAME STREQUAL "lcd147")
+    # Waveshare ESP32-S3-LCD-1.47 (display + WS2812 LED).
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE DONGLE_BOARD_LCD147=1)
 endif()
 
 # Diagnostic build: `DONGLE_DIAG=1` in the environment when first configuring.

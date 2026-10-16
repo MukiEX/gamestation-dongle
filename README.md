@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.13
+## Status: 1.2.14
 
 | Step | What | State |
 |---|---|---|
@@ -85,6 +85,14 @@ connection while it's open.
   against the Switch 2's own gauge (about 3260 = full, 3170 = just over half;
   4 bars from 3240, 3 from 3170, 2 from 3100, 1 from 3000) and is a rough
   guide. The configurator's Controllers list shows the raw number.
+* **Waveshare ESP32-S3-LCD-1.47** (`joycon2-dongle-<ver>-lcd147-merged.bin`,
+  version ends in `-lcd147`): the same as the T-Dongle-S3 build on Waveshare's
+  USB stick with a 1.47" 172×320 ST7789 screen and a WS2812 RGB LED (LCD MOSI
+  45, SCLK 40, CS 42, DC 41, RST 39, backlight 48; LED 38; BOOT 0). Same
+  screens and settings, drawn at twice the size with fonts made for it; same
+  default orientation (*Upright ↻*). Untested on the hardware so far: if the
+  picture is upside down in the default, or red and blue are swapped, report
+  it. To flash it, hold BOOT while plugging it in.
 
 ### Controllers
 

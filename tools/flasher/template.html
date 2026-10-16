@@ -231,6 +231,8 @@ footer a { color: inherit; }
         <span><b>Diagnostic</b><small>No gamepad. Everything, including crash output, goes to the built-in port (USB JTAG/serial debug unit).</small></span></label>
       <label for="img-tdongle"><input type="radio" name="img" id="img-tdongle" value="2">
         <span><b>LILYGO T-Dongle-S3</b><small>Normal firmware for the T-Dongle-S3 USB stick, with its screen and RGB LED. To flash it, hold its button while plugging it in.</small></span></label>
+      <label for="img-lcd147"><input type="radio" name="img" id="img-lcd147" value="3">
+        <span><b>Waveshare ESP32-S3-LCD-1.47</b><small>Normal firmware for Waveshare's 1.47" USB stick, with its 172&times;320 screen and RGB LED. To flash it, hold BOOT while plugging it in.</small></span></label>
     </fieldset>
     <dl class="fw" style="margin:12px 0 0">
       <div class="wide"><dt>Image</dt><dd id="fw-name">__FW_NAME__</dd></div>
@@ -485,10 +487,10 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Configurator: 'Single controller mode' is there (Off by default, unless you had picked the Xbox 360 USB ID before); 'XInput USB ID' and 'Switch Pro mode for' are gone",
-    "Single controller mode On, Switch Pro mode, on the Switch 2 (powered hub): Pass if the controller works as in 1.2.12",
-    "Single controller mode On, XInput mode, on the PC: Pass if Device Manager shows an Xbox 360 controller (045E:028E) and no log port / mouse",
-    "Single controller mode Off, XInput mode: Pass if the log port and (with the mouse setting) the USB mouse are back, ID 303A:8246",
+    "Waveshare ESP32-S3-LCD-1.47: flash the 'Waveshare ESP32-S3-LCD-1.47' image (hold BOOT while plugging in). Pass if the screen shows the mode and status and the LED lights in the mode's colour (XInput green, Switch Pro red)",
+    "Plugged in facing down: Pass if the default picture is the right way up. If not, note which Orientation button fixes it",
+    "Colours: XInput's bar should be green, Switch Pro's red, battery bars green. Pass if they are (if red and blue look swapped, say so)",
+    "Landscape and both Upright buttons, and brightness 0..10: Pass if each looks right",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
