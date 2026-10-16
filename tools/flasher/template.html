@@ -485,10 +485,9 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Switch Pro mode on a Switch (and Switch 2): System Settings > Controllers and Sensors > Pro Controller Wired Communication on, plug the dongle into the dock. Pass if a Pro Controller shows up and the buttons work (no log here: in this mode the dongle has no log port)",
-    "Same mode on the PC: Pass if it still works as a controller (no log port now; set 'Switch Pro mode for' to PC to get it back)",
-    "M64 Pro: hold L + R + Z + Start for 3 s. Pass if the configurator opens; again to close it",
-    "M64 Pro: hold L + R + Start for 3 s. Pass if the output mode changes",
+    "T-Dongle in Switch Pro mode ('Switch Pro mode for' = Switch console) on the Switch 2 (Pro Controller Wired Communication on). Pass if a Pro Controller shows up; either way, note the screen's status line (e.g. 'USB: config read', 'Switch: no hello yet', 'Switch: handshake...')",
+    "Same on the original Switch: Pass if a Pro Controller shows up; note the status line",
+    "Same mode on the PC (Steam running): Pass if it still works as a controller",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

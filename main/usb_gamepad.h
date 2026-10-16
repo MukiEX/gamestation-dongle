@@ -31,3 +31,12 @@ void usb_gamepad_set_firmware_version(const char *v);
 const char *usb_gamepad_firmware_version(void);
 // True if the current USB device includes the mouse interface.
 bool usb_gamepad_has_mouse(void);
+
+// How far the host got with the USB device (shown on the T-Dongle screen,
+// since a console setup has no log port).
+typedef enum {
+    USB_STAGE_NONE, USB_STAGE_DEVICE, USB_STAGE_CONFIG, USB_STAGE_HID, USB_STAGE_MOUNTED,
+    USB_STAGE_HELLO, USB_STAGE_STREAMING,
+} usb_stage_t;
+void usb_gamepad_note_stage(usb_stage_t st);
+usb_stage_t usb_gamepad_stage(void);

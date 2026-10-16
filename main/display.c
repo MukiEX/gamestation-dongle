@@ -211,6 +211,7 @@ static void led_set(uint32_t c, uint8_t bright /* 0..31 */)
 typedef struct {
     int mode;           // out_mode_t, or -1 for the configurator
     bool mounted;
+    uint8_t usb_stage;   // usb_stage_t
     bool l, r, pro;     // ready controllers
     bool pad;           // the full controller is a BLE gamepad
     bool pairing;       // a controller is connecting
@@ -239,6 +240,7 @@ static void collect(view_t *v)
     settings_t st = settings_get();
     v->mode = usb_gamepad_in_config() ? -1 : (int)st.out_mode;
     v->mounted = usb_gamepad_mounted();
+    v->usb_stage = (uint8_t)usb_gamepad_stage();
     v->mouse = st.pad_mouse;
     v->bright = st.display_bright;
     v->rot = st.display_rot & 3;
@@ -323,7 +325,12 @@ static uint32_t status_line(const view_t *v, char *line, size_t n)
         snprintf(line, n, "Open 192.168.7.1");
         lc = mode_color(v->mode);
     } else if (!v->mounted) {
-        snprintf(line, n, "Waiting for the PC...");
+        // How far the host got (useful on consoles, where there's no log).
+        static const char *const st[] = { "Waiting for the PC...", "USB: device read", "USB: config read",
+                                          "USB: HID read", "USB: ready" };
+        snprintf(line, n, "%s", st[v->usb_stage < 5 ? v->usb_stage : 0]);
+    } else if (v->mode == OUT_MODE_SWITCH_PRO && v->usb_stage < USB_STAGE_STREAMING) {
+        snprintf(line, n, v->usb_stage < USB_STAGE_HELLO ? "Switch: no hello yet" : "Switch: handshake...");
     } else if (v->pairing) {
         snprintf(line, n, "Connecting...");
     } else if (v->dock) {

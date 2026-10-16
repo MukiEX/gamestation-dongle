@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "ns2_proto.h"
 #include "out.h"
+#include "usb_gamepad.h"
 #include "settings.h"
 #include "rumble.h"
 
@@ -124,8 +125,14 @@ static const uint8_t report_desc[] = {
     0xC0,              // End Collection
 };
 
+// Exactly a wired Pro Controller's interface (as in GP2040-CE): no interface
+// string, IN endpoint before OUT. TinyUSB's TUD_HID_INOUT_DESCRIPTOR lists
+// OUT first; a Switch 2 never finished setting the dongle up with that.
 static const uint8_t itf_desc[] = {
-    TUD_HID_INOUT_DESCRIPTOR(0, 4, HID_ITF_PROTOCOL_NONE, sizeof(report_desc), EP_OUT, EP_IN, 64, 8),
+    9, TUSB_DESC_INTERFACE, 0, 0, 2, TUSB_CLASS_HID, 0, HID_ITF_PROTOCOL_NONE, 0,
+    9, HID_DESC_TYPE_HID, U16_TO_U8S_LE(0x0111), 0, 1, HID_DESC_TYPE_REPORT, U16_TO_U8S_LE(sizeof(report_desc)),
+    7, TUSB_DESC_ENDPOINT, EP_IN, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(64), 8,
+    7, TUSB_DESC_ENDPOINT, EP_OUT, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(64), 8,
 };
 
 // SPI flash contents the host reads (0x6000: factory data, 0x8000: user calibration).
@@ -436,7 +443,7 @@ static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, u
     switch (buf[0]) {
     case 0x80:
         switch (buf[1]) {
-        case 0x01: identify_reply(r); queue_reply(r); break;
+        case 0x01: usb_gamepad_note_stage(USB_STAGE_HELLO); identify_reply(r); queue_reply(r); break;
         case 0x02:
         case 0x03:
             memset(r, 0, sizeof(r));
@@ -447,6 +454,7 @@ static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, u
         case 0x04:  // stop USB timeout: start streaming full reports
             if (!s_ready) ESP_LOGI(TAG, "host handshake done, streaming input");
             s_ready = true;
+            usb_gamepad_note_stage(USB_STAGE_STREAMING);
             break;
         case 0x05:
             s_ready = false;
@@ -482,6 +490,7 @@ const out_driver_t out_switchpro = {
     .vid = 0x057E, .pid = 0x2009, .bcd_device = 0x0210,
     .manufacturer = "Nintendo Co., Ltd.",
     .product = "Pro Controller",
+    .serial = "000000000001",
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 1,
     .hid_report_desc = report_desc,
     .send = send,

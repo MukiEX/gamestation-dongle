@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.10
+## Status: 1.2.11
 
 | Step | What | State |
 |---|---|---|
@@ -183,7 +183,12 @@ while PCs, a Steam Deck and an iPhone took it: the consoles want nothing but
 the Pro Controller on the USB device. So *Switch Pro mode for* defaults to
 **Switch console** (no log port, no USB mouse, whatever else is set); pick
 **PC** to have them back in that mode. Console use is still to be confirmed;
-PS4 is untested.
+PS4 is untested. On a Switch 2 the T-Dongle screen stayed on "Waiting for the PC"
+(the console never finished setting the device up), so since 1.2.11 the
+interface matches a real Pro Controller byte for byte (IN endpoint before
+OUT, no interface string, serial 000000000001), and the screen shows how far
+the host got: *USB: device read / config read / HID read*, then *Switch: no
+hello yet / handshake...* until input streams.
 
 Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
 B, whatever the label on the Nintendo controller says.

@@ -42,18 +42,31 @@ static volatile int s_switch_to = -1;  // pending switch: an out_mode_t, or TARG
 // stack is reinstalled. TinyUSB's own tud_mounted() can report the previous
 // stack's state until the new stack's task has initialised, so it isn't used.
 static volatile bool s_mounted;
+static volatile uint8_t s_stage;  // usb_stage_t: furthest the host got
+
+void usb_gamepad_note_stage(usb_stage_t st)
+{
+    if (st > s_stage) s_stage = (uint8_t)st;
+}
+
+usb_stage_t usb_gamepad_stage(void)
+{
+    return (usb_stage_t)s_stage;
+}
 
 static void usb_event(tinyusb_event_t *event, void *arg)
 {
     (void)arg;
     if (event->id == TINYUSB_EVENT_ATTACHED) {
         s_mounted = true;
+        usb_gamepad_note_stage(USB_STAGE_MOUNTED);
         if (s_drv && s_drv->is_config) {
             ESP_LOGI(TAG, "PC accepted the configurator's USB network device");
         }
         usb_gamepad_poke();
     } else if (event->id == TINYUSB_EVENT_DETACHED) {
         s_mounted = false;
+    s_stage = USB_STAGE_NONE;
     }
 }
 
@@ -234,7 +247,7 @@ static void build_descriptors(void)
     s_strings[0] = (const char[]){ 0x09, 0x04 };  // English (0x0409)
     s_strings[1] = s_drv->manufacturer;
     s_strings[2] = s_drv->product;
-    s_strings[3] = s_serial;
+    s_strings[3] = s_drv->serial ? s_drv->serial : s_serial;
     s_strings[4] = s_drv->product;   // gamepad interface (Windows shows this name)
     s_strings[5] = "Joy-Con 2 Dongle log";
     s_strings[CONFIG_MAC_STRING_INDEX] = config_server_host_mac_string();
@@ -244,6 +257,19 @@ static void build_descriptors(void)
 // Microsoft OS 1.0 descriptors (generic XInput ID only). esp_tinyusb owns
 // tud_descriptor_string_cb, so string 0xEE is added by wrapping it at link
 // time (see CMakeLists.txt).
+uint8_t const *__real_tud_descriptor_device_cb(void);
+uint8_t const *__wrap_tud_descriptor_device_cb(void)
+{
+    usb_gamepad_note_stage(USB_STAGE_DEVICE);
+    return __real_tud_descriptor_device_cb();
+}
+uint8_t const *__real_tud_descriptor_configuration_cb(uint8_t index);
+uint8_t const *__wrap_tud_descriptor_configuration_cb(uint8_t index)
+{
+    usb_gamepad_note_stage(USB_STAGE_CONFIG);
+    return __real_tud_descriptor_configuration_cb(index);
+}
+
 uint16_t const *__real_tud_descriptor_string_cb(uint8_t index, uint16_t langid);
 uint16_t const *__wrap_tud_descriptor_string_cb(uint8_t index, uint16_t langid)
 {
@@ -284,6 +310,7 @@ static bool is_mouse(uint8_t instance)
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
 {
     if (is_mouse(instance)) s_mouse_desc_read = true;
+    else usb_gamepad_note_stage(USB_STAGE_HID);
     return is_mouse(instance) ? s_mouse_report_desc : s_drv->hid_report_desc;
 }
 
@@ -738,6 +765,7 @@ static esp_err_t usb_install(void)
     cfg.task.xCoreID = 1;
     cfg.event_cb = usb_event;
     s_mounted = false;
+    s_stage = USB_STAGE_NONE;
     esp_err_t err = tinyusb_driver_install(&cfg);
     if (err != ESP_OK) {
         return err;
@@ -768,6 +796,7 @@ static void switch_to(int target)
     xSemaphoreTake(s_usb_mtx, portMAX_DELAY);
     s_usb_up = false;
     s_mounted = false;
+    s_stage = USB_STAGE_NONE;
     tud_disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));
     if (s_drv->stopping) {

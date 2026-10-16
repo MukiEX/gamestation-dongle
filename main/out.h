@@ -16,6 +16,7 @@ typedef struct {
     uint16_t vid, pid, bcd_device;
     const char *manufacturer;
     const char *product;
+    const char *serial;          // fixed serial number string (NULL: from the MAC)
 
     // Gamepad interface(s), starting at interface 0, without the configuration
     // header. The log port's interfaces are appended after them.

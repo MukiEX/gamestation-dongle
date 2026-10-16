@@ -37,7 +37,7 @@ idf_component_register(
 
 # esp_tinyusb owns the string-descriptor callback; wrapping it lets the
 # dongle add the Microsoft OS string (0xEE) for the generic XInput ID.
-target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=tud_descriptor_string_cb")
+target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=tud_descriptor_string_cb" "-Wl,--wrap=tud_descriptor_device_cb" "-Wl,--wrap=tud_descriptor_configuration_cb")
 
 # Board: `DONGLE_BOARD=tdongle` in the environment when first configuring
 # builds for the LILYGO T-Dongle-S3 (display + RGB LED). Kept in the cache.
