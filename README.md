@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.12
+## Status: 1.2.13
 
 | Step | What | State |
 |---|---|---|
@@ -109,7 +109,7 @@ USB network adapter; open **http://192.168.7.1** in any browser. The PC keeps
 its normal internet connection: the dongle hands out an address but no route.
 
 * **Output:** controller type, button layout (positional or Nintendo labels),
-  log port on/off, hotkeys on/off.
+  single controller mode, log port on/off, hotkeys on/off.
 * **Feel:** rumble strength (0–10, 5 = Switch2Connect's default), stick
   deadzone (applies live).
 * **Controllers:** what is connected right now (with reports/s), the paired
@@ -167,31 +167,34 @@ Controller's USB protocol (Steam, SDL games, Chrome's gamepad support, a
 Switch). Windows' generic game-controller view shows nonsense for it, as it
 does for a real wired Pro Controller.
 
-**XInput USB ID:** by default (*Dongle's own*) XInput mode uses 303A:8246:
-Windows splits the device into its parts (controller, log port, USB mouse) and
-uses its Xbox driver for the controller, found by its interface class and a
-Microsoft OS "XUSB10" compatible ID. A few games that look for the real Xbox
-ID may not recognise it; for those, pick *Xbox 360* (045E:028E). With that ID
-Windows' Xbox driver takes the whole USB device, so the log port and the USB
-mouse don't appear.
+**Single controller mode** (configurator, *Output*; off by default):
+* **Off:** the dongle is the controller plus its serial log port and, if the
+  Joy-Con sensors are set to *USB mouse* / *Pointer only*, a USB mouse. XInput
+  mode then uses the dongle's own ID (303A:8246), so Windows splits the device
+  into its parts and still uses its Xbox driver for the controller (found by
+  its interface class and a Microsoft OS "XUSB10" compatible ID). The log port
+  can still be turned off on its own.
+* **On:** the dongle is nothing but the controller: no log port, no USB mouse,
+  and XInput uses the real Xbox 360 ID (045E:028E), for games that look for
+  it. Consoles need this: a Switch and Switch 2 ignored the dongle in Switch
+  Pro mode while it also had the log port, though PCs, a Steam Deck and an
+  iPhone took it. (Replaces 1.2.x's *XInput USB ID* setting: a saved
+  *Xbox 360* choice carries over as On.)
 
-Every mode also has the serial log port unless you turn it off in the
-configurator, which consoles may need. Turning it off only removes the
-dongle's own USB COM port; the board's second (UART) USB port always carries
-the console log. A Switch and Switch 2 ignored the dongle in Switch Pro mode
-while PCs, a Steam Deck and an iPhone took it: the consoles want nothing but
-the Pro Controller on the USB device. So *Switch Pro mode for* defaults to
-**Switch console** (no log port, no USB mouse, whatever else is set); pick
-**PC** to have them back in that mode. Console use is still to be confirmed;
-PS4 is untested. On a Switch 2 the T-Dongle screen stayed on "Waiting for the PC"
-(the console never finished setting the device up), so since 1.2.11 the
-interface matches a real Pro Controller byte for byte (IN endpoint before
-OUT, no interface string, serial 000000000001), and the screen shows how far
-the host got: *USB: device read / config read / HID read*, then *Switch: no
-hello yet / handshake...* until input streams. With a powered hub the Switch 2 went
-through the handshake and streamed input, yet didn't accept the controller;
-1.2.12 answers like GP2040-CE in the remaining places and logs the
-console's first 80 requests (UART log on the dev board).
+The board's second (UART) USB port always carries the console log, whatever
+is set here.
+
+**Switch / Switch 2:** Switch Pro mode works on a Switch 2 (1.2.12, with
+single controller mode on; turn on *Pro Controller Wired Communication* in
+the console's settings). What it took: the USB interface matches a real Pro
+Controller byte for byte (IN endpoint before OUT, no interface string, serial
+000000000001), and the replies to the console's set-up requests match
+GP2040-CE's (an answer to 80 04 / 80 05 and to a few subcommands). The first
+80 requests are logged (UART log on the dev board). Plugged straight into the
+Switch 2 the T-Dongle stayed on "Waiting for the PC" (probably power); through
+a powered hub it works. The T-Dongle screen shows how far a host got: *USB:
+device read / config read / HID read*, then *Switch: no hello yet /
+handshake...* until input streams. PS4 is untested.
 
 Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
 B, whatever the label on the Nintendo controller says.

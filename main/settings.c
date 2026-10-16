@@ -16,7 +16,6 @@ static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static settings_t s_cur = {
     .out_mode = OUT_MODE_XINPUT,
     .log_port = true,
-    .switch_plain = true,
     .rumble_strength = 5,
     .layout = LAYOUT_POSITIONAL,
     .deadzone_pct = 3,
@@ -33,7 +32,6 @@ static settings_t s_cur = {
     .pad_lift = 0,
     .pad_ds_touch = true,
     .pad_grip = true,
-    .xinput_generic = true,
 };
 
 static const struct { const char *key, *name; } s_grips[GRIP_COUNT] = {
@@ -93,7 +91,6 @@ void settings_init(void)
         settings_t s = s_cur;
         s.out_mode = (out_mode_t)get_u8(h, "mode", s.out_mode, OUT_MODE_COUNT - 1);
         s.log_port = get_u8(h, "logport", s.log_port, 1);
-        s.switch_plain = get_u8(h, "swplain", s.switch_plain, 1);
         s.rumble_strength = get_u8(h, "rumble", s.rumble_strength, SETTINGS_RUMBLE_MAX);
         s.layout = (button_layout_t)get_u8(h, "layout", s.layout, LAYOUT_LABELS);
         s.deadzone_pct = get_u8(h, "deadzone", s.deadzone_pct, SETTINGS_DEADZONE_MAX);
@@ -115,8 +112,9 @@ void settings_init(void)
         s.display_bright = get_u8(h, "dispbright", s.display_bright, 10);
         s.scroll_speed = get_u8(h, "scrollspd", s.scroll_speed, 10);
         if (s.scroll_speed == 0) s.scroll_speed = 1;
-        // "...2" keys: 1.0.1 changed these defaults (on), so older saves are left behind.
-        s.xinput_generic = get_u8(h, "xigeneric2", s.xinput_generic, 1);
+        // Single controller mode (1.2.13) took over the XInput USB ID setting:
+        // a saved "Xbox 360 ID" choice becomes single controller mode on.
+        s.single_ctrl = get_u8(h, "single", !get_u8(h, "xigeneric2", 1, 1), 1);
         if (s.mouse_speed == 0) s.mouse_speed = 1;
         s.pad_lift = get_u8(h, "padlift", s.pad_lift, SETTINGS_PAD_LIFT_MAX);
         s.pad_grip = get_u8(h, "padgrip2", s.pad_grip, 1);
@@ -125,8 +123,10 @@ void settings_init(void)
         s_cur = s;
         nvs_close(h);
     }
-    ESP_LOGI(TAG, "output mode: %s; log port %s; rumble %u/10; %s buttons; deadzone %u%%",
-             settings_out_mode_name(s_cur.out_mode), s_cur.log_port ? "on" : "off", s_cur.rumble_strength,
+    ESP_LOGI(TAG, "output mode: %s; %s; rumble %u/10; %s buttons; deadzone %u%%",
+             settings_out_mode_name(s_cur.out_mode),
+             s_cur.single_ctrl ? "single controller mode (no log port)" : s_cur.log_port ? "log port on" : "log port off",
+             s_cur.rumble_strength,
              s_cur.layout == LAYOUT_LABELS ? "label" : "positional", s_cur.deadzone_pct);
     log_pad(&s_cur, "joy-con sensors");
 }
@@ -187,7 +187,7 @@ void settings_set(const settings_t *in)
     if (nvs_open("dongle", NVS_READWRITE, &h) == ESP_OK) {
         nvs_set_u8(h, "mode", (uint8_t)s.out_mode);
         nvs_set_u8(h, "logport", s.log_port);
-        nvs_set_u8(h, "swplain", s.switch_plain);
+        nvs_set_u8(h, "single", s.single_ctrl);
         nvs_set_u8(h, "rumble", s.rumble_strength);
         nvs_set_u8(h, "layout", (uint8_t)s.layout);
         nvs_set_u8(h, "deadzone", s.deadzone_pct);
@@ -204,7 +204,6 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "disprot", s.display_rot);
         nvs_set_u8(h, "dispbright", s.display_bright);
         nvs_set_u8(h, "scrollspd", s.scroll_speed);
-        nvs_set_u8(h, "xigeneric2", s.xinput_generic);
         nvs_set_u8(h, "padlift", s.pad_lift);
         nvs_set_u8(h, "padgrip2", s.pad_grip);
         nvs_set_u8(h, "padds", s.pad_ds_touch);
@@ -213,7 +212,7 @@ void settings_set(const settings_t *in)
         nvs_close(h);
     }
     char fd[20], fs[20];
-    if (s.xinput_generic) ESP_LOGI(TAG, "saved: XInput uses the dongle's own USB ID");
+    ESP_LOGI(TAG, "saved: single controller mode %s", s.single_ctrl ? "on (no log port, no USB mouse, Xbox 360 ID)" : "off");
     ESP_LOGI(TAG, "saved: %s; log port %s; rumble %u/10; %s buttons; deadzone %u%%; hotkeys %s; GL %s, GR %s; "
                   "DS4 motion %s; Switch Pro motion %s",
              settings_out_mode_name(s.out_mode), s.log_port ? "on" : "off", s.rumble_strength,

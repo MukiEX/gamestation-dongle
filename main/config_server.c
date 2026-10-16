@@ -343,7 +343,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON *o = cJSON_CreateObject();
     cJSON_AddStringToObject(o, "mode", settings_out_mode_key(s->out_mode));
     cJSON_AddBoolToObject(o, "logPort", s->log_port);
-    cJSON_AddBoolToObject(o, "switchPlain", s->switch_plain);
+    cJSON_AddBoolToObject(o, "singleCtrl", s->single_ctrl);
     cJSON_AddNumberToObject(o, "rumble", s->rumble_strength);
     cJSON_AddStringToObject(o, "layout", s->layout == LAYOUT_LABELS ? "labels" : "positional");
     cJSON_AddNumberToObject(o, "deadzone", s->deadzone_pct);
@@ -360,7 +360,6 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddNumberToObject(o, "mouseSpeed", s->mouse_speed);
     cJSON_AddBoolToObject(o, "padHscroll", s->pad_hscroll);
     cJSON_AddNumberToObject(o, "scrollSpeed", s->scroll_speed);
-    cJSON_AddBoolToObject(o, "xinputGeneric", s->xinput_generic);
     cJSON_AddBoolToObject(o, "bleHid", s->ble_hid);
     cJSON_AddBoolToObject(o, "m64Nso", s->m64_nso);
     cJSON_AddBoolToObject(o, "hasDisplay", DISPLAY_PRESENT);
@@ -463,7 +462,7 @@ static esp_err_t h_settings(httpd_req_t *req)
         }
     }
     if ((v = cJSON_GetObjectItem(j, "logPort")) && cJSON_IsBool(v)) s.log_port = cJSON_IsTrue(v);
-    if ((v = cJSON_GetObjectItem(j, "switchPlain")) && cJSON_IsBool(v)) s.switch_plain = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "singleCtrl")) && cJSON_IsBool(v)) s.single_ctrl = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "rumble")) && cJSON_IsNumber(v)) s.rumble_strength = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "layout")) && cJSON_IsString(v)) {
         s.layout = strcmp(v->valuestring, "labels") == 0 ? LAYOUT_LABELS : LAYOUT_POSITIONAL;
@@ -481,7 +480,6 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "mouseSpeed")) && cJSON_IsNumber(v)) s.mouse_speed = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "padHscroll")) && cJSON_IsBool(v)) s.pad_hscroll = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "scrollSpeed")) && cJSON_IsNumber(v)) s.scroll_speed = (uint8_t)v->valueint;
-    if ((v = cJSON_GetObjectItem(j, "xinputGeneric")) && cJSON_IsBool(v)) s.xinput_generic = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "bleHid")) && cJSON_IsBool(v)) s.ble_hid = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "m64Nso")) && cJSON_IsBool(v)) s.m64_nso = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "displayRot")) && cJSON_IsNumber(v)) s.display_rot = (uint8_t)v->valueint;

@@ -171,7 +171,8 @@ static bool s_xinput_generic;  // the current USB device uses the generic XInput
 
 static void build_descriptors(void)
 {
-    s_xinput_generic = s_drv == &out_xinput && settings_get().xinput_generic;
+    bool single = settings_get().single_ctrl;
+    s_xinput_generic = s_drv == &out_xinput && !single;
     uint8_t mac[6] = { 0 };
     esp_read_mac(mac, ESP_MAC_BASE);
     mac[5] ^= (uint8_t)(drv_tag() << 4);
@@ -180,9 +181,9 @@ static void build_descriptors(void)
 
     // The log port is always there in the configurator, and in the controller
     // modes unless it was switched off (some consoles reject extra interfaces).
-    // Switch Pro mode for a Switch / Switch 2: nothing but the controller (the
-    // consoles ignore a composite device; PCs, Steam Deck and iOS don't care).
-    bool plain = s_drv == &out_switchpro && settings_get().switch_plain;
+    // Single controller mode: nothing but the controller (consoles such as the
+    // Switch / Switch 2 ignore a composite device; PCs, Steam Deck and iOS don't).
+    bool plain = single;
     s_with_cdc = s_drv->is_config || (settings_get().log_port && !plain);
     bool iad = s_with_cdc || s_drv->is_config;
     s_device_desc = (tusb_desc_device_t){

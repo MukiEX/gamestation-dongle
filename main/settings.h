@@ -43,7 +43,8 @@ typedef enum {
 typedef struct {
     out_mode_t out_mode;
     bool log_port;           // CDC serial log port next to the controller
-    bool switch_plain;       // Switch Pro mode: only the controller (no log port / mouse), for Switch consoles
+    bool single_ctrl;        // single controller mode: only the controller on USB (no log port / mouse);
+                             // XInput then uses the real Xbox 360 ID. For consoles.
     uint8_t rumble_strength; // 0 (off) .. 10; 5 = Switch2Connect's default
     button_layout_t layout;
     uint8_t deadzone_pct;    // radial stick deadzone, 0..30 %
@@ -64,7 +65,6 @@ typedef struct {
     uint8_t display_bright;  // on-device display backlight 0..10
     bool ble_hid;            // pair with / connect generic Bluetooth LE HID gamepads
     bool m64_nso;            // M64 Pro: Nintendo Switch Online layout (A = A, B = B) instead of positional
-    bool xinput_generic;     // XInput mode uses its own USB ID instead of the Xbox 360 one
     uint8_t scroll_speed;    // USB mouse wheel / sideways scroll from the stick: 1..10, 5 = default
     bool pad_hscroll;        // USB mouse: stick sideways = sideways scroll
     uint8_t pad_mouse;       // PAD_MOUSE_*: the mouse sensors drive a USB mouse instead (all modes)

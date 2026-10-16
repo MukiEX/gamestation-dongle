@@ -142,18 +142,19 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="hint" id="layouthint"></div>
     </div>
     <div class="row">
+      <label>Single controller mode</label>
+      <div class="seg" id="singleCtrl">
+        <button data-v="true">On</button><button data-v="false">Off</button>
+      </div>
+      <div class="hint">On: the dongle is only the controller, as consoles (Switch, Switch 2) insist. No log port, no USB mouse, and XInput uses the real Xbox 360 ID (045E:028E).
+        Off: the controller plus the log port and the USB mouse (as set below and in Joy-Con sensors); XInput uses the dongle's own ID (303A:8246) so Windows shows all of them. Takes effect when you exit.</div>
+    </div>
+    <div class="row">
       <label>Log port</label>
       <div class="seg" id="logPort">
         <button data-v="true">On</button><button data-v="false">Off</button>
       </div>
-      <div class="hint">The serial port next to the controller. Turn it off for consoles.</div>
-    </div>
-    <div class="row">
-      <label>Switch Pro mode for</label>
-      <div class="seg" id="switchPlain">
-        <button data-v="true">Switch console</button><button data-v="false">PC</button>
-      </div>
-      <div class="hint">Switch console: the dongle is only a Pro Controller, as Switch and Switch 2 insist (no log port, no USB mouse). PC: log port and mouse as set here.</div>
+      <div class="hint">The serial port next to the controller (only with single controller mode off).</div>
     </div>
     <div class="row">
       <label>Hotkeys</label>
@@ -223,15 +224,6 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
         (an extra USB device), and while it lies there its shoulder = left click, trigger = right click, stick press = middle,
         stick up / down = wheel. Pointer only: the same pointer, but every button stays on the controller.
         Controller: the sensor feeds the trackpads / touchpad as below. Takes effect when you exit.</div>
-    </div>
-    <div class="row">
-      <label>XInput USB ID</label>
-      <div class="seg" id="xinputGeneric">
-        <button data-v="false">Xbox 360</button><button data-v="true">Dongle's own</button>
-      </div>
-      <div class="hint">XInput mode only. With the Xbox 360 ID, Windows' Xbox driver takes the whole USB device, so the USB mouse and the log port don't appear.
-        Dongle's own ID (303A:8246, the default) lets them appear; Windows still uses its Xbox driver for the controller, but a few games that look for the real Xbox ID may not.
-        Takes effect when you exit.</div>
     </div>
     <div class="row">
       <label for="mouseSpeed">Mouse speed</label>
@@ -385,7 +377,7 @@ function showSettings() {
   }
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
-  seg("switchPlain", settings.switchPlain !== false);
+  seg("singleCtrl", !!settings.singleCtrl);
   seg("hotkeys", settings.hotkeys);
   seg("bleHid", settings.bleHid);
   seg("m64Nso", !!settings.m64Nso);
@@ -406,7 +398,6 @@ function showSettings() {
   seg("padHscroll", String(!!settings.padHscroll));
   $("scrollSpeed").value = settings.scrollSpeed;
   $("scrollSpeedOut").textContent = settings.scrollSpeed;
-  seg("xinputGeneric", String(!!settings.xinputGeneric));
   $("mouseSpeedOut").textContent = padSpeedName(settings.mouseSpeed);
   $("gl").value = settings.gl;
   $("gr").value = settings.gr;
@@ -452,7 +443,7 @@ function save(patch) {
   }, 150);
 }
 
-for (const id of ["layout", "logPort", "switchPlain", "hotkeys", "bleHid", "m64Nso"]) {
+for (const id of ["layout", "logPort", "singleCtrl", "hotkeys", "bleHid", "m64Nso"]) {
   $(id).addEventListener("click", (e) => {
     const v = e.target.dataset && e.target.dataset.v;
     if (v === undefined) return;
@@ -481,10 +472,6 @@ $("displayRot").addEventListener("click", (e) => {
   if (v !== undefined) save({ displayRot: +v });
 });
 $("mouseSpeed").addEventListener("input", () => save({ mouseSpeed: +$("mouseSpeed").value }));
-$("xinputGeneric").addEventListener("click", (e) => {
-  const v = e.target.dataset && e.target.dataset.v;
-  if (v !== undefined) save({ xinputGeneric: v === "true" });
-});
 $("scrollSpeed").addEventListener("input", () => save({ scrollSpeed: +$("scrollSpeed").value }));
 $("padHscroll").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
