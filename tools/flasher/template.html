@@ -485,9 +485,8 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "T-Dongle in Switch Pro mode ('Switch Pro mode for' = Switch console) on the Switch 2 (Pro Controller Wired Communication on). Pass if a Pro Controller shows up; either way, note the screen's status line (e.g. 'USB: config read', 'Switch: no hello yet', 'Switch: handshake...')",
-    "Same on the original Switch: Pass if a Pro Controller shows up; note the status line",
-    "Same mode on the PC (Steam running): Pass if it still works as a controller",
+    "Dev board: UART to the PC (log here), the dongle's USB to the Switch 2 (powered hub if needed), Switch Pro mode, 'Switch Pro mode for' = Switch console. Pass if a Pro Controller shows up. Either way, save this report: the log lists every request the Switch makes ('host: ...')",
+    "If it still fails: also try the original Switch the same way and save that report too",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 

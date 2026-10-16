@@ -395,6 +395,11 @@ static void handle_subcommand(const uint8_t *d, uint16_t n)
         spi_read(&r[20], addr, size);
         break;
     }
+    case 0x01: r[13] = 0x81; r[15] = 0x03; break;  // Bluetooth pairing request
+    case 0x08: break;                      // shipment mode
+    case 0x21: case 0x22: break;           // NFC/IR config / state
+    case 0x33: r[15] = 0x03; break;
+    case 0x38: break;                      // home light
     case 0x30: break;                      // player lights
     case 0x31: r[13] = 0xB0; r[15] = 0x01; break;
     case 0x40: break;                      // IMU on/off
@@ -423,6 +428,28 @@ static void host_rumble(const uint8_t *buf)
     rumble_set_hd(&buf[2], &buf[6]);
 }
 
+// The first host messages after each start are logged (UART on the dev board
+// still works while the dongle's USB is in a console).
+static int s_host_logs;
+
+static void log_host(const uint8_t *buf, uint16_t len)
+{
+    if (s_host_logs >= 80) return;
+    if (buf[0] == 0x10) return;  // rumble only: logged by host_rumble
+    s_host_logs++;
+    if (buf[0] == 0x80) {
+        ESP_LOGI(TAG, "host: 80 %02x", buf[1]);
+    } else if (buf[0] == 0x01 && len > 10) {
+        if (buf[10] == 0x10 && len >= 16) {
+            ESP_LOGI(TAG, "host: subcommand 10 (SPI read 0x%04x, %u bytes)", buf[11] | (buf[12] << 8), buf[15]);
+        } else {
+            ESP_LOGI(TAG, "host: subcommand %02x %02x %02x", buf[10], len > 11 ? buf[11] : 0, len > 12 ? buf[12] : 0);
+        }
+    } else {
+        ESP_LOGI(TAG, "host: report %02x %02x (%u bytes)", buf[0], buf[1], len);
+    }
+}
+
 static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, uint16_t len)
 {
     (void)type;
@@ -439,6 +466,7 @@ static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, u
     if (len < 2) {
         return;
     }
+    log_host(buf, len);
     uint8_t r[64];
     switch (buf[0]) {
     case 0x80:
@@ -455,11 +483,18 @@ static void set_report(uint8_t id, hid_report_type_t type, const uint8_t *buf, u
             if (!s_ready) ESP_LOGI(TAG, "host handshake done, streaming input");
             s_ready = true;
             usb_gamepad_note_stage(USB_STAGE_STREAMING);
-            break;
-        case 0x05:
-            s_ready = false;
+            // GP2040-CE answers 80 04 / 80 05 / others with 30 <sub>.
+            memset(r, 0, sizeof(r));
+            r[0] = 0x30;
+            r[1] = buf[1];
+            queue_reply(r);
             break;
         default:
+            if (buf[1] == 0x05) s_ready = false;
+            memset(r, 0, sizeof(r));
+            r[0] = 0x30;
+            r[1] = buf[1];
+            queue_reply(r);
             break;
         }
         break;
@@ -483,6 +518,7 @@ static void reset(void)
     s_ready = false;
     s_sent_hello = false;
     s_timer = 0;
+    s_host_logs = 0;
 }
 
 const out_driver_t out_switchpro = {

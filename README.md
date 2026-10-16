@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.11
+## Status: 1.2.12
 
 | Step | What | State |
 |---|---|---|
@@ -188,7 +188,10 @@ PS4 is untested. On a Switch 2 the T-Dongle screen stayed on "Waiting for the PC
 interface matches a real Pro Controller byte for byte (IN endpoint before
 OUT, no interface string, serial 000000000001), and the screen shows how far
 the host got: *USB: device read / config read / HID read*, then *Switch: no
-hello yet / handshake...* until input streams.
+hello yet / handshake...* until input streams. With a powered hub the Switch 2 went
+through the handshake and streamed input, yet didn't accept the controller;
+1.2.12 answers like GP2040-CE in the remaining places and logs the
+console's first 80 requests (UART log on the dev board).
 
 Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
 B, whatever the label on the Nintendo controller says.
