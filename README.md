@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.9
+## Status: 1.2.10
 
 | Step | What | State |
 |---|---|---|
@@ -178,7 +178,12 @@ mouse don't appear.
 Every mode also has the serial log port unless you turn it off in the
 configurator, which consoles may need. Turning it off only removes the
 dongle's own USB COM port; the board's second (UART) USB port always carries
-the console log. Console use (a real Switch or PS4) is untested.
+the console log. A Switch and Switch 2 ignored the dongle in Switch Pro mode
+while PCs, a Steam Deck and an iPhone took it: the consoles want nothing but
+the Pro Controller on the USB device. So *Switch Pro mode for* defaults to
+**Switch console** (no log port, no USB mouse, whatever else is set); pick
+**PC** to have them back in that mode. Console use is still to be confirmed;
+PS4 is untested.
 
 Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
 B, whatever the label on the Nintendo controller says.

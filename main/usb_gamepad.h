@@ -29,3 +29,5 @@ void usb_gamepad_reapply(void);
 
 void usb_gamepad_set_firmware_version(const char *v);
 const char *usb_gamepad_firmware_version(void);
+// True if the current USB device includes the mouse interface.
+bool usb_gamepad_has_mouse(void);

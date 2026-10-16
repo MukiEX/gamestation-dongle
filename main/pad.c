@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 
 #include "ns2_proto.h"
+#include "usb_gamepad.h"
 
 static const char *TAG = "pad";
 
@@ -237,7 +238,8 @@ void pad_get_output(pad_out_t *o)
 
     memset(o, 0, sizeof(*o));
     // Pointer-only mouse setting: every button stays on the controller.
-    if (settings_get().pad_mouse == PAD_MOUSE_FULL) {
+    // (Not when the USB device has no mouse, e.g. Switch Pro mode for a console.)
+    if (settings_get().pad_mouse == PAD_MOUSE_FULL && usb_gamepad_has_mouse()) {
         if (present[PAD_ROLE_LEFT] && side[PAD_ROLE_LEFT].tp.mouse_pose) {
             take_mouse_controls(&side[PAD_ROLE_LEFT], true, o);
         }

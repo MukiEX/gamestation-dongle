@@ -43,6 +43,7 @@ typedef enum {
 typedef struct {
     out_mode_t out_mode;
     bool log_port;           // CDC serial log port next to the controller
+    bool switch_plain;       // Switch Pro mode: only the controller (no log port / mouse), for Switch consoles
     uint8_t rumble_strength; // 0 (off) .. 10; 5 = Switch2Connect's default
     button_layout_t layout;
     uint8_t deadzone_pct;    // radial stick deadzone, 0..30 %

@@ -343,6 +343,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON *o = cJSON_CreateObject();
     cJSON_AddStringToObject(o, "mode", settings_out_mode_key(s->out_mode));
     cJSON_AddBoolToObject(o, "logPort", s->log_port);
+    cJSON_AddBoolToObject(o, "switchPlain", s->switch_plain);
     cJSON_AddNumberToObject(o, "rumble", s->rumble_strength);
     cJSON_AddStringToObject(o, "layout", s->layout == LAYOUT_LABELS ? "labels" : "positional");
     cJSON_AddNumberToObject(o, "deadzone", s->deadzone_pct);
@@ -462,6 +463,7 @@ static esp_err_t h_settings(httpd_req_t *req)
         }
     }
     if ((v = cJSON_GetObjectItem(j, "logPort")) && cJSON_IsBool(v)) s.log_port = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "switchPlain")) && cJSON_IsBool(v)) s.switch_plain = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItem(j, "rumble")) && cJSON_IsNumber(v)) s.rumble_strength = (uint8_t)v->valueint;
     if ((v = cJSON_GetObjectItem(j, "layout")) && cJSON_IsString(v)) {
         s.layout = strcmp(v->valuestring, "labels") == 0 ? LAYOUT_LABELS : LAYOUT_POSITIONAL;

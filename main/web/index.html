@@ -149,6 +149,13 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="hint">The serial port next to the controller. Turn it off for consoles.</div>
     </div>
     <div class="row">
+      <label>Switch Pro mode for</label>
+      <div class="seg" id="switchPlain">
+        <button data-v="true">Switch console</button><button data-v="false">PC</button>
+      </div>
+      <div class="hint">Switch console: the dongle is only a Pro Controller, as Switch and Switch 2 insist (no log port, no USB mouse). PC: log port and mouse as set here.</div>
+    </div>
+    <div class="row">
       <label>Hotkeys</label>
       <div class="seg" id="hotkeys">
         <button data-v="true">On</button><button data-v="false">Off</button>
@@ -378,6 +385,7 @@ function showSettings() {
   }
   seg("layout", settings.layout);
   seg("logPort", settings.logPort);
+  seg("switchPlain", settings.switchPlain !== false);
   seg("hotkeys", settings.hotkeys);
   seg("bleHid", settings.bleHid);
   seg("m64Nso", !!settings.m64Nso);
@@ -444,7 +452,7 @@ function save(patch) {
   }, 150);
 }
 
-for (const id of ["layout", "logPort", "hotkeys", "bleHid", "m64Nso"]) {
+for (const id of ["layout", "logPort", "switchPlain", "hotkeys", "bleHid", "m64Nso"]) {
   $(id).addEventListener("click", (e) => {
     const v = e.target.dataset && e.target.dataset.v;
     if (v === undefined) return;

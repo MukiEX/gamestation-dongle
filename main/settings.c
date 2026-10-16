@@ -16,6 +16,7 @@ static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static settings_t s_cur = {
     .out_mode = OUT_MODE_XINPUT,
     .log_port = true,
+    .switch_plain = true,
     .rumble_strength = 5,
     .layout = LAYOUT_POSITIONAL,
     .deadzone_pct = 3,
@@ -92,6 +93,7 @@ void settings_init(void)
         settings_t s = s_cur;
         s.out_mode = (out_mode_t)get_u8(h, "mode", s.out_mode, OUT_MODE_COUNT - 1);
         s.log_port = get_u8(h, "logport", s.log_port, 1);
+        s.switch_plain = get_u8(h, "swplain", s.switch_plain, 1);
         s.rumble_strength = get_u8(h, "rumble", s.rumble_strength, SETTINGS_RUMBLE_MAX);
         s.layout = (button_layout_t)get_u8(h, "layout", s.layout, LAYOUT_LABELS);
         s.deadzone_pct = get_u8(h, "deadzone", s.deadzone_pct, SETTINGS_DEADZONE_MAX);
@@ -185,6 +187,7 @@ void settings_set(const settings_t *in)
     if (nvs_open("dongle", NVS_READWRITE, &h) == ESP_OK) {
         nvs_set_u8(h, "mode", (uint8_t)s.out_mode);
         nvs_set_u8(h, "logport", s.log_port);
+        nvs_set_u8(h, "swplain", s.switch_plain);
         nvs_set_u8(h, "rumble", s.rumble_strength);
         nvs_set_u8(h, "layout", (uint8_t)s.layout);
         nvs_set_u8(h, "deadzone", s.deadzone_pct);
