@@ -30,7 +30,7 @@ stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
 does, and the list of paired controllers. Your PC keeps its normal internet
 connection while it's open.
 
-## Status: 1.2.14
+## Status: 1.2.15
 
 | Step | What | State |
 |---|---|---|
@@ -90,9 +90,8 @@ connection while it's open.
   USB stick with a 1.47" 172×320 ST7789 screen and a WS2812 RGB LED (LCD MOSI
   45, SCLK 40, CS 42, DC 41, RST 39, backlight 48; LED 38; BOOT 0). Same
   screens and settings, drawn at twice the size with fonts made for it; same
-  default orientation (*Upright ↻*). Untested on the hardware so far: if the
-  picture is upside down in the default, or red and blue are swapped, report
-  it. To flash it, hold BOOT while plugging it in.
+  default orientation (*Upright ↻*, the right way up when plugged facing
+  down; 1.2.14 had it upside down). To flash it, hold BOOT while plugging it in.
 
 ### Controllers
 

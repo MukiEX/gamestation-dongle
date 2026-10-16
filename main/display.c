@@ -80,8 +80,10 @@ static const uint8_t MADCTL[4] = { 0xA8, 0x68, 0x08, 0xC8 };
 #define PORT_X_OFF 34
 #define PORT_Y_OFF 0
 #define SCALE 2
-// MV|MX, MV|MY, native, MX|MY (RGB order).
-static const uint8_t MADCTL[4] = { 0x60, 0xA0, 0x00, 0xC0 };
+// The panel's own orientation has the USB plug at the bottom, so it is
+// "Upright turned" here (the default: plugged facing down); each pair is
+// swapped against a naive reading. MV|MY, MV|MX, MX|MY, native (RGB order).
+static const uint8_t MADCTL[4] = { 0xA0, 0x60, 0xC0, 0x00 };
 #define FONT_BIG   font_big2
 #define FONT_SMALL font_small2
 #endif

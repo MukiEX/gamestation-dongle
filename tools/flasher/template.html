@@ -487,10 +487,9 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Waveshare ESP32-S3-LCD-1.47: flash the 'Waveshare ESP32-S3-LCD-1.47' image (hold BOOT while plugging in). Pass if the screen shows the mode and status and the LED lights in the mode's colour (XInput green, Switch Pro red)",
-    "Plugged in facing down: Pass if the default picture is the right way up. If not, note which Orientation button fixes it",
-    "Colours: XInput's bar should be green, Switch Pro's red, battery bars green. Pass if they are (if red and blue look swapped, say so)",
-    "Landscape and both Upright buttons, and brightness 0..10: Pass if each looks right",
+    "Waveshare 1.47: plugged in facing down, Pass if the default picture (Upright \u21bb) is the right way up. If you saved an orientation in 1.2.14, press Upright \u21bb in the configurator once",
+    "Orientation buttons: Landscape / Landscape \u21bb are the two ways round lying flat, Upright the opposite of Upright \u21bb. Pass if all four look right",
+    "Colours and LED: XInput bar and LED green, Switch Pro red. Pass if so",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
