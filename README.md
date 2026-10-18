@@ -83,7 +83,7 @@ connection while it's open.
   (same presses as below). To flash it, hold the button while plugging it in.
   The battery gauge uses the value each controller reports, calibrated
   against the Switch 2's own gauge (about 3260 = full, 3170 = just over half,
-  3155-3165 = half;
+  3155-3165 = half, about 2815 = just past empty;
   4 bars from 3240, 3 from 3170, 2 from 3100, 1 from 3000) and is a rough
   guide. The configurator's Controllers list shows the raw number.
 * **Waveshare ESP32-S3-LCD-1.47** (`joycon2-dongle-<ver>-lcd147-merged.bin`,
