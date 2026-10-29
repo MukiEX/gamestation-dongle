@@ -5,8 +5,15 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
+
+#include "settings.h"
 
 void usb_gamepad_start(void);
+
+// The output button(s) a grip_map_t choice presses in the current mode
+// (shared by the GL / GR back buttons and the Gamestation keypad).
+uint32_t usb_gamepad_grip_bits(grip_map_t m, bool left);
 
 // Wakes the report task; safe to call from any task (not from an ISR).
 void usb_gamepad_poke(void);

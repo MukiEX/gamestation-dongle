@@ -49,6 +49,7 @@
 
 #include "bonds.h"
 #include "hid_gamepad.h"
+#include "gs.h"
 #include "ns2_proto.h"
 #include "pad.h"
 #include "rumble.h"
@@ -158,6 +159,7 @@ typedef struct {
     int n_rep;
     char hid_name[24];             // GAP device name ("M64_Controller")
     bool m64;                      // ModRetro M64 Pro: N64 button layout
+    bool gs;                       // My Arcade Atari Gamestation Gamepad (gs.c decodes it)
     hid_layout_t *layout;          // allocated once per link slot
     hid_state_t hst;
     uint16_t hid_logs;             // input reports logged this connection
@@ -1176,11 +1178,13 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         }
         int idx = link_index(l);
         bool was_ready = l->state == LS_READY;
+        bool was_gs = l->gs;
         pad_role_t role = l->role;
         ESP_LOGI(TAG, "link %d: disconnected (reason=0x%03x)", idx, event->disconnect.reason);
         link_free(l);
         if (was_ready) {
             pad_link_down(role);
+            if (was_gs) gs_link_down();
         }
         ev_t ev = { .type = EV_LINK_GONE, .link = idx };
         post(&ev);
@@ -1750,6 +1754,18 @@ static bool hid_setup(link_t *l)
     }
     l->m64 = strncmp(l->hid_name, "M64", 3) == 0;
 
+    // PnP ID (Device Information 0x2A50): vendor ID source, VID, PID, version.
+    // The Gamestation Gamepad reports 02 0E00 1234 0004 (VID 0x000E, PID 0x3412).
+    static const ble_uuid16_t pnp_uuid = BLE_UUID16_INIT(0x2A50);
+    uint8_t pnp[7] = { 0 };
+    l->gs = false;
+    l->gbuf = pnp; l->glen = 0; l->gcap = sizeof(pnp);
+    if (ble_gattc_read_by_uuid(l->conn, 1, 0xFFFF, &pnp_uuid.u, g_read_cb, l) == 0 && gatt_wait(l) && l->glen >= 5) {
+        uint16_t vid = pnp[1] | (pnp[2] << 8), pid = pnp[3] | (pnp[4] << 8);
+        ESP_LOGI(TAG, "link %d: PnP ID source %u VID 0x%04x PID 0x%04x", idx, pnp[0], vid, pid);
+        l->gs = vid == GS_VID && pid == GS_PID;
+    }
+
     static const ble_uuid16_t hid_uuid = BLE_UUID16_INIT(0x1812);
     l->hid_start = l->hid_end = 0;
     if (ble_gattc_disc_svc_by_uuid(l->conn, &hid_uuid.u, g_svc_cb, l) != 0 || !gatt_wait(l) || l->hid_start == 0) {
@@ -1835,6 +1851,19 @@ static bool hid_setup(link_t *l)
         return false;
     }
     hid_state_init(l->layout, &l->hst);
+    if (!l->gs) {
+        // No PnP ID read: recognise the Gamestation by its report 1, a game pad
+        // with the paddle on Z and keypad keys from the keyboard page.
+        bool z = false, keypad = false;
+        for (int i = 0; i < l->layout->n; i++) {
+            const hid_field_t *f = &l->layout->f[i];
+            if (f->report_id != 1) continue;
+            if (f->page == 0x01 && f->usage == 0x32) z = true;
+            if (f->page == 0x07 && f->usage == 0x59) keypad = true;
+        }
+        l->gs = z && keypad;
+    }
+    if (l->gs) ESP_LOGI(TAG, "link %d: My Arcade Atari Gamestation Gamepad", idx);
 
     // Input reports whose Report Reference couldn't be read: give them the
     // map's input report IDs in order (both are normally in handle order).
@@ -1940,6 +1969,7 @@ static void handle_hid_secured(int idx)
     portEXIT_CRITICAL(&s_links_mux);
     if (promoted) {
         pad_link_up(l->role);
+        if (l->gs) gs_link_up();
     }
 }
 
@@ -2044,6 +2074,12 @@ static void hid_notify(link_t *l, uint16_t attr, const uint8_t *buf, uint16_t le
         }
     }
     if (l->state != LS_READY) {
+        return;
+    }
+    if (l->gs) {
+        pad_side_t gs_side;
+        gs_report(l->rep[r].id, buf, len, &gs_side);
+        pad_update(PAD_ROLE_FULL, &gs_side);  // also pokes the USB report task
         return;
     }
     hid_decode(l->layout, l->rep[r].id, buf, len, &l->hst);

@@ -9,4 +9,4 @@ if(DEFINED ENV{DONGLE_EXTRA_COMPONENTS})
 endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(joycon2_dongle)
+project(gamestation_dongle)

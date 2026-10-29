@@ -40,6 +40,8 @@ typedef enum {
     GRIP_COUNT,
 } grip_map_t;
 
+#define SETTINGS_GS_KEYS 14  // GS_KEY_COUNT
+
 typedef struct {
     out_mode_t out_mode;
     bool log_port;           // CDC serial log port next to the controller
@@ -68,6 +70,17 @@ typedef struct {
     uint8_t scroll_speed;    // USB mouse wheel / sideways scroll from the stick: 1..10, 5 = default
     bool pad_hscroll;        // USB mouse: stick sideways = sideways scroll
     uint8_t pad_mouse;       // PAD_MOUSE_*: the mouse sensors drive a USB mouse instead (all modes)
+    // Gamestation Gamepad (gs.h): where the paddle and trackball go.
+    uint8_t gs_paddle;       // gs_paddle_target_t
+    uint8_t gs_paddle_sens;  // 1..16: 0.25x .. 4x (4 = 1x)
+    bool gs_paddle_inv;      // turn the other way
+    uint8_t gs_paddle_range; // stick-position modes: steps from centre to full deflection (5..160)
+    uint8_t gs_ball;         // gs_ball_target_t
+    uint8_t gs_ball_sens;    // 1..16, as the paddle
+    bool gs_ball_inv_y;
+    uint8_t gs_jp3_lines;    // gs_jp3_lines_t
+    uint8_t gs_jp3_hold;     // ms each encoder state (and each d-pad tap) is held, 1..16
+    uint8_t gs_keys[SETTINGS_GS_KEYS];  // grip_map_t per keypad key / Credit / Settings
 } settings_t;
 
 #define SETTINGS_PAD_SPEED_MAX 19

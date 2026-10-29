@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "usb_gamepad.h"
+#include "gs.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -207,7 +208,7 @@ static void build_descriptors(void)
     uint8_t itf_cdc = s_drv->itf_count;
     const uint8_t cdc[] = { TUD_CDC_DESCRIPTOR(itf_cdc, 5, EP_CDC_NOTIF, 8, EP_CDC_OUT, EP_CDC_IN, 64) };
     uint16_t cdc_len = s_with_cdc ? sizeof(cdc) : 0;
-    s_with_mouse = !s_drv->is_config && !plain && settings_get().pad_mouse != PAD_MOUSE_OFF;
+    s_with_mouse = !s_drv->is_config && !plain && (settings_get().pad_mouse != PAD_MOUSE_OFF || gs_wants_mouse());
     s_mouse_desc_read = false;
     s_mouse_logged_desc = s_mouse_logged_first = false;
     s_mouse_fail = 0;
@@ -250,9 +251,9 @@ static void build_descriptors(void)
     s_strings[2] = s_drv->product;
     s_strings[3] = s_drv->serial ? s_drv->serial : s_serial;
     s_strings[4] = s_drv->product;   // gamepad interface (Windows shows this name)
-    s_strings[5] = "Joy-Con 2 Dongle log";
+    s_strings[5] = "Gamestation Dongle log";
     s_strings[CONFIG_MAC_STRING_INDEX] = config_server_host_mac_string();
-    s_strings[MOUSE_STRING_INDEX] = "Joy-Con 2 Dongle mouse";
+    s_strings[MOUSE_STRING_INDEX] = "Gamestation Dongle mouse";
 }
 
 // Microsoft OS 1.0 descriptors (generic XInput ID only). esp_tinyusb owns
@@ -584,7 +585,7 @@ static void log_motion_flips(void)
 }
 
 // Pro Controller 2 back buttons: GL / GR press whatever the settings say.
-static uint32_t grip_target(grip_map_t m, bool left)
+uint32_t usb_gamepad_grip_bits(grip_map_t m, bool left)
 {
     static const uint32_t bits[GRIP_COUNT] = {
         [GRIP_A] = NS2_BTN_A, [GRIP_B] = NS2_BTN_B, [GRIP_X] = NS2_BTN_X, [GRIP_Y] = NS2_BTN_Y,
@@ -609,8 +610,8 @@ static void apply_grips(pad_out_t *o)
 {
     settings_t st = settings_get();
     uint32_t b = o->buttons & ~(NS2_BTN_GL | NS2_BTN_GR);
-    if (o->buttons & NS2_BTN_GL) b |= grip_target(st.grip_gl, true);
-    if (o->buttons & NS2_BTN_GR) b |= grip_target(st.grip_gr, false);
+    if (o->buttons & NS2_BTN_GL) b |= usb_gamepad_grip_bits(st.grip_gl, true);
+    if (o->buttons & NS2_BTN_GR) b |= usb_gamepad_grip_bits(st.grip_gr, false);
     o->buttons = b;
 }
 
@@ -663,6 +664,9 @@ static void send_mouse(const pad_out_t *o)
     int wheel = (int)wheel_acc;
     wheel_acc -= wheel;
     if (o->mouse_wheel == 0.0f) wheel_acc = 0.0f;
+    wheel += pad_wheel_take();  // Gamestation paddle as a wheel
+    if (wheel > 127) wheel = 127;
+    if (wheel < -127) wheel = -127;
     pan_acc += o->mouse_pan * rate * (dt > 0.1f ? 0.1f : dt);
     int pan = (int)pan_acc;
     pan_acc -= pan;
@@ -711,6 +715,7 @@ static void report_task(void *arg)
         }
         pad_out_t out;
         pad_get_output(&out);
+        gs_apply(&out, esp_timer_get_time());  // keypad, paddle, trackball, JP3
         check_hotkeys(&out);
         bool mounted = s_mounted;
         if (!mounted) {
@@ -728,7 +733,7 @@ static void report_task(void *arg)
         if (s_with_mouse) {
             send_mouse(&out);
         }
-        wait = done ? pdMS_TO_TICKS(s_drv->period_ms) : pdMS_TO_TICKS(1);
+        wait = done && !gs_busy() ? pdMS_TO_TICKS(s_drv->period_ms) : pdMS_TO_TICKS(1);
     }
 }
 

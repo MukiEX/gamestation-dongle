@@ -1,4 +1,4 @@
-// Joy-Con 2 Dongle firmware.
+// Gamestation Dongle firmware (based on the Joy-Con 2 Dongle 1.2.15).
 //
 // Connects Switch 2 Joy-Cons / Pro Controller 2 over BLE and exposes them to
 // the host as ONE USB controller (a left + right Joy-Con merge into a single
@@ -34,7 +34,7 @@
 
 static const char *TAG = "main";
 
-#define FW_BASE          "1.2.15"
+#define FW_BASE          "0.1.0"
 #if defined(DONGLE_DIAG)
 #define FW_VERSION       FW_BASE "-diag"
 #elif defined(DONGLE_BOARD_TDONGLE)
@@ -114,7 +114,7 @@ static void heartbeat_task(void *arg)
 void app_main(void)
 {
     bool safe_mode = diag_boot();
-    ESP_LOGI(TAG, "Joy-Con 2 Dongle %s starting", FW_VERSION);
+    ESP_LOGI(TAG, "Gamestation Dongle %s starting", FW_VERSION);
     ESP_LOGI(TAG, "stage 1/5: storage");
     init_nvs();
     settings_init();
@@ -128,7 +128,7 @@ void app_main(void)
     usb_gamepad_start();   // the log mirror catches everything after this
 #endif
 
-    ESP_LOGI(TAG, "Joy-Con 2 Dongle %s", FW_VERSION);
+    ESP_LOGI(TAG, "Gamestation Dongle %s", FW_VERSION);
     ESP_LOGI(TAG, "stage 3/5: diagnostics");
     diag_start();
     bonds_init();

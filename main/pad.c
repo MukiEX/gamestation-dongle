@@ -206,6 +206,26 @@ void pad_mouse_take(int32_t *dx, int32_t *dy)
     portEXIT_CRITICAL(&s_mouse_lock);
 }
 
+static int s_wheel_steps;
+
+void pad_wheel_add(int steps)
+{
+    portENTER_CRITICAL(&s_mouse_lock);
+    s_wheel_steps += steps;
+    portEXIT_CRITICAL(&s_mouse_lock);
+}
+
+int pad_wheel_take(void)
+{
+    portENTER_CRITICAL(&s_mouse_lock);
+    int w = s_wheel_steps;
+    if (w > 127) w = 127;
+    if (w < -127) w = -127;
+    s_wheel_steps -= w;
+    portEXIT_CRITICAL(&s_mouse_lock);
+    return w;
+}
+
 // Mouse setting: a Joy-Con lying on its rail side lends its shoulder (left
 // click), trigger (right click), stick press (middle) and stick up/down
 // (wheel) to the mouse; they leave the controller while it lies there.

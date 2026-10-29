@@ -86,6 +86,9 @@ typedef struct {
 // Bluetooth side adds, the USB side takes what has built up.
 void pad_mouse_add(float dx, float dy);
 void pad_mouse_take(int32_t *dx, int32_t *dy);
+// Whole mouse-wheel steps (Gamestation paddle), + = scroll up.
+void pad_wheel_add(int steps);
+int pad_wheel_take(void);
 
 // Pseudo product ID for generic Bluetooth LE HID gamepads (e.g. ModRetro
 // M64 Pro); they connect as a full controller like the Pro Controller 2.

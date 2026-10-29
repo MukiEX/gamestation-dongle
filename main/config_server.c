@@ -34,6 +34,7 @@
 #include "pad.h"
 #include "display.h"
 #include "settings.h"
+#include "gs.h"
 #include "usb_gamepad.h"
 
 static const char *TAG = "config";
@@ -169,7 +170,7 @@ static void stats_task(void *arg)
                      (unsigned long)s_rx_pkts, (unsigned long)s_tx_pkts, (unsigned long)s_tx_fail);
         } else {
             ESP_LOGW(TAG, "network: nothing from the PC yet (check Device Manager for the "
-                          "'Joy-Con 2 Dongle Configurator' network adapter)");
+                          "'Gamestation Dongle Configurator' network adapter)");
         }
         last_rx = s_rx_pkts;
         last_tx = s_tx_pkts;
@@ -365,6 +366,19 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddBoolToObject(o, "hasDisplay", DISPLAY_PRESENT);
     cJSON_AddNumberToObject(o, "displayRot", s->display_rot);
     cJSON_AddNumberToObject(o, "displayBright", s->display_bright);
+    cJSON_AddStringToObject(o, "gsPaddle", gs_paddle_key((gs_paddle_target_t)s->gs_paddle));
+    cJSON_AddNumberToObject(o, "gsPaddleSens", s->gs_paddle_sens);
+    cJSON_AddBoolToObject(o, "gsPaddleInv", s->gs_paddle_inv);
+    cJSON_AddNumberToObject(o, "gsPaddleRange", s->gs_paddle_range);
+    cJSON_AddStringToObject(o, "gsBall", gs_ball_key((gs_ball_target_t)s->gs_ball));
+    cJSON_AddNumberToObject(o, "gsBallSens", s->gs_ball_sens);
+    cJSON_AddBoolToObject(o, "gsBallInvY", s->gs_ball_inv_y);
+    cJSON_AddStringToObject(o, "gsJp3Lines", s->gs_jp3_lines == GS_JP3_LEFT_RIGHT ? "lr" : "lu");
+    cJSON_AddNumberToObject(o, "gsJp3Hold", s->gs_jp3_hold);
+    cJSON *keys = cJSON_AddObjectToObject(o, "gsKeys");
+    for (int i = 0; i < GS_KEY_COUNT; i++) {
+        cJSON_AddStringToObject(keys, gs_key_id(i), settings_grip_key((grip_map_t)s->gs_keys[i]));
+    }
     return o;
 }
 
@@ -391,6 +405,27 @@ static esp_err_t h_state(httpd_req_t *req)
         cJSON_AddStringToObject(e, "key", settings_grip_key((grip_map_t)g));
         cJSON_AddStringToObject(e, "name", settings_grip_name((grip_map_t)g));
         cJSON_AddItemToArray(grips, e);
+    }
+    cJSON *gp = cJSON_AddArrayToObject(root, "gsPaddleTargets");
+    for (int t = 0; t < GS_PADDLE_COUNT; t++) {
+        cJSON *e = cJSON_CreateObject();
+        cJSON_AddStringToObject(e, "key", gs_paddle_key((gs_paddle_target_t)t));
+        cJSON_AddStringToObject(e, "name", gs_paddle_name((gs_paddle_target_t)t));
+        cJSON_AddItemToArray(gp, e);
+    }
+    cJSON *gb = cJSON_AddArrayToObject(root, "gsBallTargets");
+    for (int t = 0; t < GS_BALL_COUNT; t++) {
+        cJSON *e = cJSON_CreateObject();
+        cJSON_AddStringToObject(e, "key", gs_ball_key((gs_ball_target_t)t));
+        cJSON_AddStringToObject(e, "name", gs_ball_name((gs_ball_target_t)t));
+        cJSON_AddItemToArray(gb, e);
+    }
+    cJSON *gk = cJSON_AddArrayToObject(root, "gsKeyList");
+    for (int k = 0; k < GS_KEY_COUNT; k++) {
+        cJSON *e = cJSON_CreateObject();
+        cJSON_AddStringToObject(e, "id", gs_key_id(k));
+        cJSON_AddStringToObject(e, "label", gs_key_label(k));
+        cJSON_AddItemToArray(gk, e);
     }
 
     ble_link_info_t links[4];
@@ -422,6 +457,19 @@ static esp_err_t h_state(httpd_req_t *req)
 
     pad_out_t o;
     pad_get_output(&o);
+    gs_live_t gl;
+    gs_live(&gl);
+    cJSON *g = cJSON_AddObjectToObject(root, "gs");
+    cJSON_AddBoolToObject(g, "connected", gl.connected);
+    cJSON_AddNumberToObject(g, "paddleRaw", gl.paddle_raw);
+    cJSON_AddNumberToObject(g, "paddleTotal", gl.paddle_total);
+    cJSON_AddNumberToObject(g, "ballX", gl.ball_x);
+    cJSON_AddNumberToObject(g, "ballY", gl.ball_y);
+    cJSON_AddNumberToObject(g, "ballClipped", gl.ball_clipped);
+    cJSON_AddNumberToObject(g, "ballReports", gl.ball_reports);
+    cJSON_AddNumberToObject(g, "keys", gl.keys);
+    cJSON_AddNumberToObject(g, "jp3Phase", gl.jp3_phase);
+    cJSON_AddNumberToObject(g, "jp3Backlog", gl.jp3_backlog);
     cJSON *in = cJSON_AddObjectToObject(root, "input");
     static const char *mode_names[] = { "none", "pro", "pair", "left", "right" };
     cJSON_AddStringToObject(in, "layout", mode_names[o.mode < 5 ? o.mode : 0]);
@@ -491,6 +539,33 @@ static esp_err_t h_settings(httpd_req_t *req)
     if ((v = cJSON_GetObjectItem(j, "gr")) && cJSON_IsString(v)) {
         grip_map_t g = settings_grip_from_key(v->valuestring);
         if (g < GRIP_COUNT) s.grip_gr = g;
+    }
+    if ((v = cJSON_GetObjectItem(j, "gsPaddle")) && cJSON_IsString(v)) {
+        gs_paddle_target_t t = gs_paddle_from_key(v->valuestring);
+        if (t < GS_PADDLE_COUNT) s.gs_paddle = t;
+    }
+    if ((v = cJSON_GetObjectItem(j, "gsPaddleSens")) && cJSON_IsNumber(v)) s.gs_paddle_sens = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "gsPaddleInv")) && cJSON_IsBool(v)) s.gs_paddle_inv = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "gsPaddleRange")) && cJSON_IsNumber(v)) s.gs_paddle_range = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "gsBall")) && cJSON_IsString(v)) {
+        gs_ball_target_t t = gs_ball_from_key(v->valuestring);
+        if (t < GS_BALL_COUNT) s.gs_ball = t;
+    }
+    if ((v = cJSON_GetObjectItem(j, "gsBallSens")) && cJSON_IsNumber(v)) s.gs_ball_sens = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "gsBallInvY")) && cJSON_IsBool(v)) s.gs_ball_inv_y = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItem(j, "gsJp3Lines")) && cJSON_IsString(v)) {
+        s.gs_jp3_lines = strcmp(v->valuestring, "lr") == 0 ? GS_JP3_LEFT_RIGHT : GS_JP3_LEFT_UP;
+    }
+    if ((v = cJSON_GetObjectItem(j, "gsJp3Hold")) && cJSON_IsNumber(v)) s.gs_jp3_hold = (uint8_t)v->valueint;
+    cJSON *gk = cJSON_GetObjectItem(j, "gsKeys");
+    if (gk && cJSON_IsObject(gk)) {
+        for (int k = 0; k < GS_KEY_COUNT; k++) {
+            cJSON *e = cJSON_GetObjectItem(gk, gs_key_id(k));
+            if (e && cJSON_IsString(e)) {
+                grip_map_t g = settings_grip_from_key(e->valuestring);
+                if (g < GRIP_COUNT) s.gs_keys[k] = g;
+            }
+        }
     }
     cJSON_Delete(j);
     settings_set(&s);
@@ -749,8 +824,8 @@ static bool cfg_send(const pad_out_t *o)
 const out_driver_t out_config = {
     .name = "web configurator",
     .vid = 0x303A, .pid = 0x8245, .bcd_device = 0x0001,  // 0x8244 was the NCM version
-    .manufacturer = "Joy-Con 2 Dongle",
-    .product = "Joy-Con 2 Dongle Configurator",
+    .manufacturer = "Gamestation Dongle",
+    .product = "Gamestation Dongle Configurator",
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 2,
     .hid_report_desc = NULL,
     .send = cfg_send,

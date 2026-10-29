@@ -8,6 +8,10 @@
 #include "freertos/FreeRTOS.h"
 #include "nvs.h"
 
+#include "gs.h"
+
+_Static_assert(SETTINGS_GS_KEYS == GS_KEY_COUNT, "gs_keys size");
+
 static void log_pad(const settings_t *s, const char *what);
 
 static const char *TAG = "settings";
@@ -32,6 +36,19 @@ static settings_t s_cur = {
     .pad_lift = 0,
     .pad_ds_touch = true,
     .pad_grip = true,
+    .gs_paddle = GS_PADDLE_RSTICK_POS,
+    .gs_paddle_sens = 4,
+    .gs_paddle_range = 40,
+    .gs_ball = GS_BALL_MOUSE,
+    .gs_ball_sens = 4,
+    .gs_jp3_lines = GS_JP3_LEFT_UP,
+    .gs_jp3_hold = 4,
+    // Credit = Capture, so Credit + Home opens the configurator and Select +
+    // Start changes mode, as the other controllers' Capture + Home / - +.
+    .gs_keys = { [GS_KEY_CREDIT] = GRIP_CAPTURE, [GS_KEY_KP1] = GRIP_OFF, [GS_KEY_KP2] = GRIP_OFF,
+                 [GS_KEY_KP3] = GRIP_OFF, [GS_KEY_KP4] = GRIP_OFF, [GS_KEY_KP5] = GRIP_OFF, [GS_KEY_KP6] = GRIP_OFF,
+                 [GS_KEY_KP7] = GRIP_OFF, [GS_KEY_KP8] = GRIP_OFF, [GS_KEY_KP9] = GRIP_OFF, [GS_KEY_STAR] = GRIP_OFF,
+                 [GS_KEY_KP0] = GRIP_OFF, [GS_KEY_HASH] = GRIP_OFF, [GS_KEY_SETTINGS] = GRIP_OFF },
 };
 
 static const struct { const char *key, *name; } s_grips[GRIP_COUNT] = {
@@ -120,6 +137,28 @@ void settings_init(void)
         s.pad_grip = get_u8(h, "padgrip2", s.pad_grip, 1);
         s.pad_ds_touch = get_u8(h, "padds", s.pad_ds_touch, 1);
         s.pad_mouse = get_u8(h, "padmouse", s.pad_mouse, PAD_MOUSE_MAX);
+        s.gs_paddle = get_u8(h, "gspad", s.gs_paddle, GS_PADDLE_COUNT - 1);
+        s.gs_paddle_sens = get_u8(h, "gspadsens", s.gs_paddle_sens, 16);
+        if (s.gs_paddle_sens == 0) s.gs_paddle_sens = 4;
+        s.gs_paddle_inv = get_u8(h, "gspadinv", s.gs_paddle_inv, 1);
+        s.gs_paddle_range = get_u8(h, "gspadrange", s.gs_paddle_range, 160);
+        if (s.gs_paddle_range < 5) s.gs_paddle_range = 40;
+        s.gs_ball = get_u8(h, "gsball", s.gs_ball, GS_BALL_COUNT - 1);
+        s.gs_ball_sens = get_u8(h, "gsballsens", s.gs_ball_sens, 16);
+        if (s.gs_ball_sens == 0) s.gs_ball_sens = 4;
+        s.gs_ball_inv_y = get_u8(h, "gsballinvy", s.gs_ball_inv_y, 1);
+        s.gs_jp3_lines = get_u8(h, "gsjp3lines", s.gs_jp3_lines, GS_JP3_COUNT - 1);
+        s.gs_jp3_hold = get_u8(h, "gsjp3hold", s.gs_jp3_hold, 16);
+        if (s.gs_jp3_hold == 0) s.gs_jp3_hold = 4;
+        {
+            uint8_t keys[SETTINGS_GS_KEYS];
+            size_t n = sizeof(keys);
+            if (nvs_get_blob(h, "gskeys", keys, &n) == ESP_OK && n == sizeof(keys)) {
+                for (int i = 0; i < SETTINGS_GS_KEYS; i++) {
+                    if (keys[i] < GRIP_COUNT) s.gs_keys[i] = keys[i];
+                }
+            }
+        }
         s_cur = s;
         nvs_close(h);
     }
@@ -179,6 +218,16 @@ void settings_set(const settings_t *in)
     if (s.scroll_speed > 10) s.scroll_speed = 10;
     if (s.mouse_speed < 1) s.mouse_speed = 1;
     if (s.mouse_speed > SETTINGS_PAD_SPEED_MAX) s.mouse_speed = SETTINGS_PAD_SPEED_MAX;
+    if (s.gs_paddle >= GS_PADDLE_COUNT) s.gs_paddle = GS_PADDLE_OFF;
+    if (s.gs_paddle_sens < 1 || s.gs_paddle_sens > 16) s.gs_paddle_sens = 4;
+    if (s.gs_paddle_range < 5 || s.gs_paddle_range > 160) s.gs_paddle_range = 40;
+    if (s.gs_ball >= GS_BALL_COUNT) s.gs_ball = GS_BALL_OFF;
+    if (s.gs_ball_sens < 1 || s.gs_ball_sens > 16) s.gs_ball_sens = 4;
+    if (s.gs_jp3_lines >= GS_JP3_COUNT) s.gs_jp3_lines = GS_JP3_LEFT_UP;
+    if (s.gs_jp3_hold < 1 || s.gs_jp3_hold > 16) s.gs_jp3_hold = 4;
+    for (int i = 0; i < SETTINGS_GS_KEYS; i++) {
+        if (s.gs_keys[i] >= GRIP_COUNT || s.gs_keys[i] == GRIP_AUTO) s.gs_keys[i] = GRIP_OFF;
+    }
     portENTER_CRITICAL(&s_mux);
     s_cur = s;
     portEXIT_CRITICAL(&s_mux);
@@ -208,6 +257,16 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "padgrip2", s.pad_grip);
         nvs_set_u8(h, "padds", s.pad_ds_touch);
         nvs_set_u8(h, "padmouse", s.pad_mouse);
+        nvs_set_u8(h, "gspad", s.gs_paddle);
+        nvs_set_u8(h, "gspadsens", s.gs_paddle_sens);
+        nvs_set_u8(h, "gspadinv", s.gs_paddle_inv);
+        nvs_set_u8(h, "gspadrange", s.gs_paddle_range);
+        nvs_set_u8(h, "gsball", s.gs_ball);
+        nvs_set_u8(h, "gsballsens", s.gs_ball_sens);
+        nvs_set_u8(h, "gsballinvy", s.gs_ball_inv_y);
+        nvs_set_u8(h, "gsjp3lines", s.gs_jp3_lines);
+        nvs_set_u8(h, "gsjp3hold", s.gs_jp3_hold);
+        nvs_set_blob(h, "gskeys", s.gs_keys, sizeof(s.gs_keys));
         nvs_commit(h);
         nvs_close(h);
     }
@@ -220,6 +279,11 @@ void settings_set(const settings_t *in)
              settings_grip_key(s.grip_gl), settings_grip_key(s.grip_gr),
              settings_flip_code(s.flip_ds4, fd), settings_flip_code(s.flip_switch, fs));
     log_pad(&s, "saved");
+    ESP_LOGI(TAG, "saved: Gamestation paddle -> %s (%u/4x%s, range %u); trackball -> %s (%u/4x%s); JP3 on %s, %u ms",
+             gs_paddle_key((gs_paddle_target_t)s.gs_paddle), s.gs_paddle_sens, s.gs_paddle_inv ? ", inverted" : "",
+             s.gs_paddle_range, gs_ball_key((gs_ball_target_t)s.gs_ball), s.gs_ball_sens,
+             s.gs_ball_inv_y ? ", Y inverted" : "", s.gs_jp3_lines == GS_JP3_LEFT_UP ? "left/up" : "left/right",
+             s.gs_jp3_hold);
 }
 
 const out_mode_t SETTINGS_MODE_ORDER[OUT_MODE_COUNT] = {

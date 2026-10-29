@@ -16,6 +16,7 @@ idf_component_register(
         "config_server.c"
         "display.c"
         "hid_gamepad.c"
+        "gs.c"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "web/index.html"
     REQUIRES

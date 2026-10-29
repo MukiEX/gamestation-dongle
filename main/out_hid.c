@@ -133,8 +133,8 @@ static void reset(void)
 const out_driver_t out_hid = {
     .name = "generic HID gamepad",
     .vid = 0x303A, .pid = 0x8243, .bcd_device = 0x0001,
-    .manufacturer = "Joy-Con 2 Dongle",
-    .product = "Joy-Con 2 Dongle",
+    .manufacturer = "Gamestation Dongle",
+    .product = "Gamestation Dongle",
     .itf_desc = itf_desc, .itf_desc_len = sizeof(itf_desc), .itf_count = 1,
     .hid_report_desc = report_desc,
     .send = send,
