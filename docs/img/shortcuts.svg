@@ -19,8 +19,8 @@
     <rect class="gs-cfg" x="403" y="24" width="34" height="16" rx="5"/>
     <rect class="gs-body" x="20" y="40" width="640" height="320" rx="46"/>
     <circle class="gs-btn" cx="130" cy="110" r="40"/>
-    <circle class="gs-btn" cx="130" cy="225" r="50"/>
-    <path class="gs-btn" d="M118 280 h24 v26 h26 v24 h-26 v26 h-24 v-26 h-26 v-24 h26z"/>
+    <circle class="gs-btn" cx="130" cy="302" r="48"/>
+    <path class="gs-btn" d="M118 176 h24 v26 h26 v24 h-26 v26 h-24 v-26 h-26 v-24 h26z"/>
     <rect class="gs-scr" x="244" y="60" width="192" height="262" rx="12"/>
     <rect class="gs-btn" x="228" y="84" width="12" height="38" rx="3"/>
     <rect class="gs-cfg" x="228" y="142" width="12" height="38" rx="3"/>
