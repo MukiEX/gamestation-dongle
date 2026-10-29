@@ -43,6 +43,7 @@ static settings_t s_cur = {
     .gs_ball_sens = 4,
     .gs_jp3_lines = GS_JP3_LEFT_UP,
     .gs_jp3_hold = 4,
+    .gs_jp3_yield = true,
     // Credit = Capture, so Credit + Home opens the configurator and Select +
     // Start changes mode, as the other controllers' Capture + Home / - +.
     .gs_keys = { [GS_KEY_CREDIT] = GRIP_CAPTURE, [GS_KEY_KP1] = GRIP_OFF, [GS_KEY_KP2] = GRIP_OFF,
@@ -150,6 +151,7 @@ void settings_init(void)
         s.gs_jp3_lines = get_u8(h, "gsjp3lines", s.gs_jp3_lines, GS_JP3_COUNT - 1);
         s.gs_jp3_hold = get_u8(h, "gsjp3hold", s.gs_jp3_hold, 16);
         if (s.gs_jp3_hold == 0) s.gs_jp3_hold = 4;
+        s.gs_jp3_yield = get_u8(h, "gsjp3yield", s.gs_jp3_yield, 1);
         {
             uint8_t keys[SETTINGS_GS_KEYS];
             size_t n = sizeof(keys);
@@ -266,6 +268,7 @@ void settings_set(const settings_t *in)
         nvs_set_u8(h, "gsballinvy", s.gs_ball_inv_y);
         nvs_set_u8(h, "gsjp3lines", s.gs_jp3_lines);
         nvs_set_u8(h, "gsjp3hold", s.gs_jp3_hold);
+        nvs_set_u8(h, "gsjp3yield", s.gs_jp3_yield);
         nvs_set_blob(h, "gskeys", s.gs_keys, sizeof(s.gs_keys));
         nvs_commit(h);
         nvs_close(h);

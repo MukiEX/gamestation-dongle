@@ -28,6 +28,7 @@ typedef struct {
     bool ready;       // fully set up and sending input
     uint16_t rate;    // input reports per second
     uint16_t battery_mv;  // last reported battery voltage (0 = not yet)
+    int8_t battery_pct;   // BLE gamepads: battery level in percent (-1 = not known)
     bool in_dock;     // in the charging grip (GL / GR seen)
     bool hid;         // a generic Bluetooth LE HID gamepad
 } ble_link_info_t;

@@ -250,6 +250,13 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="hint" id="jp3Hint"></div>
     </div>
     <div class="row">
+      <label>D-pad takes over</label>
+      <div class="seg" id="gsJp3Yield">
+        <button data-v="true">On</button><button data-v="false">Off</button>
+      </div>
+      <div class="hint">On: pressing the pad's d-pad hands the two lines back to it (the encoder first steps back to rest, at most two steps), so menus work normally; turning the paddle or rolling the trackball takes them over again. Off: the encoder always owns them.</div>
+    </div>
+    <div class="row">
       <label for="gsJp3Hold">Step time</label>
       <div class="rangeval"><input type="range" id="gsJp3Hold" min="1" max="16" step="1"><output id="gsJp3HoldOut"></output></div>
       <div class="hint">How long each encoder state (and each d-pad tap) is held. It has to outlast the host's polling, or steps are lost; 4 ms (250 steps a second) is safe for MiSTer and PCs.
@@ -319,7 +326,7 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <text id="scr1" x="262" y="214" class="scr">PADDLE --</text>
       <text id="scr2" x="262" y="238" class="scr">BALL 0, 0</text>
       <text id="scr3" x="262" y="262" class="scr dim"></text>
-      <text x="262" y="292" class="scr dim">JP3</text>
+      <text id="jp3t" x="262" y="292" class="scr dim">JP3</text>
       <circle id="jp3a" cx="300" cy="288" r="6" class="jp3"/><text x="314" y="292" class="scr dim">A</text>
       <circle id="jp3b" cx="340" cy="288" r="6" class="jp3"/><text x="354" y="292" class="scr dim">B</text>
       <g data-b="2" class="face"><circle class="cap" cx="535" cy="80" r="18"/><text x="535" y="86">Y</text></g>
@@ -402,6 +409,7 @@ function showSettings() {
   $("gsBallSensOut").textContent = sensName(settings.gsBallSens);
   seg("gsBallInvY", !!settings.gsBallInvY);
   seg("gsJp3Lines", settings.gsJp3Lines);
+  seg("gsJp3Yield", settings.gsJp3Yield !== false);
   $("gsJp3Hold").value = settings.gsJp3Hold;
   $("gsJp3HoldOut").textContent = settings.gsJp3Hold + " ms";
   const used = settings.gsPaddle === "jp3" || settings.gsBall.startsWith("jp3");
@@ -412,7 +420,7 @@ function showSettings() {
         ? "This controller type reports the d-pad as a hat, which can't hold Left and Right together: use Left / Up."
         : "Linux's xpad and hid-nintendo drivers cancel Left + Right, so on a MiSTer use Left / Up and map Up to the F3 core's Right.")
       : "Left / Up (A = Left, B = Up) is a plain diagonal, so it survives every driver and controller type. On the F3 MiSTer core, map Up to Right.") +
-    " While JP3 is on, the pad's own d-pad no longer presses those two lines.";
+    (settings.gsJp3Yield === false ? " While JP3 is on, the pad's own d-pad no longer presses those two lines." : "");
   for (const sel of document.querySelectorAll("#keys select")) sel.value = (settings.gsKeys || {})[sel.dataset.id] || "off";
 }
 
@@ -439,7 +447,7 @@ function save(patch) {
   }, 150);
 }
 
-for (const id of ["logPort", "singleCtrl", "hotkeys", "gsPaddleInv", "gsBallInvY", "gsJp3Lines"]) {
+for (const id of ["logPort", "singleCtrl", "hotkeys", "gsPaddleInv", "gsBallInvY", "gsJp3Lines", "gsJp3Yield"]) {
   $(id).addEventListener("click", (e) => {
     const v = e.target.dataset && e.target.dataset.v;
     if (v === undefined) return;
@@ -489,7 +497,7 @@ function renderLists(st) {
     li.querySelector(".dot").classList.add(l.ready ? "ok" : "wait");
     li.querySelector(".name").textContent = st.gs && st.gs.connected && l.role === "BLE gamepad" ? "Gamestation Gamepad" : l.role;
     li.querySelectorAll(".mac")[0].textContent = l.mac;
-    li.querySelectorAll(".mac")[1].textContent = l.ready ? l.rate + " /s" : "connecting…";
+    li.querySelectorAll(".mac")[1].textContent = l.ready ? l.rate + " /s" + (l.batteryPct >= 0 ? " · battery " + l.batteryPct + "%" : "") : "connecting…";
     c.appendChild(li);
   }
   const p = $("paired");
@@ -509,7 +517,7 @@ function renderLists(st) {
   }
 }
 
-// gs = [paddle raw, paddle total, ball x, ball y, keys, JP3 phase, clipped, reports, JP3 backlog]
+// gs = [paddle raw, paddle total, ball x, ball y, keys, JP3 phase, clipped, reports, JP3 backlog, JP3 passive]
 function renderInput(inp) {
   const b = inp.buttons >>> 0;
   for (const el of document.querySelectorAll("#pad [data-b]")) el.classList.toggle("on", (b & parseInt(el.dataset.b, 16)) !== 0);
@@ -531,8 +539,10 @@ function renderInput(inp) {
   $("scr2").textContent = `BALL ${g[2]}, ${g[3]}`;
   $("scr3").textContent = g[7] ? `clipped ${(100 * g[6] / g[7]).toFixed(1)}%` : "";
   const ab = [0, 2, 3, 1][g[5] & 3];
-  $("jp3a").classList.toggle("on", (ab & 2) !== 0);
-  $("jp3b").classList.toggle("on", (ab & 1) !== 0);
+  const passive = !!g[9];
+  $("jp3a").classList.toggle("on", !passive && (ab & 2) !== 0);
+  $("jp3b").classList.toggle("on", !passive && (ab & 1) !== 0);
+  $("jp3t").textContent = passive ? "JP3  d-pad" : "JP3";
   $("kv").innerHTML = `<span>paddle steps</span><span>${g[1]}</span><span>trackball</span><span>${g[2]}, ${g[3]}</span>` +
     `<span>JP3 queued</span><span>${g[8]}</span>`;
 }
@@ -579,7 +589,7 @@ async function poll() {
     renderLists(st);
     if (!wsLive) {
       const g = st.gs;
-      renderInput({ ...st.input, gs: g && g.connected ? [g.paddleRaw, g.paddleTotal, g.ballX, g.ballY, g.keys, g.jp3Phase, g.ballClipped, g.ballReports, g.jp3Backlog] : null });
+      renderInput({ ...st.input, gs: g && g.connected ? [g.paddleRaw, g.paddleTotal, g.ballX, g.ballY, g.keys, g.jp3Phase, g.ballClipped, g.ballReports, g.jp3Backlog, g.jp3Passive ? 1 : 0] : null });
     }
     $("banner").classList.remove("show");
   } catch (e) {

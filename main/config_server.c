@@ -375,6 +375,7 @@ static cJSON *settings_json(const settings_t *s)
     cJSON_AddBoolToObject(o, "gsBallInvY", s->gs_ball_inv_y);
     cJSON_AddStringToObject(o, "gsJp3Lines", s->gs_jp3_lines == GS_JP3_LEFT_RIGHT ? "lr" : "lu");
     cJSON_AddNumberToObject(o, "gsJp3Hold", s->gs_jp3_hold);
+    cJSON_AddBoolToObject(o, "gsJp3Yield", s->gs_jp3_yield);
     cJSON *keys = cJSON_AddObjectToObject(o, "gsKeys");
     for (int i = 0; i < GS_KEY_COUNT; i++) {
         cJSON_AddStringToObject(keys, gs_key_id(i), settings_grip_key((grip_map_t)s->gs_keys[i]));
@@ -440,6 +441,7 @@ static esp_err_t h_state(httpd_req_t *req)
         cJSON_AddBoolToObject(e, "ready", links[i].ready);
         cJSON_AddNumberToObject(e, "rate", links[i].rate);
         cJSON_AddNumberToObject(e, "battery", links[i].battery_mv);
+        cJSON_AddNumberToObject(e, "batteryPct", links[i].battery_pct);
         cJSON_AddItemToArray(conn, e);
     }
 
@@ -470,6 +472,7 @@ static esp_err_t h_state(httpd_req_t *req)
     cJSON_AddNumberToObject(g, "keys", gl.keys);
     cJSON_AddNumberToObject(g, "jp3Phase", gl.jp3_phase);
     cJSON_AddNumberToObject(g, "jp3Backlog", gl.jp3_backlog);
+    cJSON_AddBoolToObject(g, "jp3Passive", gl.jp3_passive);
     cJSON *in = cJSON_AddObjectToObject(root, "input");
     static const char *mode_names[] = { "none", "pro", "pair", "left", "right" };
     cJSON_AddStringToObject(in, "layout", mode_names[o.mode < 5 ? o.mode : 0]);
@@ -557,6 +560,7 @@ static esp_err_t h_settings(httpd_req_t *req)
         s.gs_jp3_lines = strcmp(v->valuestring, "lr") == 0 ? GS_JP3_LEFT_RIGHT : GS_JP3_LEFT_UP;
     }
     if ((v = cJSON_GetObjectItem(j, "gsJp3Hold")) && cJSON_IsNumber(v)) s.gs_jp3_hold = (uint8_t)v->valueint;
+    if ((v = cJSON_GetObjectItem(j, "gsJp3Yield")) && cJSON_IsBool(v)) s.gs_jp3_yield = cJSON_IsTrue(v);
     cJSON *gk = cJSON_GetObjectItem(j, "gsKeys");
     if (gk && cJSON_IsObject(gk)) {
         for (int k = 0; k < GS_KEY_COUNT; k++) {
@@ -689,10 +693,10 @@ static void ws_task(void *arg)
         gs_live_t gl;
         gs_live(&gl);
         if (gl.connected) {
-            // Gamestation: [paddle raw, paddle total, ball x, ball y, keys, JP3 phase, clipped, reports, JP3 backlog]
-            n += snprintf(msg + n, sizeof(msg) - n, ",\"gs\":[%d,%ld,%ld,%ld,%u,%u,%lu,%lu,%ld]", gl.paddle_raw,
+            // Gamestation: [paddle raw, paddle total, ball x, ball y, keys, JP3 phase, clipped, reports, JP3 backlog, JP3 passive]
+            n += snprintf(msg + n, sizeof(msg) - n, ",\"gs\":[%d,%ld,%ld,%ld,%u,%u,%lu,%lu,%ld,%d]", gl.paddle_raw,
                           (long)gl.paddle_total, (long)gl.ball_x, (long)gl.ball_y, gl.keys, gl.jp3_phase,
-                          (unsigned long)gl.ball_clipped, (unsigned long)gl.ball_reports, (long)gl.jp3_backlog);
+                          (unsigned long)gl.ball_clipped, (unsigned long)gl.ball_reports, (long)gl.jp3_backlog, gl.jp3_passive ? 1 : 0);
         }
         n += snprintf(msg + n, sizeof(msg) - n, "}");
         int64_t now = esp_timer_get_time();

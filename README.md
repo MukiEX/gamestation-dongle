@@ -24,7 +24,8 @@ board, connect, flash. It carries the images and the exact source they were buil
 ## Pairing and use
 
 Put the pad in its Bluetooth pairing mode close to the dongle. It pairs once (bonded, kept in flash) and
-reconnects by itself afterwards.
+reconnects by itself afterwards. Its battery level is read every 30 s and shown on the dongle's screen and
+in the configurator.
 
 * **Select + Start, 3 s**: next controller type (also a tap of BOOT).
 * **Credit + Home, 3 s**: the web configurator at http://192.168.7.1 (the dongle becomes a USB network
@@ -68,8 +69,12 @@ backlog of up to 128 steps is replayed; beyond that steps are dropped.
 
 Use **Left / Up** unless you know Left + Right gets through: Linux's xpad and hid-nintendo drivers cancel
 opposite directions, and DS4, DualSense and generic HID report the d-pad as a hat, which can't hold
-both. On the F3 MiSTer core, map the pad's Up to Right. While JP3 is on, the pad's own d-pad no longer
-presses those two lines.
+both. On the F3 MiSTer core, map the pad's Up to Right.
+
+**D-pad takes over** (on by default): pressing the pad's d-pad hands the two lines back to it, so menus
+work normally. The encoder first steps back to its resting state (00), one legal step at a time, so a
+JP3 decoder never sees a jump. The next paddle or trackball movement takes the lines over again. With it
+off, the encoder always owns the lines and the d-pad doesn't press them.
 
 ## The pad's protocol
 

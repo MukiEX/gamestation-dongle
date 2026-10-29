@@ -90,6 +90,10 @@ static float s_spin_l, s_spin_r;  // speed-spring stick deflections (x)
 static float s_ball_vx, s_ball_vy;
 static float s_jp3_acc;           // JP3 steps queued (fractional)
 static uint8_t s_jp3_phase;       // 0..3 along 00 -> 10 -> 11 -> 01 (A B)
+// D-pad takes over: ACTIVE = encoder drives its lines; PARKING = walking back
+// to 00 after a d-pad press; PASSIVE = the d-pad has the lines until the next movement.
+enum { JP3_ACTIVE = 0, JP3_PARKING, JP3_PASSIVE };
+static volatile uint8_t s_jp3_mode;
 static int64_t s_jp3_last;
 static float s_tap_acc;           // d-pad tap mode: steps queued
 static int8_t s_tap_dir;          // the tap being held: -1 left, +1 right, 0 none
@@ -361,21 +365,51 @@ void gs_apply(pad_out_t *o, int64_t now)
     bool busy = false;
     int64_t hold = (int64_t)(st.gs_jp3_hold ? st.gs_jp3_hold : 4) * 1000;
     if (jp3) {
-        // The encoder owns its two lines: the pad's own d-pad presses on them
-        // would read as phase changes.
         gs_jp3_lines_t which = (gs_jp3_lines_t)st.gs_jp3_lines;
-        o->buttons &= ~jp3_mask(which);
-        s_jp3_acc = clampf(s_jp3_acc + jp3_in, -JP3_BACKLOG_MAX, JP3_BACKLOG_MAX);
-        // One Gray-code step per hold time, so the host never sees both
-        // phases change between two of its polls.
-        if (now - s_jp3_last >= hold) {
-            if (s_jp3_acc >= 1.0f) { s_jp3_phase = (s_jp3_phase + 1) & 3; s_jp3_acc -= 1.0f; s_jp3_last = now; }
-            else if (s_jp3_acc <= -1.0f) { s_jp3_phase = (s_jp3_phase + 3) & 3; s_jp3_acc += 1.0f; s_jp3_last = now; }
+        const uint32_t dpad = NS2_BTN_UP | NS2_BTN_DOWN | NS2_BTN_LEFT | NS2_BTN_RIGHT;
+        bool moving = jp3_in != 0.0f;
+        // D-pad takes over: any press on the pad's own d-pad hands the lines
+        // back to it until the paddle / trackball moves again. The encoder
+        // first walks back to its resting state (00), one legal step per hold
+        // time, so a JP3 decoder never sees an impossible jump.
+        if (st.gs_jp3_yield) {
+            if (s_jp3_mode == JP3_ACTIVE && (o->buttons & dpad) && !moving) {
+                s_jp3_mode = JP3_PARKING;
+                s_jp3_acc = 0.0f;   // queued steps are dropped: the player is using the d-pad now
+            } else if (s_jp3_mode != JP3_ACTIVE && moving) {
+                s_jp3_mode = JP3_ACTIVE;
+            }
+        } else {
+            s_jp3_mode = JP3_ACTIVE;
         }
-        o->buttons |= jp3_lines(s_jp3_phase, which);
-        busy |= s_jp3_acc >= 1.0f || s_jp3_acc <= -1.0f;
+        if (s_jp3_mode == JP3_PASSIVE) {
+            // Lines belong to the d-pad: pass it through untouched.
+            s_jp3_acc = 0.0f;
+        } else {
+            // The encoder owns its two lines: the pad's own d-pad presses on
+            // them would read as phase changes.
+            o->buttons &= ~jp3_mask(which);
+            if (s_jp3_mode == JP3_ACTIVE) {
+                s_jp3_acc = clampf(s_jp3_acc + jp3_in, -JP3_BACKLOG_MAX, JP3_BACKLOG_MAX);
+            }
+            // One Gray-code step per hold time, so the host never sees both
+            // phases change between two of its polls.
+            if (now - s_jp3_last >= hold) {
+                int dir = 0;
+                if (s_jp3_mode == JP3_PARKING) dir = s_jp3_phase == 0 ? 0 : (s_jp3_phase <= 2 ? -1 : 1);
+                else if (s_jp3_acc >= 1.0f) { dir = 1; s_jp3_acc -= 1.0f; }
+                else if (s_jp3_acc <= -1.0f) { dir = -1; s_jp3_acc += 1.0f; }
+                if (dir) { s_jp3_phase = (s_jp3_phase + (dir > 0 ? 1 : 3)) & 3; s_jp3_last = now; }
+            }
+            if (s_jp3_mode == JP3_PARKING && s_jp3_phase == 0 && now - s_jp3_last >= hold) {
+                s_jp3_mode = JP3_PASSIVE;   // parked at 00 for a full hold time: let go
+            }
+            o->buttons |= jp3_lines(s_jp3_phase, which);
+            busy |= s_jp3_mode == JP3_PARKING || s_jp3_acc >= 1.0f || s_jp3_acc <= -1.0f;
+        }
     } else {
         s_jp3_acc = 0.0f;
+        s_jp3_mode = JP3_ACTIVE;
     }
     if (st.gs_paddle == GS_PADDLE_DPAD) {
         // Each step is a press for one hold time, then a release for one.
@@ -409,4 +443,5 @@ void gs_live(gs_live_t *out)
     portEXIT_CRITICAL(&s_mux);
     out->jp3_phase = s_jp3_phase;
     out->jp3_backlog = (int32_t)s_jp3_acc;
+    out->jp3_passive = s_jp3_mode == JP3_PASSIVE;
 }

@@ -122,6 +122,7 @@ typedef struct {
     uint8_t rumble_tail;  // silent packets still to send after rumble stops
     volatile uint32_t input_count;
     volatile uint16_t battery_mv;
+    volatile uint8_t bat_pct1;     // BLE gamepad battery level + 1 (0 = not read yet)
     uint8_t bat_raw[8];      // input bytes 29..36, logged to pin down the battery field
     bool cmd_answered;  // last cmd_exchange got a reply (even a rejection)
 
@@ -1944,6 +1945,21 @@ static bool hid_setup(link_t *l)
     return true;
 }
 
+// Battery Level (0x2A19, read-only on the Gamestation Gamepad: no notifications).
+static void hid_read_battery(link_t *l)
+{
+    if (!link_alive(l)) return;
+    static const ble_uuid16_t bat_uuid = BLE_UUID16_INIT(0x2A19);
+    uint8_t v = 0xFF;
+    xSemaphoreTake(l->gsem, 0);
+    l->gbuf = &v; l->glen = 0; l->gcap = 1;
+    if (ble_gattc_read_by_uuid(l->conn, 1, 0xFFFF, &bat_uuid.u, g_read_cb, l) == 0 && gatt_wait(l) && l->glen == 1 &&
+        v <= 100) {
+        if (v + 1 != l->bat_pct1) ESP_LOGI(TAG, "link %d: battery %u%%", link_index(l), v);
+        l->bat_pct1 = (uint8_t)(v + 1);
+    }
+}
+
 static void handle_hid_secured(int idx)
 {
     link_t *l = &s_links[idx];
@@ -1970,6 +1986,7 @@ static void handle_hid_secured(int idx)
     if (promoted) {
         pad_link_up(l->role);
         if (l->gs) gs_link_up();
+        hid_read_battery(l);
     }
 }
 
@@ -2308,14 +2325,21 @@ static void ctrl_task(void *arg)
                 }
             }
         }
+        static int64_t last_bat;
+        if (now - last_bat >= 30000000) {
+            last_bat = now;
+            for (int i = 0; i < MAX_LINKS; i++) {
+                if (s_links[i].state == LS_READY && s_links[i].hid) hid_read_battery(&s_links[i]);
+            }
+        }
         if (now - last_stats >= 10000000) {
             float secs = (now - last_stats) / 1e6f;
             last_stats = now;
             for (int i = 0; i < MAX_LINKS; i++) {
                 uint32_t c = s_links[i].input_count;
                 if (s_links[i].state == LS_READY && s_links[i].hid) {
-                    ESP_LOGI(TAG, "link %d (BLE gamepad): %.0f input reports/s", i,
-                             (c >= last_counts[i] ? c - last_counts[i] : c) / secs);
+                    ESP_LOGI(TAG, "link %d (BLE gamepad): %.0f input reports/s; battery %d%%", i,
+                             (c >= last_counts[i] ? c - last_counts[i] : c) / secs, (int)s_links[i].bat_pct1 - 1);
                 } else if (s_links[i].state == LS_READY) {
                     const uint8_t *b = s_links[i].bat_raw;
                     ESP_LOGI(TAG, "link %d (%s): %.0f input reports/s; battery %u (bytes 29-36: "
@@ -2500,6 +2524,7 @@ int ble_central_links(ble_link_info_t *out, int max)
         out[n].ready = st == LS_READY;
         out[n].rate = s_rate[i];
         out[n].battery_mv = st == LS_READY ? l->battery_mv : 0;
+        out[n].battery_pct = st == LS_READY && l->bat_pct1 ? (int8_t)(l->bat_pct1 - 1) : -1;
         out[n].in_dock = l->in_dock;
         out[n].hid = l->hid;
         n++;

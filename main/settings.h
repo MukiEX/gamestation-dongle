@@ -80,6 +80,7 @@ typedef struct {
     bool gs_ball_inv_y;
     uint8_t gs_jp3_lines;    // gs_jp3_lines_t
     uint8_t gs_jp3_hold;     // ms each encoder state (and each d-pad tap) is held, 1..16
+    bool gs_jp3_yield;       // a d-pad press hands the JP3 lines back until the next spinner movement
     uint8_t gs_keys[SETTINGS_GS_KEYS];  // grip_map_t per keypad key / Credit / Settings
 } settings_t;
 

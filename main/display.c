@@ -366,6 +366,17 @@ static uint8_t bars(uint16_t mv)
     return 0;
 }
 
+// Battery percentage (BLE gamepads such as the Gamestation Gamepad) as bars.
+static uint8_t bars_pct(int pct)
+{
+    if (pct < 0 || pct > 100) return 255;
+    if (pct >= 80) return 4;
+    if (pct >= 55) return 3;
+    if (pct >= 30) return 2;
+    if (pct >= 10) return 1;
+    return 0;
+}
+
 static void collect(view_t *v)
 {
     memset(v, 0, sizeof(*v));
@@ -385,7 +396,7 @@ static void collect(view_t *v)
             continue;
         }
         if (links[i].in_dock) v->dock = true;
-        uint8_t b = bars(links[i].battery_mv);
+        uint8_t b = links[i].hid ? bars_pct(links[i].battery_pct) : bars(links[i].battery_mv);
         switch (links[i].role) {
         case PAD_ROLE_LEFT:  v->l = true; v->bat_l = b; break;
         case PAD_ROLE_RIGHT: v->r = true; v->bat_r = b; break;

@@ -106,5 +106,6 @@ typedef struct {
     uint16_t keys;         // GS_KEY_* bits held
     uint8_t jp3_phase;     // 0..3 (00, 10, 11, 01 as A B)
     int32_t jp3_backlog;   // whole steps still to send
+    bool jp3_passive;      // the d-pad has taken the JP3 lines back
 } gs_live_t;
 void gs_live(gs_live_t *out);
