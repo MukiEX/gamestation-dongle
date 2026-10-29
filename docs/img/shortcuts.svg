@@ -1,78 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" width="760" height="400" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-label="Controller shortcuts: hold minus and plus for 3 seconds for the next output mode; hold Capture and Home for 3 seconds for the configurator; hold SYNC to pair">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" width="760" height="400" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-label="Gamestation Gamepad shortcuts: hold Select and Start for 3 seconds for the next output mode; hold Credit and Home for 3 seconds for the configurator; pair from the pad's pairing mode">
   <style>
-    .jc-card { fill: #ffffff; stroke: #d9dde4; }
-    .jc-body { fill: #eef0f3; stroke: #8a93a0; stroke-width: 2; }
-    .jc-btn { fill: #c9ced6; stroke: #8a93a0; stroke-width: 1.5; }
-    .jc-ink { fill: #1d232b; }
-    .jc-muted { fill: #5d6573; }
-    .jc-mode { fill: #2f7de1; stroke: #2f7de1; }
-    .jc-cfg { fill: #e4002b; stroke: #e4002b; }
-    .jc-sync { fill: #1f9d63; stroke: #1f9d63; }
-    .jc-l-mode, .jc-l-cfg, .jc-l-sync { fill: none; stroke-width: 2; }
-    .jc-l-mode { stroke: #2f7de1; } .jc-l-cfg { stroke: #e4002b; } .jc-l-sync { stroke: #1f9d63; }
-    @media (prefers-color-scheme: dark) {
-      .jc-card { fill: #171b21; stroke: #2a3039; }
-      .jc-body { fill: #232933; stroke: #6b7482; }
-      .jc-btn { fill: #3a424e; stroke: #6b7482; }
-      .jc-ink { fill: #e8ebf0; }
-      .jc-muted { fill: #98a1ae; }
-      .jc-mode { fill: #4ea3ff; stroke: #4ea3ff; }
-      .jc-cfg { fill: #ff3b52; stroke: #ff3b52; }
-      .jc-sync { fill: #4cc38a; stroke: #4cc38a; }
-      .jc-l-mode { stroke: #4ea3ff; } .jc-l-cfg { stroke: #ff3b52; } .jc-l-sync { stroke: #4cc38a; }
-    }
+    .gs-body { fill: #eef0f3; stroke: #8a93a0; stroke-width: 3; }
+    .gs-btn { fill: #d4d8de; stroke: #8a93a0; stroke-width: 2; }
+    .gs-face { fill: #f6e3d6; stroke: #e8590c; stroke-width: 2; }
+    .gs-scr { fill: #1d232b; }
+    .gs-ink { fill: #1d232b; }
+    .gs-muted { fill: #5d6573; }
+    .gs-mode { fill: #2f7de1; stroke: #2f7de1; stroke-width: 3; }
+    .gs-cfg { fill: #e4002b; stroke: #e4002b; stroke-width: 3; }
+    .gs-sync { fill: #1f9d63; }
+    .gs-lbl { font-size: 15px; font-weight: 600; fill: #5d6573; text-anchor: middle; }
   </style>
-  <rect class="jc-card" x="1" y="1" width="758" height="398" rx="14"/>
+  <g transform="translate(14 80) scale(0.6)">
+    <rect class="gs-btn" x="40" y="10" width="84" height="28" rx="9"/>
+    <rect class="gs-btn" x="128" y="20" width="84" height="22" rx="8"/>
+    <rect class="gs-btn" x="468" y="20" width="84" height="22" rx="8"/>
+    <rect class="gs-btn" x="556" y="10" width="84" height="28" rx="9"/>
+    <rect class="gs-cfg" x="403" y="24" width="34" height="16" rx="5"/>
+    <rect class="gs-body" x="20" y="40" width="640" height="320" rx="46"/>
+    <circle class="gs-btn" cx="130" cy="110" r="40"/>
+    <circle class="gs-btn" cx="130" cy="225" r="50"/>
+    <path class="gs-btn" d="M118 280 h24 v26 h26 v24 h-26 v26 h-24 v-26 h-26 v-24 h26z"/>
+    <rect class="gs-scr" x="244" y="60" width="192" height="262" rx="12"/>
+    <rect class="gs-btn" x="228" y="84" width="12" height="38" rx="3"/>
+    <rect class="gs-cfg" x="228" y="142" width="12" height="38" rx="3"/>
+    <rect class="gs-mode" x="440" y="84" width="12" height="38" rx="3"/>
+    <rect class="gs-mode" x="440" y="142" width="12" height="38" rx="3"/>
+    <circle class="gs-face" cx="535" cy="80" r="18"/><circle class="gs-face" cx="499" cy="116" r="18"/>
+    <circle class="gs-face" cx="571" cy="116" r="18"/><circle class="gs-face" cx="535" cy="152" r="18"/>
+    <g class="gs-btn">
+      <rect x="479" y="199" width="32" height="26" rx="6"/><rect x="519" y="199" width="32" height="26" rx="6"/><rect x="559" y="199" width="32" height="26" rx="6"/>
+      <rect x="479" y="232" width="32" height="26" rx="6"/><rect x="519" y="232" width="32" height="26" rx="6"/><rect x="559" y="232" width="32" height="26" rx="6"/>
+      <rect x="479" y="265" width="32" height="26" rx="6"/><rect x="519" y="265" width="32" height="26" rx="6"/><rect x="559" y="265" width="32" height="26" rx="6"/>
+      <rect x="479" y="298" width="32" height="26" rx="6"/><rect x="519" y="298" width="32" height="26" rx="6"/><rect x="559" y="298" width="32" height="26" rx="6"/>
+    </g>
+    <text class="gs-lbl" x="420" y="16" style="fill:#e4002b">HOME</text>
+    <text class="gs-lbl" x="262" y="167" style="fill:#e4002b;text-anchor:start">CREDIT</text>
+    <text class="gs-lbl" x="262" y="109" style="fill:#c9ced6;text-anchor:start">SETTINGS</text>
+    <text class="gs-lbl" x="420" y="109" style="fill:#2f7de1;text-anchor:end">SELECT</text>
+    <text class="gs-lbl" x="420" y="167" style="fill:#2f7de1;text-anchor:end">START</text>
+  </g>
 
-  <!-- Left Joy-Con -->
-  <path class="jc-body" d="M268 40 H200 A55 55 0 0 0 145 95 V285 A55 55 0 0 0 200 340 H268 Z"/>
-  <!-- Right Joy-Con -->
-  <path class="jc-body" d="M292 40 H360 A55 55 0 0 1 415 95 V285 A55 55 0 0 1 360 340 H292 Z"/>
+  <rect class="gs-mode" x="452" y="24" width="14" height="14" rx="3"/>
+  <text class="gs-ink" x="476" y="36" font-size="16" font-weight="700">Hold Select and Start for 3 s</text>
+  <text class="gs-muted" x="476" y="57" font-size="14">Next output mode (saved)</text>
 
-  <!-- Left: minus, stick, d-pad, capture -->
-  <rect class="jc-mode" x="238" y="66" width="18" height="6" rx="2"/>
-  <circle class="jc-btn" cx="205" cy="125" r="24"/>
-  <circle class="jc-btn" cx="205" cy="182" r="10"/>
-  <circle class="jc-btn" cx="205" cy="226" r="10"/>
-  <circle class="jc-btn" cx="183" cy="204" r="10"/>
-  <circle class="jc-btn" cx="227" cy="204" r="10"/>
-  <rect class="jc-cfg" x="226" y="262" width="16" height="16" rx="3"/>
+  <rect class="gs-sync" x="452" y="154" width="14" height="14" rx="3"/>
+  <text class="gs-ink" x="476" y="166" font-size="16" font-weight="700">Pairing mode (see the pad's guide)</text>
+  <text class="gs-muted" x="476" y="187" font-size="14">Pairs the pad once. After that it</text>
+  <text class="gs-muted" x="476" y="205" font-size="14">reconnects when you turn it on.</text>
 
-  <!-- Right: plus, ABXY, stick, home -->
-  <rect class="jc-mode" x="304" y="66" width="18" height="6" rx="2"/>
-  <rect class="jc-mode" x="310" y="60" width="6" height="18" rx="2"/>
-  <circle class="jc-btn" cx="355" cy="103" r="10"/>
-  <circle class="jc-btn" cx="355" cy="147" r="10"/>
-  <circle class="jc-btn" cx="333" cy="125" r="10"/>
-  <circle class="jc-btn" cx="377" cy="125" r="10"/>
-  <circle class="jc-btn" cx="355" cy="204" r="24"/>
-  <circle class="jc-cfg" cx="322" cy="270" r="9"/>
+  <rect class="gs-cfg" x="452" y="270" width="14" height="14" rx="3"/>
+  <text class="gs-ink" x="476" y="282" font-size="16" font-weight="700">Hold Credit and Home for 3 s</text>
+  <text class="gs-muted" x="476" y="303" font-size="14">Configurator: open http://192.168.7.1</text>
+  <text class="gs-muted" x="476" y="321" font-size="14">Do it again (or Save &amp; exit) to leave.</text>
 
-  <!-- SYNC buttons on the rails -->
-  <rect class="jc-sync" x="263" y="168" width="5" height="22" rx="2"/>
-  <rect class="jc-sync" x="292" y="168" width="5" height="22" rx="2"/>
-
-  <!-- Callout: mode -->
-  <path class="jc-l-mode" d="M247 58 V30 H313 V56"/>
-  <path class="jc-l-mode" d="M313 30 H440"/>
-  <circle class="jc-mode" cx="440" cy="30" r="4"/>
-  <text class="jc-ink" x="452" y="35" font-size="16" font-weight="700">Hold Select and Start for 3 s</text>
-  <text class="jc-muted" x="452" y="56" font-size="14">Next output mode (saved)</text>
-
-  <!-- Callout: sync -->
-  <path class="jc-l-sync" d="M297 179 H440"/>
-  <circle class="jc-sync" cx="440" cy="179" r="4"/>
-  <text class="jc-ink" x="452" y="175" font-size="16" font-weight="700">Pairing mode (see the pad's guide)</text>
-  <text class="jc-muted" x="452" y="196" font-size="14">Pairs the pad. After that, it</text>
-  <text class="jc-muted" x="452" y="214" font-size="14">reconnects when you turn it on.</text>
-
-  <!-- Callout: configurator -->
-  <path class="jc-l-cfg" d="M234 280 V318 H322 V281"/>
-  <path class="jc-l-cfg" d="M322 318 H440"/>
-  <circle class="jc-cfg" cx="440" cy="318" r="4"/>
-  <text class="jc-ink" x="452" y="314" font-size="16" font-weight="700">Hold Credit and Home for 3 s</text>
-  <text class="jc-muted" x="452" y="335" font-size="14">Configurator: open http://192.168.7.1</text>
-  <text class="jc-muted" x="452" y="353" font-size="14">Do it again (or Save &amp; exit) to leave.</text>
-
-  <text class="jc-muted" x="28" y="384" font-size="12.5">Credit and Home needs Credit on Capture (the default). Both shortcuts can be switched off in the configurator.</text>
+  <text class="gs-muted" x="22" y="388" font-size="13">Credit and Home needs Credit on Capture (the default). Both shortcuts can be switched off in the configurator.</text>
 </svg>
