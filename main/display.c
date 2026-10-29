@@ -560,7 +560,7 @@ static void render(const view_t *v)
     text(&FONT_BIG, Z(10), Z(1), mode_title(v->mode), INK);
 
     if (v->pro) {
-        chip(10, 30, 70, v->pad ? "Gamestation" : "Pro", true, v->bat_pro);
+        chip(10, 30, 70, v->pad ? "GS Pad" : "Pro", true, v->bat_pro);
     } else if (v->l || v->r || v->pairing) {
         chip(10, 30, 66, "Left", v->l, v->bat_l);
         chip(84, 30, 66, "Right", v->r, v->bat_r);
