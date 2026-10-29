@@ -304,7 +304,7 @@ void gs_apply(pad_out_t *o, int64_t now)
         {
             int w = (int)s_mouse_frac;
             s_mouse_frac -= w;
-            if (w) pad_wheel_add(-w);  // clockwise = scroll down
+            if (w && usb_gamepad_has_mouse()) pad_wheel_add(-w);  // clockwise = scroll down
         }
         break;
     case GS_PADDLE_LSTICK_POS:
@@ -353,7 +353,9 @@ void gs_apply(pad_out_t *o, int64_t now)
     default:
         break;
     }
-    if (mouse_dx != 0.0f || mouse_dy != 0.0f) pad_mouse_add(mouse_dx, mouse_dy);
+    // Only while the USB device has a mouse: otherwise movement would pile up
+    // and arrive all at once when one appears.
+    if ((mouse_dx != 0.0f || mouse_dy != 0.0f) && usb_gamepad_has_mouse()) pad_mouse_add(mouse_dx, mouse_dy);
 
     bool jp3 = st.gs_paddle == GS_PADDLE_JP3 || st.gs_ball == GS_BALL_JP3_X || st.gs_ball == GS_BALL_JP3_Y;
     bool busy = false;
