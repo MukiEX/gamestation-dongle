@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Joy-Con 2 Dongle</title>
+<title>Gamestation Dongle</title>
 <style>
 [hidden] { display: none !important; }
 :root {
   --bg: #f4f5f7; --card: #ffffff; --ink: #1c1f24; --muted: #66707c; --line: #dde1e6;
-  --accent: #e4002b; --accent-ink: #ffffff; --ok: #1a7f37; --warn: #9a6700; --chip: #eef0f3;
-  --on: #e4002b; --off: #d5d9de;
+  --accent: #e8590c; --accent-ink: #ffffff; --ok: #1a7f37; --warn: #9a6700; --chip: #eef0f3;
+  --on: #e8590c; --off: #d5d9de;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #121418; --card: #1b1e24; --ink: #e8eaed; --muted: #9aa3ad; --line: #2c3139;
-    --accent: #ff3b5c; --accent-ink: #ffffff; --ok: #3fb950; --warn: #d29922; --chip: #252a31;
-    --on: #ff3b5c; --off: #3a4049;
+    --accent: #ff7a2a; --accent-ink: #ffffff; --ok: #3fb950; --warn: #d29922; --chip: #252a31;
+    --on: #ff7a2a; --off: #3a4049;
   }
 }
 * { box-sizing: border-box; }
@@ -24,7 +24,7 @@ body { margin: 0; background: var(--bg); color: var(--ink);
 header { display: flex; align-items: center; gap: 12px; padding: 14px 20px;
   background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
 header .logo { width: 28px; height: 28px; border-radius: 8px; flex: none;
-  background: linear-gradient(90deg, #00b8e6 0 50%, #ff3b5c 50% 100%); }
+  background: linear-gradient(135deg, #ff7a2a, #c2410c); }
 header h1 { font-size: 17px; margin: 0; font-weight: 650; }
 header .fw { color: var(--muted); font-size: 13px; }
 header .spacer { flex: 1; }
@@ -111,13 +111,34 @@ button:disabled { opacity: .5; cursor: default; }
 .banner { grid-column: 1 / -1; padding: 12px 16px; border-radius: 10px; background: var(--chip); color: var(--muted); display: none; }
 .banner.show { display: block; }
 footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 16px 30px; }
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 14px; }
+.keys label { display: flex; align-items: center; gap: 8px; font-weight: 550; min-width: 0; }
+.keys label span { width: 4.2em; flex: none; }
+.keys select { min-width: 0; flex: 1; padding: 5px 7px; }
+#pad { width: 100%; max-width: 680px; display: block; margin: 4px auto 0; }
+#pad .body { fill: var(--chip); stroke: var(--line); stroke-width: 2; }
+#pad text { font: 600 12px system-ui, sans-serif; fill: var(--muted); text-anchor: middle; pointer-events: none; }
+#pad .lbl { font-size: 10px; letter-spacing: .06em; font-weight: 500; }
+#pad .scr { text-anchor: start; font: 13px ui-monospace, Consolas, monospace; fill: #ffb347; }
+#pad .dim { fill: #7d8699; font-size: 11px; }
+#pad .ring { fill: var(--card); stroke: var(--line); stroke-width: 2; }
+#pad .cap { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+#pad .face .cap, #pad .home { stroke: var(--accent); }
+#pad .on .cap, #pad .on.cap { fill: var(--on); stroke: var(--on); }
+#pad .on text { fill: #fff; }
+#pad .jp3 { fill: var(--off); }
+#pad .jp3.on { fill: var(--ok); }
+.livegrid { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.kv { display: grid; grid-template-columns: auto auto; gap: 2px 14px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv span:nth-child(odd) { color: var(--muted); }
+.out { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
 </style>
 </head>
 <body>
 <header>
   <div class="logo" aria-hidden="true"></div>
   <div>
-    <h1>Joy-Con 2 Dongle</h1>
+    <h1>Gamestation Dongle</h1>
     <div class="fw" id="fw">connecting…</div>
   </div>
   <div class="spacer"></div>
@@ -135,19 +156,12 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="hint">What the PC or console sees. Takes effect when you exit.</div>
     </div>
     <div class="row">
-      <label>Button layout</label>
-      <div class="seg" id="layout">
-        <button data-v="positional">Positional</button><button data-v="labels">Nintendo labels</button>
-      </div>
-      <div class="hint" id="layouthint"></div>
-    </div>
-    <div class="row">
       <label>Single controller mode</label>
       <div class="seg" id="singleCtrl">
         <button data-v="true">On</button><button data-v="false">Off</button>
       </div>
-      <div class="hint">On: the dongle is only the controller, as consoles (Switch, Switch 2) insist. No log port, no USB mouse, and XInput uses the real Xbox 360 ID (045E:028E).
-        Off: the controller plus the log port and the USB mouse (as set below and in Joy-Con sensors); XInput uses the dongle's own ID (303A:8246) so Windows shows all of them. Takes effect when you exit.</div>
+      <div class="hint">On: the dongle is only the controller, as consoles insist. No log port and no USB mouse, so mouse targets below do nothing; XInput uses the real Xbox 360 ID (045E:028E).
+        Off: the controller plus the log port and, when something below goes to the mouse, a USB mouse. Takes effect when you exit.</div>
     </div>
     <div class="row">
       <label>Log port</label>
@@ -161,21 +175,7 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
       <div class="seg" id="hotkeys">
         <button data-v="true">On</button><button data-v="false">Off</button>
       </div>
-      <div class="hint">Hold − and + for 3 s: next controller type. Hold Capture and Home for 3 s: this page. M64 Pro: L + R + Start for 3 s (next type), L + R + Z + Start for 3 s (this page).</div>
-    </div>
-    <div class="row">
-      <label>Other Bluetooth gamepads</label>
-      <div class="seg" id="bleHid">
-        <button data-v="true">On</button><button data-v="false">Off</button>
-      </div>
-      <div class="hint">Experimental: standard Bluetooth LE gamepads (e.g. ModRetro M64 Pro) in their pairing mode pair with the dongle and work as one full controller. Off: only Switch 2 controllers.</div>
-    </div>
-    <div class="row">
-      <label>M64 Pro layout</label>
-      <div class="seg" id="m64Nso">
-        <button data-v="false">Emulator</button><button data-v="true">Switch Online</button>
-      </div>
-      <div class="hint">Emulator: by position, N64 A = bottom face button (Xbox A), B = left (Xbox X). Switch Online: as Nintendo maps it, A = Switch A (right), B = Switch B (bottom). Both: Z = ZL / left trigger, C buttons = right stick, Start = +.</div>
+      <div class="hint">Hold Select and Start for 3 s: next controller type. Hold Credit and Home for 3 s: this page (needs Credit on Capture, the default).</div>
     </div>
   </section>
 
@@ -184,7 +184,7 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
     <div class="row">
       <label for="displayBright">Brightness</label>
       <div class="rangeval"><input type="range" id="displayBright" min="0" max="10" step="1"><output id="displayBrightOut"></output></div>
-      <div class="hint">The dongle's own screen (LILYGO T-Dongle-S3). 0 turns it off. Applies live.</div>
+      <div class="hint">The dongle's own screen. 0 turns it off. Applies live.</div>
     </div>
     <div class="row">
       <label>Orientation</label>
@@ -196,96 +196,71 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
   </section>
 
   <section>
-    <h2>Feel</h2>
+    <h2>Paddle</h2>
     <div class="row">
-      <label for="rumble">Rumble strength</label>
-      <div class="rangeval"><input type="range" id="rumble" min="0" max="10" step="1"><output id="rumbleOut"></output></div>
-      <div class="hint">5 matches Switch2Connect's default. 0 turns rumble off.</div>
+      <label for="gsPaddle">Paddle goes to</label>
+      <select id="gsPaddle"></select>
+      <div class="hint" id="paddleHint"></div>
     </div>
     <div class="row">
-      <label for="deadzone">Stick deadzone</label>
-      <div class="rangeval"><input type="range" id="deadzone" min="0" max="30" step="1"><output id="deadzoneOut"></output></div>
-      <div class="hint">Applies immediately: watch the sticks under Live input.</div>
+      <label for="gsPaddleSens">Sensitivity</label>
+      <div class="rangeval"><input type="range" id="gsPaddleSens" min="1" max="16" step="1"><output id="gsPaddleSensOut"></output></div>
+      <div class="hint">How much output each of the knob's 81 steps per turn is worth. 1× = one step (one JP3 count, one wheel notch, 8 mouse pixels).</div>
+    </div>
+    <div class="row" id="rangeRow">
+      <label for="gsPaddleRange">Stick range</label>
+      <div class="rangeval"><input type="range" id="gsPaddleRange" min="5" max="160" step="1"><output id="gsPaddleRangeOut"></output></div>
+      <div class="hint">Knob position modes: steps from centre to full deflection (81 = a full turn each way). The stick stays at the end until you turn back.</div>
     </div>
     <div class="row">
-      <label>Back buttons</label>
-      <div class="grips">
-        <label>GL <select id="gl"></select></label>
-        <label>GR <select id="gr"></select></label>
+      <label>Direction</label>
+      <div class="seg" id="gsPaddleInv">
+        <button data-v="false">Normal</button><button data-v="true">Reversed</button>
       </div>
-      <div class="hint" id="griphint"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Trackball</h2>
+    <div class="row">
+      <label for="gsBall">Trackball goes to</label>
+      <select id="gsBall"></select>
+      <div class="hint" id="ballHint"></div>
     </div>
     <div class="row">
-      <label>Joy-Con mouse sensor</label>
-      <div class="seg" id="padMouse">
-        <button data-v="0">Controller</button><button data-v="1">USB mouse</button><button data-v="2">Pointer only</button>
+      <label for="gsBallSens">Sensitivity</label>
+      <div class="rangeval"><input type="range" id="gsBallSens" min="1" max="16" step="1"><output id="gsBallSensOut"></output></div>
+      <div class="hint">1× = one mouse pixel per trackball count; JP3 takes one step per 8 counts at 1×.</div>
+    </div>
+    <div class="row">
+      <label>Up / down</label>
+      <div class="seg" id="gsBallInvY">
+        <button data-v="false">Normal</button><button data-v="true">Inverted</button>
       </div>
-      <div class="hint">USB mouse: in every mode, a Joy-Con lying on its rail side on a surface moves a real mouse pointer
-        (an extra USB device), and while it lies there its shoulder = left click, trigger = right click, stick press = middle,
-        stick up / down = wheel. Pointer only: the same pointer, but every button stays on the controller.
-        Controller: the sensor feeds the trackpads / touchpad as below. Takes effect when you exit.</div>
     </div>
+  </section>
+
+  <section>
+    <h2>JP3 spinner output</h2>
     <div class="row">
-      <label for="mouseSpeed">Mouse speed</label>
-      <div class="rangeval"><input type="range" id="mouseSpeed" min="1" max="19" step="1"><output id="mouseSpeedOut"></output></div>
-      <div class="hint">USB mouse / Pointer only: how far the pointer moves. Speed 5 = one pixel per sensor step; default 3.</div>
-    </div>
-    <div class="row">
-      <label for="scrollSpeed">Scroll speed</label>
-      <div class="rangeval"><input type="range" id="scrollSpeed" min="1" max="10" step="1"><output id="scrollSpeedOut"></output></div>
-      <div class="hint">USB mouse (full): how fast the stick scrolls, up / down and sideways. Default 5.</div>
-    </div>
-    <div class="row">
-      <label>Mouse stick sideways</label>
-      <div class="seg" id="padHscroll">
-        <button data-v="true">Sideways scroll</button><button data-v="false">Nothing</button>
+      <label>Encoder lines</label>
+      <div class="seg" id="gsJp3Lines">
+        <button data-v="lu">Left / Up</button><button data-v="lr">Left / Right</button>
       </div>
-      <div class="hint">USB mouse (full): while a Joy-Con lies on its rail side, pushing its stick sideways scrolls left / right (up / down still scrolls vertically). Takes effect when you exit.</div>
+      <div class="hint" id="jp3Hint"></div>
     </div>
     <div class="row">
-      <label for="padSpeed">Trackpad speed</label>
-      <div class="rangeval"><input type="range" id="padSpeed" min="1" max="19" step="1"><output id="padSpeedOut"></output></div>
-      <div class="hint">How far the virtual finger (Steam Controller trackpads, DS4 / DualSense touchpad) moves when you slide a Joy-Con on a surface. The left part of the slider is fine control: 0.1× to 0.9× of speed 1. Default 0.3×.</div>
+      <label for="gsJp3Hold">Step time</label>
+      <div class="rangeval"><input type="range" id="gsJp3Hold" min="1" max="16" step="1"><output id="gsJp3HoldOut"></output></div>
+      <div class="hint">How long each encoder state (and each d-pad tap) is held. It has to outlast the host's polling, or steps are lost; 4 ms (250 steps a second) is safe for MiSTer and PCs.
+        Faster turning than that queues up to 128 steps; beyond that they are dropped.</div>
     </div>
-    <div class="row">
-      <label>Trackpad lift-off</label>
-      <div class="seg" id="padLift">
-        <button data-v="0">Strict</button><button data-v="1">Medium</button><button data-v="2">Loose</button>
-      </div>
-      <div class="hint">How far off the surface still counts as touching. Loose works on more surfaces but may pick up your hand.</div>
-    </div>
-    <div class="row">
-      <label>Sensor when held</label>
-      <div class="seg" id="padGrip">
-        <button data-v="false">Trackpad</button><button data-v="true">Grip sense</button>
-      </div>
-      <div class="hint">Grip sense: a Joy-Con lying on its rail side is a trackpad; held normally, its sensor tells Steam whether your hand is on that grip (Live input below shows "grip: hand" / "grip: free"). On by default; Trackpad: Steam sees both grips as held. In the charging grip the sensor only sees the grip, so once GL / GR is pressed it is ignored there (live view: "charging grip").</div>
-    </div>
-    <div class="row">
-      <label>DS4 / DualSense touchpad</label>
-      <div class="seg" id="padDsTouch">
-        <button data-v="true">Joy-Con mouse</button><button data-v="false">Off</button>
-      </div>
-      <div class="hint">Sliding a Joy-Con on a surface, lying on its rail side like a mouse, touches its half of the touchpad (left Joy-Con: left half); held normally or lifted, it doesn't. Off: only the GL / GR clicks.</div>
-    </div>
-    <details class="adv" id="adv">
-      <summary>Advanced: motion axis flips</summary>
-      <p class="hint" style="margin:6px 0 0">Not needed normally: motion is verified correct for Steam and SDL games.
-        Only for a game that reads an axis backwards.</p>
-      <div class="row">
-        <label>DS4 / DualSense motion</label>
-        <div class="seg flips" id="flipDs4"></div>
-        <div class="hint" id="flipDs4Code"></div>
-      </div>
-      <div class="row">
-        <label>Switch Pro motion</label>
-        <div class="seg flips" id="flipSwitch"></div>
-        <div class="hint" id="flipSwitchCode"></div>
-      </div>
-    </details>
-    <div class="row" style="border-top:0">
-      <span></span><span class="saved" id="saved">Saved</span>
-    </div>
+  </section>
+
+  <section class="wide">
+    <h2>Keypad and extra buttons</h2>
+    <div class="keys" id="keys"></div>
+    <p class="hint" style="margin:10px 0 0">The pad's other buttons map to their usual places: A, B, X, Y by position (A is the bottom button), L1 / R1 = L / R, L2 / R2 = ZL / ZR (triggers), Select = −, Start = +, Home = Home.</p>
   </section>
 
   <section>
@@ -298,33 +273,67 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
     <ul class="list" id="paired"></ul>
     <div style="margin-top:10px; display:flex; gap:10px; align-items:center">
       <button class="ghost" id="forgetAll">Forget all</button>
-      <span class="hint" style="margin:0">To pair another, hold its SYNC button.</span>
+      <span class="hint" style="margin:0">To pair, put the pad in pairing mode near the dongle.</span>
     </div>
   </section>
 
   <section class="wide">
     <h2 style="display:flex">Live input <span class="layoutnote" id="padmode"></span></h2>
-    <div class="btns" id="btns"></div>
-    <div class="sticks">
-      <div class="stick"><i id="ls"></i><b>Left stick</b></div>
-      <div class="stick"><i id="rs"></i><b>Right stick</b></div>
+    <svg id="pad" viewBox="0 0 680 380">
+      <defs>
+        <pattern id="tbPat" width="14" height="14" patternUnits="userSpaceOnUse">
+          <circle cx="3" cy="3" r="2.2" fill="#ff6a3d" opacity=".55"/><circle cx="10" cy="10" r="1.6" fill="#ffd0b0" opacity=".35"/>
+        </pattern>
+        <clipPath id="tbClip"><circle cx="130" cy="225" r="46"/></clipPath>
+      </defs>
+      <g data-b="800000"><rect class="cap" x="40" y="10" width="84" height="28" rx="9"/><text x="82" y="29">L2</text></g>
+      <g data-b="80"><rect class="cap" x="556" y="10" width="84" height="28" rx="9"/><text x="598" y="29">R2</text></g>
+      <rect x="20" y="40" width="640" height="320" rx="46" class="body"/>
+      <g data-b="400000"><rect class="cap" x="128" y="20" width="84" height="22" rx="8"/><text x="170" y="35">L1</text></g>
+      <g data-b="40"><rect class="cap" x="468" y="20" width="84" height="22" rx="8"/><text x="510" y="35">R1</text></g>
+      <rect x="236" y="26" width="34" height="14" rx="5" fill="#ff6a2a" opacity=".6"/><text x="253" y="18" class="lbl">POWER</text>
+      <rect x="306" y="30" width="38" height="10" rx="5" fill="var(--card)" stroke="var(--line)"/><text x="325" y="22" class="lbl">USB-C</text>
+      <g data-k="home"><rect class="cap home" x="403" y="26" width="34" height="14" rx="5"/></g><text x="420" y="18" class="lbl">HOME</text>
+      <circle cx="130" cy="110" r="44" class="ring"/>
+      <circle cx="130" cy="110" r="34" fill="var(--card)" stroke="var(--accent)" stroke-width="2"/>
+      <line id="notch" x1="130" y1="110" x2="130" y2="80" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/>
+      <text x="130" y="166" class="lbl">PADDLE</text>
+      <circle cx="130" cy="225" r="52" class="ring"/>
+      <circle cx="130" cy="225" r="46" fill="#7a1f16"/>
+      <rect id="tbTex" x="70" y="165" width="120" height="120" fill="url(#tbPat)" clip-path="url(#tbClip)"/>
+      <g transform="translate(130 318)">
+        <g data-b="20000"><path class="cap" d="M-11 -36 h22 v24 l-11 9 l-11 -9z"/></g>
+        <g data-b="10000"><path class="cap" d="M-11 36 h22 v-24 l-11 -9 l-11 9z"/></g>
+        <g data-b="80000"><path class="cap" d="M-36 -11 v22 h24 l9 -11 l-9 -11z"/></g>
+        <g data-b="40000"><path class="cap" d="M36 -11 v22 h-24 l-9 -11 l9 -11z"/></g>
+      </g>
+      <rect x="244" y="60" width="192" height="262" rx="12" fill="#0b0d11" stroke="var(--line)"/>
+      <g data-k="13"><rect class="cap" x="232" y="84" width="10" height="38" rx="3"/></g>
+      <g data-k="12"><rect class="cap" x="232" y="142" width="10" height="38" rx="3"/></g>
+      <g data-b="100"><rect class="cap" x="438" y="84" width="10" height="38" rx="3"/></g>
+      <g data-b="200"><rect class="cap" x="438" y="142" width="10" height="38" rx="3"/></g>
+      <text x="252" y="110" class="lbl" style="text-anchor:start">SETTINGS</text>
+      <text x="252" y="168" class="lbl" style="text-anchor:start">CREDIT</text>
+      <text x="428" y="110" class="lbl" style="text-anchor:end">SELECT</text>
+      <text x="428" y="168" class="lbl" style="text-anchor:end">START</text>
+      <text id="scr1" x="262" y="214" class="scr">PADDLE --</text>
+      <text id="scr2" x="262" y="238" class="scr">BALL 0, 0</text>
+      <text id="scr3" x="262" y="262" class="scr dim"></text>
+      <text x="262" y="292" class="scr dim">JP3</text>
+      <circle id="jp3a" cx="300" cy="288" r="6" class="jp3"/><text x="314" y="292" class="scr dim">A</text>
+      <circle id="jp3b" cx="340" cy="288" r="6" class="jp3"/><text x="354" y="292" class="scr dim">B</text>
+      <g data-b="2" class="face"><circle class="cap" cx="535" cy="80" r="18"/><text x="535" y="86">Y</text></g>
+      <g data-b="1" class="face"><circle class="cap" cx="499" cy="116" r="18"/><text x="499" y="122">X</text></g>
+      <g data-b="8" class="face"><circle class="cap" cx="571" cy="116" r="18"/><text x="571" y="122">B</text></g>
+      <g data-b="4" class="face"><circle class="cap" cx="535" cy="152" r="18"/><text x="535" y="158">A</text></g>
+      <g id="keypad"></g>
+    </svg>
+    <div class="out">
+      <div class="stick"><i id="ls"></i><b>Left stick out</b></div>
+      <div class="stick"><i id="rs"></i><b>Right stick out</b></div>
+      <div class="kv" id="kv"></div>
     </div>
-    <div class="sticks" id="pads" style="display:none">
-      <div class="pad"><i id="tp0"></i><b>Left trackpad</b><small id="tpr0"></small></div>
-      <div class="pad"><i id="tp1"></i><b>Right trackpad</b><small id="tpr1"></small></div>
-      <span class="hint" style="margin:0;align-self:center">Optical sensors. Slide a Joy-Con on a table (rail side down): its finger appears and moves.
-        Under each: lift-off distance (0 = nothing seen; on a surface below about 1000 / 1500 / 3000 for Strict / Medium / Loose, 1.5× that while it lies on its rail side, for mouse grips; roughness below 4000 / 5000 / 10000, also 1.5× on its rail side), surface roughness, and whether it lies on its rail side.</span>
-    </div>
-    <div class="motion" id="motion">
-      <div class="stick"><i id="tilt"></i><b>Tilt</b></div>
-      <div class="gyro">
-        <div class="bar"><span>Pitch (X)</span><span class="track"><i id="g0"></i></span><output id="g0v"></output></div>
-        <div class="bar"><span>Yaw (Y)</span><span class="track"><i id="g1"></i></span><output id="g1v"></output></div>
-        <div class="bar"><span>Roll (Z)</span><span class="track"><i id="g2"></i></span><output id="g2v"></output></div>
-        <div class="accel" id="accel"></div>
-      </div>
-    </div>
-    <p class="hint" style="margin:30px 0 0">Shows the merged controller before the button layout is applied, in Switch names. Motion is from the controller as you hold it (the right Joy-Con for a pair); a second of resting still recalibrates the gyro.</p>
+    <p class="hint" style="margin:30px 0 0">The diagram shows the pad itself. The sticks show what the mapping sends (they move while this page is open, but nothing reaches the PC until you exit). The JP3 lights are the encoder's two lines.</p>
   </section>
 </main>
 <footer>The controller is paused while this page is open. Save &amp; exit (or press BOOT) to go back to playing.</footer>
@@ -332,40 +341,41 @@ footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-const BUTTONS = [
-  ["A", 0x00000008], ["B", 0x00000004], ["X", 0x00000002], ["Y", 0x00000001],
-  ["L", 0x00400000], ["R", 0x00000040], ["ZL", 0x00800000], ["ZR", 0x00000080],
-  ["−", 0x00000100], ["+", 0x00000200], ["L stick", 0x00000800], ["R stick", 0x00000400],
-  ["Up", 0x00020000], ["Down", 0x00010000], ["Left", 0x00080000], ["Right", 0x00040000],
-  ["Home", 0x00001000], ["Capture", 0x00002000], ["C", 0x00004000],
-  ["SL (L)", 0x00200000], ["SR (L)", 0x00100000], ["SL (R)", 0x00000020], ["SR (R)", 0x00000010],
-  ["GL", 0x02000000], ["GR", 0x01000000],
-];
-const PADMODE = { none: "No controller", pro: "Pro Controller", pair: "Joy-Con pair",
-  left: "Single Joy-Con L (sideways)", right: "Single Joy-Con R (sideways)" };
-
-let settings = null;
-let modesFilled = false;
-let saveTimer = 0;
-let session = "";   // changes every time the configurator opens
-let pending = {};   // only the settings changed on this page get sent
-
-BUTTONS.forEach(([name]) => {
-  const s = document.createElement("span");
-  s.textContent = name;
-  $("btns").appendChild(s);
+// Keypad: GS_KEY_* bit order 1..9, *, 0, #.
+const KP = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+KP.forEach((t, i) => {
+  const cx = 495 + (i % 3) * 40, cy = 212 + Math.floor(i / 3) * 33;
+  $("keypad").insertAdjacentHTML("beforeend",
+    `<g data-k="${i}"><rect class="cap" x="${cx - 16}" y="${cy - 13}" width="32" height="26" rx="6"/><text x="${cx}" y="${cy + 4}">${t}</text></g>`);
 });
+
+let settings = null, filled = false, saveTimer = 0, session = "", pending = {};
+let gsLast = null;
 
 function seg(id, value) {
   for (const b of $(id).querySelectorAll("button")) b.classList.toggle("on", b.dataset.v === String(value));
 }
-
-function layoutHint() {
-  const pos = settings.layout !== "labels";
-  $("layouthint").textContent = pos
-    ? "The bottom face button is Xbox A / PS Cross, whatever its label says."
-    : "Nintendo's A is Xbox A, B is B and so on (positions swap). Switch Pro mode always uses Nintendo labels.";
-}
+const sensName = (v) => (v / 4).toFixed(2).replace(/0$/, "").replace(/\.$/, "") + "×";
+const posModes = ["lstick_pos", "rstick_pos"];
+const PADDLE_HINTS = {
+  off: "The paddle does nothing.",
+  mouse_x: "Moves a USB mouse sideways: MAME dials, emulator spinners. Needs single controller mode off.",
+  wheel: "Each step scrolls the USB mouse wheel one notch. Needs single controller mode off.",
+  lstick_pos: "The knob's position sets the left stick, like an Atari paddle: centre when you connect, full deflection after the stick range.",
+  rstick_pos: "The knob's position sets the right stick, like an Atari paddle.",
+  lstick_spin: "Turning pushes the left stick (faster = further) and it springs back when you stop.",
+  rstick_spin: "Turning pushes the right stick and it springs back when you stop.",
+  dpad: "Each step taps d-pad left or right (one press, one release, each for the step time).",
+  jp3: "The knob is a rotary encoder on two d-pad lines, as Taito F3's JP3 spinner wiring: for the F3 MiSTer core's Spinner (JP3) option and Sensor-mode games.",
+};
+const BALL_HINTS = {
+  off: "The trackball does nothing.",
+  mouse: "A USB mouse. Needs single controller mode off.",
+  lstick: "Rolling pushes the left stick (faster = further); it springs back when the ball stops.",
+  rstick: "Rolling pushes the right stick; it springs back when the ball stops.",
+  jp3_x: "Rolling left / right drives the JP3 encoder.",
+  jp3_y: "Rolling up / down drives the JP3 encoder.",
+};
 
 function showSettings() {
   $("mode").value = settings.mode;
@@ -375,75 +385,61 @@ function showSettings() {
     $("displayBrightOut").textContent = settings.displayBright === 0 ? "off" : settings.displayBright + " / 10";
     seg("displayRot", String(settings.displayRot ?? 3));
   }
-  seg("layout", settings.layout);
   seg("logPort", settings.logPort);
   seg("singleCtrl", !!settings.singleCtrl);
   seg("hotkeys", settings.hotkeys);
-  seg("bleHid", settings.bleHid);
-  seg("m64Nso", !!settings.m64Nso);
-  if ((settings.flipDs4 || 0) || (settings.flipSwitch || 0)) $("adv").open = true;
-  for (const id of ["flipDs4", "flipSwitch"]) {
-    const m = settings[id] || 0;
-    [...$(id).children].forEach((b, i) => b.classList.toggle("on", (m & (1 << i)) !== 0));
-    $(id + "Code").textContent = "Highlighted = flipped. Code: " + flipCode(m) +
-      ". Applies when you exit.";
-  }
-  $("padSpeed").value = settings.padSpeed;
-  $("padSpeedOut").textContent = padSpeedName(settings.padSpeed);
-  seg("padLift", String(settings.padLift));
-  seg("padGrip", String(!!settings.padGrip));
-  seg("padDsTouch", String(settings.padDsTouch !== false));
-  seg("padMouse", String(+settings.padMouse || 0));
-  $("mouseSpeed").value = settings.mouseSpeed;
-  seg("padHscroll", String(!!settings.padHscroll));
-  $("scrollSpeed").value = settings.scrollSpeed;
-  $("scrollSpeedOut").textContent = settings.scrollSpeed;
-  $("mouseSpeedOut").textContent = padSpeedName(settings.mouseSpeed);
-  $("gl").value = settings.gl;
-  $("gr").value = settings.gr;
-  const auto = { ds4: "the touchpad's left / right half", ds5: "the touchpad's left / right half",
-    hid: "its own buttons 20 / 21", steam: "its back buttons L4 / R4" }[settings.mode];
-  $("griphint").textContent = "Pro Controller 2, or Joy-Cons in the charging grip. Auto in this mode: " +
-    (auto || "nothing (no spare buttons), so pick one here") + ".";
-  $("rumble").value = settings.rumble;
-  $("rumbleOut").textContent = settings.rumble === 0 ? "off" : settings.rumble + " / 10";
-  $("deadzone").value = settings.deadzone;
-  $("deadzoneOut").textContent = settings.deadzone + " %";
-  layoutHint();
+  $("gsPaddle").value = settings.gsPaddle;
+  $("paddleHint").textContent = PADDLE_HINTS[settings.gsPaddle] || "";
+  $("gsPaddleSens").value = settings.gsPaddleSens;
+  $("gsPaddleSensOut").textContent = sensName(settings.gsPaddleSens);
+  $("gsPaddleRange").value = settings.gsPaddleRange;
+  $("gsPaddleRangeOut").textContent = settings.gsPaddleRange;
+  $("rangeRow").hidden = !posModes.includes(settings.gsPaddle);
+  seg("gsPaddleInv", !!settings.gsPaddleInv);
+  $("gsBall").value = settings.gsBall;
+  $("ballHint").textContent = BALL_HINTS[settings.gsBall] || "";
+  $("gsBallSens").value = settings.gsBallSens;
+  $("gsBallSensOut").textContent = sensName(settings.gsBallSens);
+  seg("gsBallInvY", !!settings.gsBallInvY);
+  seg("gsJp3Lines", settings.gsJp3Lines);
+  $("gsJp3Hold").value = settings.gsJp3Hold;
+  $("gsJp3HoldOut").textContent = settings.gsJp3Hold + " ms";
+  const used = settings.gsPaddle === "jp3" || settings.gsBall.startsWith("jp3");
+  const hat = ["ds4", "ds5", "hid"].includes(settings.mode);
+  $("jp3Hint").textContent = (used ? "In use. " : "Not used: pick JP3 for the paddle or trackball. ") +
+    (settings.gsJp3Lines === "lr"
+      ? "Left / Right is the real F3 wiring (A = Left, B = Right). " + (hat
+        ? "This controller type reports the d-pad as a hat, which can't hold Left and Right together: use Left / Up."
+        : "Linux's xpad and hid-nintendo drivers cancel Left + Right, so on a MiSTer use Left / Up and map Up to the F3 core's Right.")
+      : "Left / Up (A = Left, B = Up) is a plain diagonal, so it survives every driver and controller type. On the F3 MiSTer core, map Up to Right.") +
+    " While JP3 is on, the pad's own d-pad no longer presses those two lines.";
+  for (const sel of document.querySelectorAll("#keys select")) sel.value = (settings.gsKeys || {})[sel.dataset.id] || "off";
 }
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} :
-    { method: "POST", headers: { "Content-Type": "application/json", "X-Session": session },
-      body: JSON.stringify(body) });
-  if (r.status === 409) {
-    // This page is from an earlier configurator session: start over.
-    location.reload();
-    throw new Error("page was out of date, reloading");
-  }
+    { method: "POST", headers: { "Content-Type": "application/json", "X-Session": session }, body: JSON.stringify(body) });
+  if (r.status === 409) { location.reload(); throw new Error("page was out of date, reloading"); }
   if (!r.ok) throw new Error(path + ": " + r.status);
   return r.json();
 }
 
 function save(patch) {
-  Object.assign(settings, patch);
-  Object.assign(pending, patch);
+  for (const [k, v] of Object.entries(patch)) {
+    if (k === "gsKeys") { settings.gsKeys = { ...settings.gsKeys, ...v }; pending.gsKeys = { ...(pending.gsKeys || {}), ...v }; }
+    else { settings[k] = v; pending[k] = v; }
+  }
   showSettings();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     const send = pending;
     pending = {};
-    try {
-      settings = await api("/api/settings", send);
-      showSettings();
-      const s = $("saved");
-      s.classList.add("show");
-      setTimeout(() => s.classList.remove("show"), 1200);
-    } catch (e) { banner("Couldn't save: " + e.message); }
+    try { settings = await api("/api/settings", send); showSettings(); }
+    catch (e) { banner("Couldn't save: " + e.message); }
   }, 150);
 }
 
-for (const id of ["layout", "logPort", "singleCtrl", "hotkeys", "bleHid", "m64Nso"]) {
+for (const id of ["logPort", "singleCtrl", "hotkeys", "gsPaddleInv", "gsBallInvY", "gsJp3Lines"]) {
   $(id).addEventListener("click", (e) => {
     const v = e.target.dataset && e.target.dataset.v;
     if (v === undefined) return;
@@ -451,68 +447,25 @@ for (const id of ["layout", "logPort", "singleCtrl", "hotkeys", "bleHid", "m64Ns
   });
 }
 $("mode").addEventListener("change", () => save({ mode: $("mode").value }));
-// Motion flip toggles: bit 0-2 gyro pitch/yaw/roll, bit 3-5 accelerometer X/Y/Z.
-const FLIPS = ["Pitch", "Yaw", "Roll", "Acc X", "Acc Y", "Acc Z"];
-function flipCode(m) {
-  const c = (i) => (m & (1 << i)) ? "-" : "+";
-  return "gyro " + c(0) + c(1) + c(2) + " accel " + c(3) + c(4) + c(5);
+$("gsPaddle").addEventListener("change", () => save({ gsPaddle: $("gsPaddle").value }));
+$("gsBall").addEventListener("change", () => save({ gsBall: $("gsBall").value }));
+for (const id of ["gsPaddleSens", "gsPaddleRange", "gsBallSens", "gsJp3Hold", "displayBright"]) {
+  $(id).addEventListener("input", () => save({ [id]: +$(id).value }));
 }
-for (const id of ["flipDs4", "flipSwitch"]) {
-  FLIPS.forEach((name, i) => {
-    const b = document.createElement("button");
-    b.textContent = name;
-    b.addEventListener("click", () => save({ [id]: (settings[id] || 0) ^ (1 << i) }));
-    $(id).appendChild(b);
-  });
-}
-$("padSpeed").addEventListener("input", () => save({ padSpeed: +$("padSpeed").value }));
-$("displayBright").addEventListener("input", () => save({ displayBright: +$("displayBright").value }));
 $("displayRot").addEventListener("click", (e) => {
   const v = e.target.dataset && e.target.dataset.v;
   if (v !== undefined) save({ displayRot: +v });
 });
-$("mouseSpeed").addEventListener("input", () => save({ mouseSpeed: +$("mouseSpeed").value }));
-$("scrollSpeed").addEventListener("input", () => save({ scrollSpeed: +$("scrollSpeed").value }));
-$("padHscroll").addEventListener("click", (e) => {
-  const v = e.target.dataset && e.target.dataset.v;
-  if (v !== undefined) save({ padHscroll: v === "true" });
-});
-$("padMouse").addEventListener("click", (e) => {
-  const v = e.target.dataset && e.target.dataset.v;
-  if (v !== undefined) save({ padMouse: +v });
-});
-$("padDsTouch").addEventListener("click", (e) => {
-  const v = e.target.dataset && e.target.dataset.v;
-  if (v !== undefined) save({ padDsTouch: v === "true" });
-});
-$("padGrip").addEventListener("click", (e) => {
-  const v = e.target.dataset && e.target.dataset.v;
-  if (v !== undefined) save({ padGrip: v === "true" });
-});
-$("padLift").addEventListener("click", (e) => {
-  const v = e.target.dataset && e.target.dataset.v;
-  if (v !== undefined) save({ padLift: +v });
-});
-$("gl").addEventListener("change", () => save({ gl: $("gl").value }));
-$("gr").addEventListener("change", () => save({ gr: $("gr").value }));
-$("rumble").addEventListener("input", () => save({ rumble: +$("rumble").value }));
-$("deadzone").addEventListener("input", () => save({ deadzone: +$("deadzone").value }));
-
 $("forgetAll").addEventListener("click", async () => {
   if (!confirmInline($("forgetAll"), "Really forget all?")) return;
   await api("/api/forget", { all: true });
 });
-
-// Two-click confirm without a browser dialog.
 function confirmInline(btn, text) {
   if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.label; return true; }
-  btn.dataset.label = btn.textContent;
-  btn.dataset.armed = "1";
-  btn.textContent = text;
+  btn.dataset.label = btn.textContent; btn.dataset.armed = "1"; btn.textContent = text;
   setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.label; } }, 3000);
   return false;
 }
-
 $("exit").addEventListener("click", async () => {
   $("exit").disabled = true;
   clearTimeout(saveTimer);
@@ -524,107 +477,67 @@ $("exit").addEventListener("click", async () => {
   if (ws) try { ws.close(); } catch (_) {}
   banner("Saved. The dongle is switching back to a controller; you can close this page.");
 });
-
-function banner(text) {
-  const b = $("banner");
-  b.textContent = text;
-  b.classList.add("show");
-}
+function banner(text) { const b = $("banner"); b.textContent = text; b.classList.add("show"); }
 
 function renderLists(st) {
   const c = $("connected");
   c.innerHTML = "";
-  if (!st.connected.length) c.innerHTML = '<li class="empty">Nothing connected. Press a button on a paired controller.</li>';
+  if (!st.connected.length) c.innerHTML = '<li class="empty">Nothing connected. Press a button on the pad.</li>';
   for (const l of st.connected) {
     const li = document.createElement("li");
     li.innerHTML = '<span class="dot"></span><span class="grow"><span class="name"></span><br><span class="mac"></span></span><span class="mac"></span>';
     li.querySelector(".dot").classList.add(l.ready ? "ok" : "wait");
-    li.querySelector(".name").textContent = l.role;
+    li.querySelector(".name").textContent = st.gs && st.gs.connected && l.role === "BLE gamepad" ? "Gamestation Gamepad" : l.role;
     li.querySelectorAll(".mac")[0].textContent = l.mac;
-    li.querySelectorAll(".mac")[1].textContent = l.ready ? l.rate + " /s" + (l.battery ? " · battery " + l.battery : "") : "connecting…";
+    li.querySelectorAll(".mac")[1].textContent = l.ready ? l.rate + " /s" : "connecting…";
     c.appendChild(li);
   }
   const p = $("paired");
   const key = JSON.stringify(st.paired);
-  if (p.dataset.key === key) return;  // don't rebuild under the mouse
+  if (p.dataset.key === key) return;
   p.dataset.key = key;
   p.innerHTML = "";
   if (!st.paired.length) p.innerHTML = '<li class="empty">None yet.</li>';
   for (const b of st.paired) {
     const li = document.createElement("li");
     li.innerHTML = '<span class="grow"><span class="name"></span><br><span class="mac"></span></span><button class="ghost">Forget</button>';
-    li.querySelector(".name").textContent = b.type;
+    li.querySelector(".name").textContent = b.type === "BLE gamepad" ? "Bluetooth gamepad" : b.type;
     li.querySelector(".mac").textContent = b.mac;
     const btn = li.querySelector("button");
-    btn.addEventListener("click", async () => {
-      if (!confirmInline(btn, "Sure?")) return;
-      await api("/api/forget", { mac: b.mac });
-    });
+    btn.addEventListener("click", async () => { if (confirmInline(btn, "Sure?")) await api("/api/forget", { mac: b.mac }); });
     p.appendChild(li);
   }
 }
 
+// gs = [paddle raw, paddle total, ball x, ball y, keys, JP3 phase, clipped, reports, JP3 backlog]
 function renderInput(inp) {
-  const spans = $("btns").children;
-  BUTTONS.forEach(([, bit], i) => spans[i].classList.toggle("on", (inp.buttons & bit) !== 0));
+  const b = inp.buttons >>> 0;
+  for (const el of document.querySelectorAll("#pad [data-b]")) el.classList.toggle("on", (b & parseInt(el.dataset.b, 16)) !== 0);
+  const g = inp.gs;
+  const keys = g ? g[4] : 0;
+  for (const el of document.querySelectorAll("#pad [data-k]")) {
+    const k = el.dataset.k;
+    el.classList.toggle("on", k === "home" ? (b & 0x1000) !== 0 : (keys & (1 << +k)) !== 0);
+  }
   const put = (el, x, y) => { el.style.left = (50 + x * 42) + "%"; el.style.top = (50 - y * 42) + "%"; };
   put($("ls"), inp.lx, inp.ly);
   put($("rs"), inp.rx, inp.ry);
-  $("padmode").textContent = PADMODE[inp.layout] || "";
-  renderMotion(inp.motion);
-  renderPads(inp.tp, inp.tpRaw);
+  $("padmode").textContent = g ? "Gamestation Gamepad" : (inp.layout === "none" ? "No controller" : "Other controller");
+  if (!g) return;
+  gsLast = g;
+  $("notch").setAttribute("transform", g[0] >= 0 ? `rotate(${g[0] / 81 * 360} 130 110)` : "");
+  $("tbTex").setAttribute("transform", `translate(${((g[2] * .35) % 14 + 14) % 14 - 7} ${((g[3] * .35) % 14 + 14) % 14 - 7})`);
+  $("scr1").textContent = g[0] < 0 ? "PADDLE --" : `PADDLE ${String(g[0]).padStart(2)} Σ${g[1]}`;
+  $("scr2").textContent = `BALL ${g[2]}, ${g[3]}`;
+  $("scr3").textContent = g[7] ? `clipped ${(100 * g[6] / g[7]).toFixed(1)}%` : "";
+  const ab = [0, 2, 3, 1][g[5] & 3];
+  $("jp3a").classList.toggle("on", (ab & 2) !== 0);
+  $("jp3b").classList.toggle("on", (ab & 1) !== 0);
+  $("kv").innerHTML = `<span>paddle steps</span><span>${g[1]}</span><span>trackball</span><span>${g[2]}, ${g[3]}</span>` +
+    `<span>JP3 queued</span><span>${g[8]}</span>`;
 }
 
-// Trackpad speed steps: 1..9 = 0.1..0.9 x speed 1, 10..19 = speeds 1..10.
-function padSpeedName(v) { return v >= 10 ? String(v - 9) : "0." + v + "×"; }
-
-// Optical-sensor trackpads: [state0, x0, y0, state1, x1, y1]; state -1 no sensor,
-// 0 / 1 finger up / down, 2 / 3 grip-sense mode without / with a hand, 4 charging grip.
-function renderPads(tp, raw) {
-  $("pads").style.display = tp ? "flex" : "none";
-  if (!tp) return;
-  for (let i = 0; i < 2; i++) {
-    const dot = $("tp" + i), t = tp[i * 3];
-    dot.classList.toggle("on", t === 1);
-    const pad = dot.parentElement;
-    pad.classList.toggle("grip", t === 2 || t === 3);
-    pad.classList.toggle("held", t === 3);
-    pad.querySelector("b").textContent = (i ? "Right" : "Left") +
-      (t === 4 ? ": charging grip" : t >= 2 ? (t === 3 ? " grip: hand" : " grip: free") : " trackpad");
-    dot.style.left = (50 + tp[i * 3 + 1] / 32767 * 46) + "%";
-    dot.style.top = (50 - tp[i * 3 + 2] / 32767 * 46) + "%";
-    dot.parentElement.style.opacity = t < 0 ? 0.35 : 1;
-    $("tpr" + i).textContent = t < 0 || !raw ? "no sensor" :
-      "distance " + raw[i * 3] + " · rough " + raw[i * 3 + 1] + "\n" + (raw[i * 3 + 2] ? "on its rail side" : "upright / held");
-  }
-}
-
-// Gyro in deg/s (bars span +-360), accelerometer in g. The tilt dot acts like
-// a bubble level: it moves toward the side that is raised.
-function renderMotion(m) {
-  $("motion").style.opacity = m ? 1 : 0.4;
-  if (!m) { $("accel").textContent = "No motion data from this controller."; return; }
-  for (let i = 0; i < 3; i++) {
-    const v = Math.max(-1, Math.min(1, m[i] / 360));
-    const bar = $("g" + i);
-    bar.style.left = (v < 0 ? 50 + v * 50 : 50) + "%";
-    bar.style.width = Math.abs(v) * 50 + "%";
-    $("g" + i + "v").textContent = m[i].toFixed(0) + " °/s";
-  }
-  const t = $("tilt"), cl = (v) => Math.max(-1, Math.min(1, v));
-  t.style.left = (50 + cl(m[3]) * 42) + "%";
-  t.style.top = (50 + cl(m[5]) * 42) + "%";
-  $("accel").textContent = "Gravity  X " + m[3].toFixed(2) + "  Y " + m[4].toFixed(2) + "  Z " + m[5].toFixed(2) + " g";
-}
-
-let stopped = false;
-let failures = 0;
-let ws = null;
-let wsLive = false;
-
-// Live input comes over a WebSocket (pushed by the dongle as it changes); the
-// slower poll below keeps the lists and settings fresh, and covers for the
-// socket if it drops.
+let stopped = false, failures = 0, ws = null, wsLive = false;
 function openSocket() {
   if (stopped) return;
   try { ws = new WebSocket("ws://" + location.host + "/ws"); } catch (_) { return; }
@@ -633,6 +546,10 @@ function openSocket() {
   ws.onerror = () => { try { ws.close(); } catch (_) {} };
 }
 openSocket();
+
+function fill(sel, list, key = "key", name = "name") {
+  for (const m of list) { const o = document.createElement("option"); o.value = m[key]; o.textContent = m[name]; sel.appendChild(o); }
+}
 async function poll() {
   if (stopped) return;
   try {
@@ -641,24 +558,29 @@ async function poll() {
     if (session && st.session !== session) { location.reload(); return; }
     session = st.session;
     $("fw").textContent = "Firmware " + st.firmware;
-    if (!modesFilled) {
-      for (const m of st.modes) {
-        const o = document.createElement("option");
-        o.value = m.key; o.textContent = m.name;
-        $("mode").appendChild(o);
+    if (!filled) {
+      fill($("mode"), st.modes);
+      fill($("gsPaddle"), st.gsPaddleTargets);
+      fill($("gsBall"), st.gsBallTargets);
+      const grips = st.grips.filter((g) => g.key !== "auto");
+      for (const k of st.gsKeyList) {
+        const lab = document.createElement("label");
+        lab.innerHTML = "<span></span><select></select>";
+        lab.querySelector("span").textContent = k.label.length === 1 ? "Key " + k.label : k.label;
+        const sel = lab.querySelector("select");
+        sel.dataset.id = k.id;
+        fill(sel, grips);
+        sel.addEventListener("change", () => save({ gsKeys: { [k.id]: sel.value } }));
+        $("keys").appendChild(lab);
       }
-      for (const id of ["gl", "gr"]) {
-        for (const g of st.grips) {
-          const o = document.createElement("option");
-          o.value = g.key; o.textContent = g.name;
-          $(id).appendChild(o);
-        }
-      }
-      modesFilled = true;
+      filled = true;
     }
     if (!settings) { settings = st.settings; showSettings(); }
     renderLists(st);
-    if (!wsLive) renderInput(st.input);
+    if (!wsLive) {
+      const g = st.gs;
+      renderInput({ ...st.input, gs: g && g.connected ? [g.paddleRaw, g.paddleTotal, g.ballX, g.ballY, g.keys, g.jp3Phase, g.ballClipped, g.ballReports, g.jp3Backlog] : null });
+    }
     $("banner").classList.remove("show");
   } catch (e) {
     if (++failures > 3) banner("Lost contact with the dongle. Is it still in configurator mode?");

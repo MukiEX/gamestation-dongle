@@ -529,7 +529,7 @@ static void render_portrait(const view_t *v)
     const font_t *tf = text_width(&FONT_BIG, t) <= W - Z(8) ? &FONT_BIG : &FONT_SMALL;
     text(tf, Z(4), Z(9), t, INK);
     if (v->pro) {
-        chip(4, 36, w - 8, v->pad ? "Pad" : "Pro", true, v->bat_pro);
+        chip(4, 36, w - 8, v->pad ? "Gamestation" : "Pro", true, v->bat_pro);
     } else if (v->l || v->r || v->pairing) {
         chip(4, 36, w - 8, "Left", v->l, v->bat_l);
         chip(4, 60, w - 8, "Right", v->r, v->bat_r);
@@ -537,7 +537,7 @@ static void render_portrait(const view_t *v)
     char line[40];
     uint32_t lc = status_line(v, line, sizeof(line));
     if (!v->pro && !v->l && !v->r && !v->pairing) {
-        int y = text_wrap(&FONT_SMALL, Z(4), Z(36), W - Z(8), "No controller: hold SYNC to pair", MUTED);
+        int y = text_wrap(&FONT_SMALL, Z(4), Z(36), W - Z(8), "No pad: put it in pairing mode", MUTED);
         text_wrap(&FONT_SMALL, Z(4), y + Z(8), W - Z(8), line, lc);
     } else {
         text_wrap(&FONT_SMALL, Z(4), Z(92), W - Z(8), line, lc);
@@ -560,13 +560,13 @@ static void render(const view_t *v)
     text(&FONT_BIG, Z(10), Z(1), mode_title(v->mode), INK);
 
     if (v->pro) {
-        chip(10, 30, 70, v->pad ? "Pad" : "Pro", true, v->bat_pro);
+        chip(10, 30, 70, v->pad ? "Gamestation" : "Pro", true, v->bat_pro);
     } else if (v->l || v->r || v->pairing) {
         chip(10, 30, 66, "Left", v->l, v->bat_l);
         chip(84, 30, 66, "Right", v->r, v->bat_r);
     } else {
-        text(&FONT_SMALL, Z(10), Z(33), "No controller:", MUTED);
-        text(&FONT_SMALL, Z(10), Z(46), "hold SYNC to pair", MUTED);
+        text(&FONT_SMALL, Z(10), Z(33), "No pad: put it", MUTED);
+        text(&FONT_SMALL, Z(10), Z(46), "in pairing mode", MUTED);
     }
 
     char line[40];

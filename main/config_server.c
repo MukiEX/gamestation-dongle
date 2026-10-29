@@ -662,7 +662,7 @@ static void ws_task(void *arg)
 {
     (void)arg;
     static const char *mode_names[] = { "none", "pro", "pair", "left", "right" };
-    char last[448] = "";
+    char last[640] = "";
     int64_t last_sent = 0;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(16));
@@ -672,7 +672,7 @@ static void ws_task(void *arg)
         }
         pad_out_t o;
         pad_get_output(&o);
-        char msg[448];
+        char msg[640];
         int n = snprintf(msg, sizeof(msg), "{\"layout\":\"%s\",\"buttons\":%lu,\"lx\":%.3f,\"ly\":%.3f,\"rx\":%.3f,\"ry\":%.3f",
                          mode_names[o.mode < 5 ? o.mode : 0], (unsigned long)o.buttons, o.lx, o.ly, o.rx, o.ry);
         if (o.motion.valid) {
@@ -685,6 +685,14 @@ static void ws_task(void *arg)
                           tp_state(&o.tp[0]), o.tp[0].x, o.tp[0].y, tp_state(&o.tp[1]), o.tp[1].x, o.tp[1].y);
             n += snprintf(msg + n, sizeof(msg) - n, ",\"tpRaw\":[%u,%u,%d,%u,%u,%d]",
                           o.tp[0].dist, o.tp[0].rough, o.tp[0].mouse_pose, o.tp[1].dist, o.tp[1].rough, o.tp[1].mouse_pose);
+        }
+        gs_live_t gl;
+        gs_live(&gl);
+        if (gl.connected) {
+            // Gamestation: [paddle raw, paddle total, ball x, ball y, keys, JP3 phase, clipped, reports, JP3 backlog]
+            n += snprintf(msg + n, sizeof(msg) - n, ",\"gs\":[%d,%ld,%ld,%ld,%u,%u,%lu,%lu,%ld]", gl.paddle_raw,
+                          (long)gl.paddle_total, (long)gl.ball_x, (long)gl.ball_y, gl.keys, gl.jp3_phase,
+                          (unsigned long)gl.ball_clipped, (unsigned long)gl.ball_reports, (long)gl.jp3_backlog);
         }
         n += snprintf(msg + n, sizeof(msg) - n, "}");
         int64_t now = esp_timer_get_time();
