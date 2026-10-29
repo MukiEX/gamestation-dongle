@@ -36,6 +36,6 @@
     <path class="md-arrow" d="M618 48 H636"/><path class="md-head" d="M640 48 l-7 -4 v8 z"/>
     <path class="md-arrow" d="M691 68 V86 H71 V74"/><path class="md-head" d="M71 70 l-4 7 h8 z"/>
   </g>
-  <text class="md-muted" x="28" y="116" font-size="13">Each tap of BOOT (or 3 s of − and +) moves one step. The choice is saved, and the controllers</text>
+  <text class="md-muted" x="28" y="116" font-size="13">Each tap of BOOT (or 3 s of Select and Start) moves one step. The choice is saved, and the controllers</text>
   <text class="md-muted" x="28" y="134" font-size="13">stay connected while the dongle switches; the PC sees it unplug and plug back in as the new type.</text>
 </svg>

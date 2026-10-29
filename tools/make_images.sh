@@ -25,7 +25,7 @@ merge() {  # $1 = build dir, $2 = output name
   python -m esptool --chip esp32s3 merge_bin -o "dist/$2" \
     --flash_mode keep --flash_freq keep --flash_size 16MB \
     0x0 "$1/bootloader/bootloader.bin" 0x8000 "$1/partition_table/partition-table.bin" \
-    0x10000 "$1/joycon2_dongle.bin" >/dev/null
+    0x10000 "$1/gamestation_dongle.bin" >/dev/null
   python3 - "dist/$2" <<'PY'
 import sys
 d = open(sys.argv[1], 'rb').read(4)
@@ -40,24 +40,24 @@ ninja -C build >/dev/null || { echo "normal build failed"; exit 1; }
 if [ -d build-diag ]; then ninja -C build-diag >/dev/null || { echo "diagnostic build failed"; exit 1; }; fi
 if [ -d build-tdongle ]; then ninja -C build-tdongle >/dev/null || { echo "T-Dongle-S3 build failed"; exit 1; }; fi
 if [ -d build-lcd147 ]; then ninja -C build-lcd147 >/dev/null || { echo "ESP32-S3-LCD-1.47 build failed"; exit 1; }; fi
-python3 - build/joycon2_dongle.bin main/web/index.html <<'PY'
+python3 - build/gamestation_dongle.bin main/web/index.html <<'PY'
 import sys
 app, page = (open(p, 'rb').read() for p in sys.argv[1:])
-assert page in app, "build/joycon2_dongle.bin does not contain the current main/web/index.html"
+assert page in app, "build/gamestation_dongle.bin does not contain the current main/web/index.html"
 print("configurator page in the image is current")
 PY
 rm -f dist/*.bin
-check_version build/joycon2_dongle.bin normal
-merge build "joycon2-dongle-$VER-merged.bin"
+check_version build/gamestation_dongle.bin normal
+merge build "gamestation-dongle-$VER-merged.bin"
 if [ -d build-diag ]; then
-  check_version build-diag/joycon2_dongle.bin diag
-  merge build-diag "joycon2-dongle-$VER-diag-merged.bin"
+  check_version build-diag/gamestation_dongle.bin diag
+  merge build-diag "gamestation-dongle-$VER-diag-merged.bin"
 fi
 if [ -d build-tdongle ]; then
-  check_version build-tdongle/joycon2_dongle.bin tdongle
-  merge build-tdongle "joycon2-dongle-$VER-tdongle-merged.bin"
+  check_version build-tdongle/gamestation_dongle.bin tdongle
+  merge build-tdongle "gamestation-dongle-$VER-tdongle-merged.bin"
 fi
 if [ -d build-lcd147 ]; then
-  check_version build-lcd147/joycon2_dongle.bin lcd147
-  merge build-lcd147 "joycon2-dongle-$VER-lcd147-merged.bin"
+  check_version build-lcd147/gamestation_dongle.bin lcd147
+  merge build-lcd147 "gamestation-dongle-$VER-lcd147-merged.bin"
 fi

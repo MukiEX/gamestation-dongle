@@ -52,10 +52,10 @@
 
   <rect class="bb-cfg" x="290" y="156" width="12" height="12" rx="3"/>
   <text class="bb-ink" x="310" y="167" font-size="14" font-weight="700">Release at 2–5 s: configurator</text>
-  <text class="bb-muted" x="310" y="186" font-size="13">Controllers buzz twice; open 192.168.7.1</text>
+  <text class="bb-muted" x="310" y="186" font-size="13">Then open 192.168.7.1</text>
 
   <rect class="bb-forget" x="555" y="156" width="12" height="12" rx="3"/>
   <text class="bb-ink" x="575" y="167" font-size="14" font-weight="700">5 s: forget pairings</text>
   <text class="bb-muted" x="575" y="186" font-size="13">Every controller must</text>
-  <text class="bb-muted" x="575" y="203" font-size="13">pair again (SYNC)</text>
+  <text class="bb-muted" x="575" y="203" font-size="13">pair again</text>
 </svg>

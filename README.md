@@ -1,397 +1,99 @@
-# Joy-Con 2 Dongle
+# Gamestation Dongle
 
-Firmware for an **ESP32-S3 N16R8** that connects Nintendo Switch 2 controllers
-over Bluetooth LE and presents them to a PC/console as **one USB controller**.
-A left and a right Joy-Con 2 automatically merge into a single controller.
+ESP32-S3 firmware that turns the **My Arcade Atari Gamestation Gamepad** (the wireless pad for the
+Gamestation Go / Mega) into a USB controller for PCs, MiSTer and consoles. It connects to the pad over
+Bluetooth LE and appears on USB as an Xbox 360 (XInput), DualShock 4, DualSense, Switch Pro, Steam
+Controller or generic HID gamepad, optionally with a USB mouse next to it.
 
-Based on [Switch2Connect](https://github.com/TommyWabg/Switch2Connect) by
-TommyWabg, so this project is **GPL-3.0**.
+Built on the Joy-Con 2 Dongle 1.2.15 (itself based on Switch2Connect): same output modes, web
+configurator, BOOT-button controls, boards and flasher. Its Switch 2 controller support is still in the
+code and still works.
 
-## Quick start
+## Boards
 
-1. **Flash** the firmware with the tool page (`dist/joycon2-dongle-tool.html`,
-   opened in Chrome or Edge), or with esptool (see [Flashing](#flashing)).
-2. **Plug** the dongle into the PC or console.
-3. **Pair** each controller once: hold the small **SYNC** button on its rail
-   until it connects (a short buzz and the player-1 LED). From then on any
-   button wakes it and it reconnects by itself. A left and a right Joy-Con
-   become one controller; a single Joy-Con works sideways on its own.
-4. **Play.** The dongle starts as an Xbox 360 (XInput) controller. To change the
-   controller type or open the settings page, use the shortcuts below.
-
-![Controller shortcuts: hold − and + for 3 s for the next mode, Capture and Home for 3 s for the configurator, SYNC to pair](docs/img/shortcuts.svg)
-
-![BOOT button: tap for the next mode, release after 2–5 s for the configurator, hold 5 s to forget all pairings](docs/img/boot-button.svg)
-
-![Output modes in order: XInput, DS4, DualSense, Switch Pro, Steam Controller, generic HID](docs/img/modes.svg)
-
-The configurator (http://192.168.7.1) has everything else: rumble strength,
-stick deadzone, button layout, back buttons, what the Joy-Con mouse sensor
-does, and the list of paired controllers. Your PC keeps its normal internet
-connection while it's open.
-
-## Status: 1.2.15
-
-| Step | What | State |
+| Build | Board | Flash |
 |---|---|---|
-| 1 | Joy-Con 2 / Pro Controller 2 pairing + L+R merge → generic USB HID gamepad, serial debug log | done |
-| 2 | XInput, DS4, Switch Pro output modes + rumble | done (0.2.4) |
-| 3 | Web configurator at 192.168.7.1, settings in flash | done (0.3.4) |
-| 4 | Gyro, DualSense output with audio haptics, Switch 2 Pro output | gyro, back buttons, DualSense done; audio haptics and Switch 2 Pro output still to do |
-| 5 | Steam Controller (2026) mode with mouse-sensor trackpads, Joy-Con mouse as USB mouse | done (1.0.0) |
+| normal | any ESP32-S3 with 16 MB flash (e.g. N16R8 dev boards) | hold BOOT, plug in the USB (OTG) port |
+| `tdongle` | LILYGO T-Dongle-S3 (160×80 screen, RGB LED) | hold its button while plugging in |
+| `lcd147` | Waveshare ESP32-S3-LCD-1.47 (172×320 screen, RGB LED) | hold BOOT while plugging in |
+| diag | any of them: no gamepad, everything on the built-in USB-Serial-JTAG port | |
 
-### Still open
+The easiest way to flash is `gamestation-dongle-tool.html` (Chrome / Edge / Opera, desktop): pick the
+board, connect, flash. It carries the images and the exact source they were built from.
 
-* **Grip sense** (*Sensor when held = Grip sense*, on by default): may need
-  tuning. In the charging grip the sensor sees the grip itself, so the dongle
-  ignores it there once GL / GR has been pressed (see Steam Controller mode).
-  The log now records each Joy-Con's "status byte" so a grip-attached bit, if
-  there is one, can be found and used instead.
-* **ModRetro M64 Pro (BLE gamepad support, experimental):** connects,
-  pairs and works since 1.2.6 (with ModRetro's controller firmware update;
-  the connection is opened the way a Steam Deck does it). In 1.2.5 and 1.2.6
-  each Report Reference read waited 3 s for an end-of-read callback that
-  NimBLE doesn't send for a single read, so setup took ~30 s (and the M64
-  sometimes gave up and disconnected). Fixed in 1.2.7. To be confirmed: setup
-  time, both N64 layouts, reconnecting on its own.
-* **Step 4 leftovers:** DualSense audio haptics, Switch 2 Pro Controller output.
-* **First pairing after flashing:** occasionally a Joy-Con needs pairing a
-  couple of times. A log from a session where it happens is needed.
-* **Mouse pose flicker:** a Joy-Con can flip between "lying on its rail side"
-  and "upright again" within a fraction of a second (see the log). While it
-  lies on its side the USB mouse (full) borrows its shoulder, trigger and
-  stick, so a press mid-flip could briefly go to the mouse. If that turns out
-  to matter, require the pose to hold for about a quarter second before
-  switching.
-* **Steam's Identify / ping** doesn't buzz in DS4 / DualSense mode (it does in
-  Switch Pro mode); probably Steam only flashes the light bar for PlayStation
-  controllers.
+## Pairing and use
 
-### Boards
+Put the pad in its Bluetooth pairing mode close to the dongle. It pairs once (bonded, kept in flash) and
+reconnects by itself afterwards.
 
-* **ESP32-S3 N16R8 dev board** (the default image, `joycon2-dongle-<ver>-merged.bin`).
-* **LILYGO T-Dongle-S3** (`joycon2-dongle-<ver>-tdongle-merged.bin`, version
-  ends in `-tdongle`): the same firmware plus its 0.96" 160×80 screen and RGB
-  LED. The screen shows the output mode (with a colour per mode, also on the
-  LED), the connected controllers with a battery gauge, and a status line
-  (configurator address, waiting for the PC, charging grip, USB mouse).
-  Brightness and orientation are in the configurator's *Display* section:
-  *Landscape* (stick lying flat) or *Upright* (stick standing, e.g. plugged
-  facing down into a dock, with a narrow layout), each either way up. The
-  default is *Upright ↻* (plugged facing down).
-  The stick plugs straight into a USB-A port; its button is the BOOT button
-  (same presses as below). To flash it, hold the button while plugging it in.
-  The battery gauge uses the value each controller reports, calibrated
-  against the Switch 2's own gauge (about 3260 = full, 3170 = just over half;
-  4 bars from 3240, 3 from 3170, 2 from 3100, 1 from 3000) and is a rough
-  guide. The configurator's Controllers list shows the raw number.
-* **Waveshare ESP32-S3-LCD-1.47** (`joycon2-dongle-<ver>-lcd147-merged.bin`,
-  version ends in `-lcd147`): the same as the T-Dongle-S3 build on Waveshare's
-  USB stick with a 1.47" 172×320 ST7789 screen and a WS2812 RGB LED (LCD MOSI
-  45, SCLK 40, CS 42, DC 41, RST 39, backlight 48; LED 38; BOOT 0). Same
-  screens and settings, drawn at twice the size with fonts made for it; same
-  default orientation (*Upright ↻*, the right way up when plugged facing
-  down; 1.2.14 had it upside down). To flash it, hold BOOT while plugging it in.
+* **Select + Start, 3 s**: next controller type (also a tap of BOOT).
+* **Credit + Home, 3 s**: the web configurator at http://192.168.7.1 (the dongle becomes a USB network
+  adapter; also BOOT held 2–5 s). Needs Credit on Capture, the default.
+* BOOT held 5 s: forget the paired pad.
 
-### Controllers
+Default mapping (positional, so the bottom face button is Xbox A whatever its label):
 
-* Supported: **Joy-Con 2 (L)**, **Joy-Con 2 (R)**, **Pro Controller 2**.
-  (NSO GameCube controller: not yet.)
-* **Pairing:** hold the small SYNC button on the controller; it connects and
-  pairs to the dongle. After that, pressing any button reconnects it.
-* **Merging:** one left + one right Joy-Con become one controller. A pair stays a
-  pair until both halves are gone; if one half drops, its inputs read neutral
-  and it rejoins when it reconnects.
-* **One controller per role:** a second Joy-Con of the same side, or any Joy-Con
-  while a Pro Controller is connected, is ignored.
-* **Lone Joy-Con:** used sideways as a mini-controller.
-* Each controller gives a short buzz and shows the player-1 LED when ready.
-* **Forget all pairings:** hold the board's **BOOT** button for 5 seconds.
+| Pad | Output |
+|---|---|
+| A (bottom), B (right), X (left), Y (top) | south, east, west, north |
+| L1 / R1 | L / R shoulders |
+| L2 / R2 | ZL / ZR triggers (digital) |
+| Select / Start / Home | − / + / Home (Back / Start / Guide) |
+| D-pad | d-pad |
+| Credit | Capture (Share) |
+| Keypad 0–9, *, #, Settings | nothing (assign any button in the configurator) |
+| Trackball | USB mouse |
+| Paddle | right stick X, following the knob's position |
 
-### Web configurator
+## Paddle and trackball
 
-Hold the board's **BOOT** button for 2–3 seconds and let go (or hold **Capture**
-and **Home** on the controller for 3 seconds). The dongle turns into a small
-USB network adapter; open **http://192.168.7.1** in any browser. The PC keeps
-its normal internet connection: the dongle hands out an address but no route.
+Set in the configurator, saved in flash.
 
-* **Output:** controller type, button layout (positional or Nintendo labels),
-  single controller mode, log port on/off, hotkeys on/off.
-* **Feel:** rumble strength (0–10, 5 = Switch2Connect's default), stick
-  deadzone (applies live).
-* **Controllers:** what is connected right now (with reports/s), the paired
-  list with Forget buttons, and a live view of every button and both sticks.
+**Paddle** (81 positions per turn, sent as an absolute angle; the dongle unwraps it into steps):
+USB mouse X · mouse wheel · left / right stick X by knob position (Atari paddle style, with a range) ·
+left / right stick X by turning speed (springs back) · d-pad left / right taps · **JP3 spinner**.
 
-**Save & exit** (or a short BOOT press, or Capture + Home again) turns the
-dongle back into a controller. A configurator tab left open from an earlier
-session reloads itself instead of changing anything. The Bluetooth controllers stay connected the
-whole time. Settings are stored on the dongle.
+**Trackball** (relative counts, ±127 per report): USB mouse · left / right stick by rolling speed ·
+JP3 spinner from its X or Y axis.
 
-### Other Bluetooth gamepads (experimental)
+Both have a sensitivity (0.25×–4×) and a direction flip.
 
-Standard Bluetooth LE gamepads (HID over GATT), such as the ModRetro M64 Pro,
-can pair with the dongle and work as one full controller in every output
-mode. Put the gamepad in its pairing mode (the one for a phone or PC), close
-to the dongle, while no other controller is connected; the dongle pairs and bonds with it (keys
-kept in flash), and afterwards it reconnects on its own. Buttons follow the
-usual Android / Xbox Bluetooth numbering (1 = south, 2 = east, 4 = west,
-5 = north, 7 / 8 = L / R, 9 / 10 = ZL / ZR, 11 = −, 12 = +, 13 = Home,
-14 / 15 = stick presses), the hat is the d-pad, X / Y the left stick and
-Z / Rz (or Rx / Ry) the right stick. The ModRetro M64 Pro (recognised by its
-name) gets its own N64 layout, in two flavours (*M64 Pro layout* in the
-configurator): **Emulator** (default) puts A and B on the bottom and left
-face buttons by position (Xbox A / X), as N64 emulators expect; **Switch
-Online** maps them as Nintendo does for a Pro Controller (A = Switch A,
-B = Switch B). Both: Z on ZL / left trigger, L / R on the bumpers, Start on +,
-the C buttons as a digital right stick, the d-pad and stick as usual. The M64 Pro has no −, Home or
-Capture, so its shortcuts are **L + R + Start** held 3 s (next mode) and
-**L + R + Z + Start** held 3 s (configurator, and again to leave it). No rumble or motion yet. The log lists
-each gamepad's report map and every input report, so other layouts can be
-mapped. Only gamepads and joysticks are paired: TV remotes, keyboards and
-mice are skipped by their advertised type, and anything whose report map has
-no buttons or sticks is dropped and forgotten after connecting. Turn it off with *Other Bluetooth gamepads* in the configurator.
-The ESP32-S3 can't use Bluetooth SCI; the M64 Pro asks for a 7.5 ms
-interval itself, like the Joy-Cons use.
+### JP3 spinner
 
-### Output modes
+Taito F3 boards read an optical spinner as a quadrature encoder on the JAMMA Left / Right lines (jumper
+JP3). The dongle can play that encoder on two d-pad lines: phase A on Left, phase B on **Right** (the
+real wiring) or **Up**. Each step moves one Gray-code state (00 → 10 → 11 → 01) and holds it for the step
+time (default 4 ms, 250 steps/s), so the host never sees both phases change between two polls. A
+backlog of up to 128 steps is replayed; beyond that steps are dropped.
 
-| Mode | Shows up as | Rumble | Gyro |
-|---|---|---|---|
-| **XInput** (default) | Xbox 360 controller (045E:028E) | yes | – |
-| **DualShock 4** | DS4 (054C:09CC) | yes | yes |
-| **DualSense** | DualSense (054C:0CE6) | yes (rumble emulation; audio haptics next) | yes |
-| **Switch Pro** | Switch Pro Controller (057E:2009) | yes (HD rumble, converted) | yes |
-| **Steam Controller** | Steam Controller 2026 (28DE:1302), Joy-Con mouse sensors as its trackpads | yes (rumble, haptic clicks and tones) | yes |
-| **Generic HID** | "Joy-Con 2 Dongle" HID gamepad (303A:8243) | no | – |
+Use **Left / Up** unless you know Left + Right gets through: Linux's xpad and hid-nintendo drivers cancel
+opposite directions, and DS4, DualSense and generic HID report the d-pad as a hat, which can't hold
+both. On the F3 MiSTer core, map the pad's Up to Right. While JP3 is on, the pad's own d-pad no longer
+presses those two lines.
 
-**Changing mode:** pick it in the configurator, press **BOOT** briefly, or hold
-**−** and **+** together for 3 seconds. The dongle drops off USB for about a second and comes back as the
-next controller; the Bluetooth controllers stay connected. The mode is saved
-for the next power-up. The order is XInput → DS4 → DualSense → Switch Pro → Steam Controller → generic HID.
+## The pad's protocol
 
-Switch Pro mode only reads correctly in software that speaks the Pro
-Controller's USB protocol (Steam, SDL games, Chrome's gamepad support, a
-Switch). Windows' generic game-controller view shows nonsense for it, as it
-does for a real wired Pro Controller.
-
-**Single controller mode** (configurator, *Output*; off by default):
-* **Off:** the dongle is the controller plus its serial log port and, if the
-  Joy-Con sensors are set to *USB mouse* / *Pointer only*, a USB mouse. XInput
-  mode then uses the dongle's own ID (303A:8246), so Windows splits the device
-  into its parts and still uses its Xbox driver for the controller (found by
-  its interface class and a Microsoft OS "XUSB10" compatible ID). The log port
-  can still be turned off on its own.
-* **On:** the dongle is nothing but the controller: no log port, no USB mouse,
-  and XInput uses the real Xbox 360 ID (045E:028E), for games that look for
-  it. Consoles need this: a Switch and Switch 2 ignored the dongle in Switch
-  Pro mode while it also had the log port, though PCs, a Steam Deck and an
-  iPhone took it. (Replaces 1.2.x's *XInput USB ID* setting: a saved
-  *Xbox 360* choice carries over as On.)
-
-The board's second (UART) USB port always carries the console log, whatever
-is set here.
-
-**Switch / Switch 2:** Switch Pro mode works on a Switch 2 (1.2.12, with
-single controller mode on; turn on *Pro Controller Wired Communication* in
-the console's settings). What it took: the USB interface matches a real Pro
-Controller byte for byte (IN endpoint before OUT, no interface string, serial
-000000000001), and the replies to the console's set-up requests match
-GP2040-CE's (an answer to 80 04 / 80 05 and to a few subcommands). The first
-80 requests are logged (UART log on the dev board). Plugged straight into the
-Switch 2 the T-Dongle stayed on "Waiting for the PC" (probably power); through
-a powered hub it works. The T-Dongle screen shows how far a host got: *USB:
-device read / config read / HID read*, then *Switch: no hello yet /
-handshake...* until input streams. PS4 is untested.
-
-Buttons are **positional**: the bottom face button is Xbox A / PS Cross / Switch
-B, whatever the label on the Nintendo controller says.
-
-| Switch 2 | XInput | DS4 / DualSense | Switch Pro |
-|---|---|---|---|
-| B (bottom) / A (right) / Y (left) / X (top) | A / B / X / Y | Cross / Circle / Square / Triangle | B / A / Y / X |
-| L / R | LB / RB | L1 / R1 | L / R |
-| ZL / ZR | LT / RT (full) | L2 / R2 (full) | ZL / ZR |
-| − / + | Back / Start | Share / Options (DualSense: Create / Options) | − / + |
-| Home | Guide | PS | Home |
-| Capture | – | Touchpad click | Capture |
-| GL / GR (Pro Controller 2, Joy-Con 2 charging grip) | your choice | touchpad left / right half | your choice |
-| C (GameChat) | – | DualSense: mute button | – |
-| SL, SR | – | – | – |
-
-**Joy-Con mouse as a real USB mouse (optional, all modes):** set *Joy-Con mouse
-sensor* to *USB mouse* in the configurator and the dongle adds a standard USB
-mouse next to the controller. A Joy-Con lying on its rail side on a surface
-moves the pointer, and while it lies there its shoulder (L / R) is the left
-button, its trigger (ZL / ZR) the right button, its stick press the middle
-button and its stick up / down the wheel; those leave the controller meanwhile.
-Held normally it is a controller half as usual. *Pointer only* gives the same
-pointer but leaves every button on the controller. *Mouse speed* sets the
-pointer speed (5 = one pixel per sensor step; default 3). With *Mouse stick
-sideways* on (the default), pushing the stick sideways scrolls left / right. *Scroll speed* (1–10, default 5) sets how fast the stick scrolls. The trackpads and touchpad then
-get nothing from the sensors. Some consoles may refuse the extra USB device.
-
-Each output mode has its own USB serial number and controller MAC, so Steam
-(which remembers a controller's type by its serial) sees DS4, DualSense,
-Switch Pro and Steam Controller as different controllers.
-
-**Touchpad (DS4 and DualSense):** each Joy-Con's mouse sensor touches its half
-of the touchpad (left Joy-Con: left half) while the Joy-Con lies on its rail
-side on a surface, like a mouse; held normally or lifted, it doesn't. Same virtual finger,
-speed and lift-off settings as Steam Controller mode; turn it off in the
-configurator (*DS4 / DualSense touchpad*) if a game reacts to stray touches.
-
-**Back buttons (GL / GR)** on the Pro Controller 2 and on the Joy-Con 2
-Charging Grip. The grip's buttons reach the dongle through the Joy-Cons: the
-dongle sends each Joy-Con the "enable charging grip buttons" command (08:02)
-when it connects and every 2 seconds after that (a Joy-Con forgets it when it
-leaves the grip). They can be set to any button in the configurator. On
-*Auto* they press the left and right half of the touchpad in DS4 mode (the same
-trick Switch2Connect uses, so Steam Input and DS4Windows can bind them
-separately) and buttons 20 / 21 in generic HID mode. XInput and Switch Pro have
-no spare buttons, so there Auto does nothing until you pick one.
-
-**Rumble** follows Switch2Connect's defaults (strength 5, frequency 10): the
-large motor drives the low band and the small motor the high band. Switch HD
-rumble keeps its frequencies. With a Joy-Con pair each half plays its own
-side; a lone Joy-Con plays both.
-
-**Gyro and accelerometer** pass through in DS4 and Switch Pro modes, scaled
-to what those controllers report (sensor scales measured by Switch2Connect).
-A Joy-Con pair uses the right Joy-Con's motion (the left one's while the right
-is away); a lone sideways Joy-Con's axes are turned to match how it is held.
-The gyro recalibrates itself whenever the controller rests still for about a
-second. The configurator shows live motion under Live input. Verified on hardware
-in both modes: decoded the way SDL does (the tool page's Motion tab), and with
-Steam's gyro-as-mouse. For a game that reads an axis backwards, the
-configurator's *Advanced* section can flip each gyro and accelerometer axis
-per mode; the log prints the active code (e.g. `gyro +-+ accel +++`) when
-those modes start.
-
-### Steam Controller mode
-
-The dongle presents itself as a wired Steam Controller (2026), which Steam
-supports natively, so Steam Input can bind everything, including the
-trackpads.
-
-* **Trackpads from the Joy-Con mouse sensors.** Slide a Joy-Con on a surface
-  (sensor side down) and a finger moves on that side's trackpad: left Joy-Con →
-  left pad, right Joy-Con → right pad. Lifting it lifts the finger. The finger
-  starts at the pad's centre and, at the edge, lifts for one report and lands
-  at the centre again; Steam reads trackpads as relative motion, so the
-  movement continues. Lying on its rail side, the Joy-Con may be up to 1.5×
-  the usual lift-off distance and surface-roughness limits, so it also works
-  in mouse grips (Nintendo's and others) that raise the sensor slightly (in
-  a grip the sensor reads a rougher surface). *Trackpad speed* (with fine steps from 0.1× to 0.9× of
-  speed 1; default 0.3×) and *Trackpad lift-off* are in the configurator, which
-  also shows both trackpads live with each sensor's raw distance and roughness.
-* **Grip sense (optional):** with *Sensor when held* set to *Grip sense*, a
-  Joy-Con lying on its rail side (as a mouse) is a trackpad, and one held
-  normally reports through its sensor whether your hand is on that grip
-  (Steam's grip-touch); while it lies on its rail side its grip reads as
-  free. The accelerometer tells the two apart. It is on by default (off:
-  Steam sees both grips as held); the configurator's live view shows
-  "grip: hand" / "grip: free".
-* **Charging grip:** the sensor sits on the rail side, so in the Joy-Con 2
-  charging grip it only sees the grip. Once GL or GR is pressed the dongle
-  knows the Joy-Cons are in the grip and ignores their sensors (no trackpad,
-  no grip sensing; Steam sees the grips as held, the live view shows
-  "charging grip") until a Joy-Con reconnects or is laid on its rail side.
-* **Buttons:** Home = Steam button, Capture = quick access (…), − / + = the
-  left / right centre buttons (Back / Start in SDL), GL / GR = L4 / R4; on the Joy-Con rails, left SL = L4, left SR = L5,
-  right SR = R4, right SL = R5. ZL / ZR are full
-  trigger pulls. Joy-Cons have no touch sensing, so a moved stick counts as
-  "touched".
-* **Haptics:** Steam's rumble drives the Joy-Con motors; its haptic clicks,
-  pulses and tones (Identify Controller, trackpad clicks) play as short Joy-Con
-  HD-rumble tones at the requested pitch.
-* **If Steam offers a firmware update** for this controller, decline it: the
-  dongle only imitates the controller.
-
-Sources: the USB descriptors and the answers Steam checks come from
-[HIDMaestro](https://github.com/hifihedgehog/HIDMaestro)'s steam-controller-2
-profile (MIT); the input layout from SDL's `SDL_hidapi_steam_triton.c`; the
-haptic reports from [sc2-research](https://github.com/CouchTurtle/sc2-research)
-(MIT).
-
-The generic HID mode is the step-1 layout:
-
-| HID button | Controller | | HID button | Controller |
-|---|---|---|---|---|
-| 1 | B (south) | | 12 | R stick click |
-| 2 | A (east) | | 13 | Home |
-| 3 | Y (west) | | 14 | Capture |
-| 4 | X (north) | | 15 | C (GameChat) |
-| 5 / 6 | L / R | | 16 / 17 | SL / SR (left Joy-Con) |
-| 7 / 8 | ZL / ZR | | 18 / 19 | SL / SR (right Joy-Con) |
-| 9 / 10 | − / + | | 20 / 21 | GL / GR (Pro 2 back buttons) |
-| 11 | L stick click | | | |
-
-## Flashing
-
-Prebuilt images are in `dist/`. You need [esptool](https://github.com/espressif/esptool)
-(`pip install esptool`) or Espressif's web flasher.
-
-The tool page (`dist/joycon2-dongle-tool.html`) flashes from the browser and
-carries the exact source of the firmware it contains: **Download source** on
-its Flash tab saves a zip of the commit the images were built from.
-`tools/flasher/build.py` makes that page and refuses to run with uncommitted
-changes, so the two always match.
-
-1. Hold **BOOT**, plug the board's **USB/OTG** port into the PC, release BOOT.
-2. Flash the single merged image:
-
-   ```
-   esptool.py --chip esp32s3 -p <PORT> -b 921600 write_flash 0x0 dist/joycon2-dongle-0.1.5-merged.bin
-   ```
-
-   (Or the separate files: `0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 joycon2_dongle.bin`.)
-3. Unplug and replug the OTG port (no BOOT this time).
-
-## Testing
-
-`dist/joycon2-dongle-tool.html` is a standalone page (Chrome/Edge) that flashes
-the firmware and, on its Logs tab, captures the dongle's log while you work
-through the step's test list, then saves a report. The log port is also
-readable with any serial terminal; boot messages go to the board's UART/COM
-port at 115200 baud as well.
-
-A gamepad tester such as <https://hardwaretester.com/gamepad> shows buttons,
-sticks and has a rumble test for each mode. Every 10 s the log prints the input
-reports/s per controller (~133/s is the target).
+BLE only, HID over GATT, Just Works pairing with bonding. PnP ID VID 0x000E, PID 0x3412. Report 1
+(12 bytes) carries the buttons, the paddle as GD Z (0–80) and the d-pad, keypad, Settings and Home as
+keyboard-page bits; report 3 (4 bytes) is the trackball as a relative mouse. Service FF12 is the pad's
+firmware update (OTA) channel: don't write to it. See `gs.h` for the byte layout.
 
 ## Building
 
-Requires ESP-IDF **v5.5.4** (the same version Switch2Connect ships with; its newer Bluetooth controller matters).
+ESP-IDF 5.5 with esp_tinyusb 2.x (TinyUSB 0.19 API). Normal builds fetch esp_tinyusb from the component
+registry; offline, put local copies of `esp_tinyusb` and `tinyusb` in a folder and set
+`DONGLE_EXTRA_COMPONENTS=<folder> IDF_COMPONENT_MANAGER=0`.
 
 ```
-idf.py set-target esp32s3
-idf.py build
-idf.py -p <PORT> flash monitor
+idf.py -B build build                                  # plain ESP32-S3
+DONGLE_BOARD=tdongle idf.py -B build-tdongle build     # LILYGO T-Dongle-S3
+DONGLE_BOARD=lcd147 idf.py -B build-lcd147 build       # Waveshare ESP32-S3-LCD-1.47
+DONGLE_DIAG=1 idf.py -B build-diag -D SDKCONFIG=sdkconfig.diag \
+  -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.diag" build
+tools/make_images.sh 0.1.0                             # merged images in dist/
+cd tools/flasher && python3 build.py 0.1.0             # dist/gamestation-dongle-tool.html
 ```
 
-`esp_tinyusb` is fetched by the component manager. For an offline build, put
-local copies of `esp_tinyusb` and `tinyusb` in one folder, then set
-`DONGLE_EXTRA_COMPONENTS=<folder>` and `IDF_COMPONENT_MANAGER=0`.
+## License
 
-## Source layout
-
-| File | Purpose |
-|---|---|
-| `main/ble_central.c` | Scan, connect, GATT setup, Switch 2 init sequence, pairing, input |
-| `main/ns2_proto.c/.h` | Protocol constants, input report parsing, stick calibration, rumble encoding |
-| `main/pad.c/.h` | Roles, L+R merge, sideways single Joy-Con mapping |
-| `main/usb_gamepad.c` | USB start-up, descriptors for the selected mode, report task, log mirror to CDC |
-| `main/out_*.c` | Output modes: XInput, DS4, Switch Pro, generic HID |
-| `main/rumble.c` | Converts PC rumble (motors or Switch HD rumble) to Switch 2 rumble frames |
-| `main/settings.c` | Settings in NVS (mode, log port, rumble, layout, deadzone, hotkeys) |
-| `main/config_server.c`, `main/web/index.html` | Web configurator: USB network (NCM), DHCP, web server, JSON API, page |
-| `main/bonds.c` | Remembers paired controllers (MAC → product ID) in NVS |
-| `main/main.c` | Start-up, BOOT-button "forget all" |
-
-## Credits
-
-Protocol knowledge comes from Switch2Connect (TommyWabg), Nadeflore/switch2-controllers,
-ndeadly/switch2_controller_research, german77/JoyconDriver, TheFrano/joycon2py
-and darthcloud/BlueRetro. The XInput, DS4 and Switch Pro descriptors and protocol
-handling follow [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE) (MIT);
-the web configurator approach follows GP2040-CE too.
+GPL-3.0-or-later, as the Joy-Con 2 Dongle and Switch2Connect it is based on.

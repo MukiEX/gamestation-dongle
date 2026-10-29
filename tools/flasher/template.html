@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Joy-Con 2 Dongle Tool</title>
+<title>Gamestation Dongle Tool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -15,9 +15,9 @@
   --ink: #16191f;
   --muted: #5d6573;
   --line: #d9dde4;
-  --accent: #e4002b;        /* Joy-Con red, used once per screen */
+  --accent: #e8590c;        /* Atari orange, used once per screen */
   --accent-ink: #ffffff;
-  --blue: #0a6fd8;          /* Joy-Con blue: progress */
+  --blue: #0a6fd8;          /* progress */
   --good: #18794e;
   --warn: #a35200;
   --bad: #c4231c;
@@ -203,8 +203,8 @@ footer a { color: inherit; }
 <body>
 <main>
   <header>
-    <h1>Joy-Con 2 Dongle Tool</h1>
-    <p class="sub">Flash the dongle firmware to an ESP32-S3 N16R8, then capture its log while you test. Works in Chrome, Edge or Opera on a desktop computer.</p>
+    <h1>Gamestation Dongle Tool</h1>
+    <p class="sub">Flash the Gamestation Dongle firmware (for the My Arcade Atari Gamestation Gamepad) to an ESP32-S3, then capture its log while you test. Works in Chrome, Edge or Opera on a desktop computer.</p>
   </header>
 
   <div class="banner" id="no-serial" hidden>
@@ -217,7 +217,7 @@ footer a { color: inherit; }
     <button class="tab" role="tab" id="tab-btn-flash" aria-controls="tab-flash" aria-selected="true">Flash</button>
     <button class="tab" role="tab" id="tab-btn-use" aria-controls="tab-use" aria-selected="false">How to use</button>
     <button class="tab" role="tab" id="tab-btn-logs" aria-controls="tab-logs" aria-selected="false">Logs and tests</button>
-    <button class="tab" role="tab" id="tab-btn-motion" aria-controls="tab-motion" aria-selected="false">Motion</button>
+    <button class="tab" role="tab" id="tab-btn-motion" aria-controls="tab-motion" aria-selected="false" hidden>Motion</button>
   </nav>
 
   <div class="tabpanel" id="tab-flash" role="tabpanel" aria-labelledby="tab-btn-flash">
@@ -226,7 +226,7 @@ footer a { color: inherit; }
     <fieldset class="choice" id="fw-choice">
       <legend class="sr-only">Which firmware to flash</legend>
       <label for="img-normal"><input type="radio" name="img" id="img-normal" value="0" checked>
-        <span><b>Normal</b><small>USB gamepad + log port. Use this for testing.</small></span></label>
+        <span><b>ESP32-S3 board</b><small>Plain ESP32-S3 dev board (16 MB flash, e.g. N16R8): USB gamepad + log port.</small></span></label>
       <label for="img-diag"><input type="radio" name="img" id="img-diag" value="1">
         <span><b>Diagnostic</b><small>No gamepad. Everything, including crash output, goes to the built-in port (USB JTAG/serial debug unit).</small></span></label>
       <label for="img-tdongle"><input type="radio" name="img" id="img-tdongle" value="2">
@@ -292,7 +292,7 @@ footer a { color: inherit; }
           <input type="checkbox" id="erase-all">
           <div class="opt">
             <label for="erase-all">Erase the whole flash first</label>
-            <small>Also forgets every paired controller. Adds about 20 seconds.</small>
+            <small>Also forgets the paired pad and every setting. Adds about 20 seconds.</small>
           </div>
         </div>
         <div class="opt">
@@ -308,7 +308,7 @@ footer a { color: inherit; }
         <div class="opt">
           <label for="custom-file">Use a different firmware file</label>
           <input type="file" id="custom-file" accept=".bin,application/octet-stream">
-          <small>For later builds. A <span class="mono">-merged.bin</span> goes at 0x0; the plain app image <span class="mono">joycon2_dongle.bin</span> goes at 0x10000.</small>
+          <small>For later builds. A <span class="mono">-merged.bin</span> goes at 0x0; the plain app image <span class="mono">gamestation_dongle.bin</span> goes at 0x10000 (keeps the pairing and settings).</small>
         </div>
         <div class="opt">
           <label for="custom-addr">Write address for that file</label>
@@ -327,15 +327,17 @@ footer a { color: inherit; }
   <div class="tabpanel" id="tab-use" role="tabpanel" aria-labelledby="tab-btn-use" hidden>
     <section class="panel" aria-labelledby="use-title">
       <h2 id="use-title">How to use</h2>
-      <p class="sub">Plug the dongle into a PC or console and pair your Joy-Con 2 (or Pro Controller 2) once: hold the small SYNC
-        button on the controller's rail until it connects. From then on, any button wakes it and it reconnects by itself.
-        A left and a right Joy-Con become one controller; a single Joy-Con works sideways on its own.
-        The dongle starts as an Xbox 360 (XInput) controller; pick another type with the shortcuts below or in the configurator.</p>
+      <p class="sub">Plug the dongle into a PC or console, then put the Gamestation Gamepad in its Bluetooth pairing mode close to the dongle
+        (within about a metre). It pairs once; after that the pad reconnects by itself when you turn it on.
+        The dongle starts as an Xbox 360 (XInput) controller: A, B, X, Y by position, L1 / R1 as the shoulders, L2 / R2 as the triggers,
+        Select / Start as Back / Start. The trackball starts as a USB mouse and the paddle as the right stick's X axis, following the knob.</p>
       <div class="usage-fig">__SVG_SHORTCUTS__</div>
       <div class="usage-fig">__SVG_BOOT__</div>
       <div class="usage-fig">__SVG_MODES__</div>
-      <p class="sub">In the configurator (http://192.168.7.1) you can also set rumble strength, stick deadzone, button layout,
-        what the Joy-Con mouse sensor does, and forget paired controllers. Your PC keeps its normal internet connection meanwhile.</p>
+      <p class="sub">In the configurator (http://192.168.7.1) you choose where the paddle and trackball go: USB mouse, mouse wheel,
+        either stick (by knob position or by turning speed), d-pad taps, or a JP3-style spinner (a quadrature encoder on d-pad Left / Up or
+        Left / Right, for the Taito F3 MiSTer core and Sensor-mode games). You can also give the keypad, Credit and Settings any controller button,
+        and forget the paired pad. Your PC keeps its normal internet connection meanwhile.</p>
     </section>
   </div>
 
@@ -344,7 +346,7 @@ footer a { color: inherit; }
       <h2 id="mon-title">Connect to the dongle's log</h2>
       <p class="sub" style="margin-top:6px">Plug the dongle in normally, without BOOT, and pick its port:</p>
       <ul class="sub" style="margin:6px 0 0;padding-left:20px">
-        <li><b>Joy-Con 2 Dongle (dev)</b>: the normal firmware's log port.</li>
+        <li><b>Gamestation Dongle log</b>: the normal firmware's log port.</li>
         <li><b>USB JTAG/serial debug unit</b>: the chip's built-in port. Use this with the <b>diagnostic</b> firmware, or to watch start-up.</li>
         <li><b>UART/COM</b> (second USB-C port, if your board has one): always carries the full log.</li>
       </ul>
@@ -358,9 +360,9 @@ footer a { color: inherit; }
         <div class="stat"><b>Firmware</b><span id="st-fw">–</span></div>
         <div class="stat"><b>USB mode</b><span id="st-mode">–</span></div>
         <div class="stat"><b>Controllers</b><span id="st-ctl">none</span></div>
-        <div class="stat"><b>Joy-Con L</b><span id="st-l">– /s</span></div>
-        <div class="stat"><b>Joy-Con R</b><span id="st-r">– /s</span></div>
-        <div class="stat"><b>Pro</b><span id="st-p">– /s</span></div>
+        <div class="stat" hidden><b>Joy-Con L</b><span id="st-l">– /s</span></div>
+        <div class="stat" hidden><b>Joy-Con R</b><span id="st-r">– /s</span></div>
+        <div class="stat"><b>Pad reports</b><span id="st-p">– /s</span></div>
         <div class="stat"><b>Interval</b><span id="st-itvl">–</span></div>
         <div class="stat"><b>Last reset</b><span id="st-reset">–</span></div>
       </div>
@@ -439,7 +441,7 @@ footer a { color: inherit; }
 
   <footer>
     Uses Espressif's <a href="https://github.com/espressif/esptool-js" target="_blank" rel="noopener">esptool-js</a>, loaded from a CDN, so this page needs an internet connection.
-    Firmware: Joy-Con 2 Dongle, GPL-3.0, based on Switch2Connect.
+    Firmware: Gamestation Dongle, GPL-3.0, based on the Joy-Con 2 Dongle and Switch2Connect.
   </footer>
 </main>
 
@@ -487,9 +489,16 @@ __MD5_JS__
 (function () {
   const $ = (id) => document.getElementById(id);
   const TESTS = [
-    "Waveshare 1.47: plugged in facing down, Pass if the default picture (Upright \u21bb) is the right way up. If you saved an orientation in 1.2.14, press Upright \u21bb in the configurator once",
-    "Orientation buttons: Landscape / Landscape \u21bb are the two ways round lying flat, Upright the opposite of Upright \u21bb. Pass if all four look right",
-    "Colours and LED: XInput bar and LED green, Switch Pro red. Pass if so",
+    "Pairing: pad in pairing mode next to the dongle. Pass if the log shows 'My Arcade Atari Gamestation Gamepad' and 'Gamestation Gamepad connected' within a few seconds",
+    "Reconnect: turn the pad off and on. Pass if it comes back by itself, without pairing mode",
+    "Buttons (XInput, gamepad tester): A bottom = A, B = B, X = X, Y = Y, L1 / R1 = LB / RB, L2 / R2 = triggers, Select / Start = Back / Start, Home = Guide, d-pad. Pass if all match",
+    "Trackball as USB mouse: rolling moves the pointer the right way in both axes. Pass if so (note anything sluggish on fast rolls)",
+    "Paddle on right stick (position): turning moves the right stick X smoothly and it stays put; a full turn each way reaches the ends at range 81. Pass if so",
+    "Paddle as JP3, Left / Up: F3 MiSTer core, Spinner (JP3) on, Up mapped to Right; Sensor value in Switch Test follows the knob both ways without jumping. Pass if so",
+    "Paddle as JP3, Left / Right in XInput on Windows: a quadrature test (or the configurator's JP3 lights) steps cleanly. Pass if so",
+    "Keypad: map 1 and # to buttons in the configurator; each press shows on the PC. Credit + Home (3 s) opens the configurator; Select + Start (3 s) changes mode. Pass if all work",
+    "Every controller type (XInput, DS4, DualSense, Switch Pro, Steam, HID): enumerates and the buttons work. Pass if all six do",
+    "Display boards (T-Dongle-S3 / LCD-1.47): shows the mode and 'Gamestation' once the pad connects. Pass if so",
   ];
   const RESULTS = ["–", "Pass", "Fail", "Partly", "Skipped"];
 
@@ -562,7 +571,7 @@ __MD5_JS__
   const present = new Set();
   function parse(text) {
     let m;
-    if ((m = text.match(/Joy-Con 2 Dongle (\S+)/))) $("st-fw").textContent = m[1];
+    if ((m = text.match(/Gamestation Dongle (\S+)/))) $("st-fw").textContent = m[1];
     if ((m = text.match(/\((Joy-Con L|Joy-Con R|Pro Controller)\): (\d+) input reports\/s/))) {
       const id = m[1] === "Joy-Con L" ? "st-l" : m[1] === "Joy-Con R" ? "st-r" : "st-p";
       $(id).textContent = m[2] + " /s";
@@ -573,10 +582,12 @@ __MD5_JS__
       $("st-reset").textContent = m[1] + (m[2] !== "0" ? " (×" + m[2] + ")" : "") + (/SAFE MODE/.test(m[3]) ? ", safe mode" : "");
     }
     if ((m = text.match(/(Joy-Con L|Joy-Con R|Pro Controller) connected/))) present.add(m[1]);
+    if (/Gamestation Gamepad connected/.test(text)) present.add("Gamestation Gamepad");
+    if (/Gamestation Gamepad disconnected/.test(text)) present.delete("Gamestation Gamepad");
     if ((m = text.match(/(Joy-Con L|Joy-Con R|Pro Controller) disconnected/))) present.delete(m[1]);
     if (/pair merged/.test(text)) present.add("merged");
     if (/pair dissolved/.test(text)) present.delete("merged");
-    const names = [...present].filter((n) => n !== "merged");
+    const names = [...present].filter((n) => n !== "merged" && !(n === "Pro Controller" && present.has("Gamestation Gamepad")));
     $("st-ctl").textContent = names.length
       ? names.join(" + ") + (present.has("merged") ? " (merged)" : "")
       : "none";
@@ -714,7 +725,7 @@ __MD5_JS__
   // ---- Report ----
   function report() {
     const out = [];
-    out.push("Joy-Con 2 Dongle — test report");
+    out.push("Gamestation Dongle — test report");
     out.push("Saved: " + new Date().toString());
     out.push("Firmware: " + $("st-fw").textContent);
     out.push("Browser: " + navigator.userAgent);
