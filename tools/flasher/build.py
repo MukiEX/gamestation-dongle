@@ -8,7 +8,7 @@ source they were built from (the repository at HEAD, which must be committed).
 import base64, hashlib, json, os, re, sys
 
 ver = sys.argv[1] if len(sys.argv) > 1 else '0.1.2'
-dist = '/home/claude/gamestation-dongle/dist'
+dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'dist')
 out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(dist, 'gamestation-dongle-tool.html')
 
 images = []
@@ -30,7 +30,7 @@ assert images, 'no images found'
 # The exact source the images were built from: the repository at HEAD (minus
 # the built files in dist/), which must have no uncommitted changes.
 import subprocess
-repo = '/home/claude/gamestation-dongle'
+repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 dirty = subprocess.run(['git', 'status', '--porcelain', '--', '.', ':(exclude)dist'], cwd=repo,
                        capture_output=True, text=True, check=True).stdout.strip()
 assert not dirty, 'commit the source first; uncommitted changes:\n' + dirty

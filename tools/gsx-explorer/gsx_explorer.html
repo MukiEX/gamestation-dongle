@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GSX Explorer</title>
+<style>
+:root{--bg:#0e1014;--panel:#161920;--panel2:#1c2029;--line:#272c38;--fg:#d9dfea;--dim:#7d8699;--acc:#ff8a2a;--ok:#3ecf8e;--bad:#ff5c5c;--hot:#ffb347;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:15px;margin:0 8px 0 0;color:var(--acc);letter-spacing:.02em}
+.sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+button,select,input{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit}
+button{cursor:pointer}button:hover:not(:disabled){border-color:var(--acc)}button:disabled{opacity:.4;cursor:default}
+button.small{padding:2px 7px;font-size:12px}
+input[type=checkbox]{padding:0}
+label{display:inline-flex;gap:5px;align-items:center;color:var(--dim)}
+.pill{padding:2px 9px;border-radius:10px;background:#222837;color:var(--dim);font-size:12px;white-space:nowrap}
+.pill.on{background:#123b2a;color:var(--ok)}
+main{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:12px;padding:12px}
+@media(max-width:960px){main{grid-template-columns:minmax(0,1fr)}}
+main>div{min-width:0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;min-width:0}
+section h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mono{font-family:var(--mono)}.dim{color:var(--dim)}
+.empty{color:var(--dim);font-style:italic}
+.dev{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line)}
+.dev:last-child{border:0}.dev .n{font-weight:600}.dev.hid .n{color:var(--acc)}
+.svc{margin-bottom:10px}.svc>.t{font-weight:600;margin-bottom:3px}
+.chr{padding:4px 0 4px 10px;border-left:2px solid var(--line);margin-left:2px}
+.chr .row1{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chr .val{font-family:var(--mono);font-size:12px;color:#a9c7ff;word-break:break-all;margin-top:2px}
+.chr .ascii{color:var(--dim)}
+.props{font-family:var(--mono);font-size:11px;color:var(--hot)}
+.wr{display:flex;gap:4px;margin-top:3px}.wr input{flex:1;min-width:0;font-family:var(--mono);font-size:12px;padding:2px 6px}
+#rmap{font-family:var(--mono);font-size:12px;max-height:340px;overflow:auto;white-space:pre}
+.grid3{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+@media(max-width:700px){.grid3{grid-template-columns:1fr}}
+.kv{display:grid;grid-template-columns:auto auto;gap:2px 12px;font-family:var(--mono);font-size:12px}
+.kv span:nth-child(odd){color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-family:var(--mono);font-size:11px;padding:3px 7px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);color:var(--dim);cursor:pointer;user-select:none}
+.chip.seen{color:var(--fg);border-color:#3a4252}
+.chip.on{background:var(--acc);color:#111;border-color:var(--acc)}
+table{border-collapse:collapse;width:100%}
+td,th{padding:3px 6px;text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:500;font-size:11px;border-bottom:1px solid var(--line)}
+.bytes{font-family:var(--mono);font-size:12px;display:flex;flex-wrap:wrap;gap:2px}
+.b{padding:1px 3px;border-radius:3px;transition:background .35s}
+.b.hot{background:#5a3a10;color:#ffd9a0}
+.bi{display:block;font-size:9px;color:var(--dim);text-align:center}
+#console{font-family:var(--mono);font-size:12px;height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#0b0d11;border:1px solid var(--line);border-radius:6px;padding:6px}
+.cmd{display:flex;gap:6px;margin-top:6px}.cmd input{flex:1;font-family:var(--mono)}
+canvas{background:#0b0d11;border:1px solid var(--line);border-radius:8px;display:block}
+.subgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+h3{font-size:12px;margin:0 0 6px;color:var(--fg)}
+.note{font-size:12px;color:var(--dim);margin:6px 0 0}
+.flashrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+progress{width:100%;height:8px;margin:8px 0 4px;accent-color:var(--acc)}
+#pad .body{fill:#191c23;stroke:#2f3542;stroke-width:2}
+#pad text{font-family:var(--mono);font-size:12px;fill:#c9cfdb;text-anchor:middle;pointer-events:none}
+#pad .lbl{font-size:10px;fill:var(--dim);letter-spacing:.08em}
+#pad .scr{text-anchor:start;font-size:13px;fill:#ffb347}
+#pad .dimscr{fill:var(--dim);font-size:11px}
+#pad .ring{fill:#111318;stroke:#3a4252;stroke-width:2}
+#pad .knob{fill:#2a2f3b;stroke:#ff8a2a;stroke-width:2}
+#pad .slot{cursor:default}
+#pad .slot .cap{fill:#262b37;stroke:#3a4252;stroke-width:1.5;transition:fill .06s}
+#pad .slot.face .cap,#pad .slot .cap.home{fill:#3a2a1c;stroke:#ff8a2a}
+#pad .slot.unbound .cap{stroke-dasharray:3 3;opacity:.6}
+#pad .slot.on .cap{fill:#ff8a2a;stroke:#ffd9a0}
+#pad .slot.on text{fill:#111}
+#pad .slot.learn .cap{stroke:#fff;stroke-width:3;animation:pulse .7s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.35}}
+#flog{font-family:var(--mono);font-size:12px;max-height:160px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#0b0d11;border:1px solid var(--line);border-radius:6px;padding:6px;min-height:2.4em}
+
+[hidden]{display:none!important}
+.tabs{display:flex;gap:2px;margin-right:6px}
+.tabs button{border-radius:6px 6px 0 0;border-bottom:2px solid transparent;background:transparent}
+.tabs button.act{border-bottom-color:var(--acc);color:var(--acc)}
+#tabProbe{max-width:1180px;margin:0 auto;padding:12px}
+#tabProbe .pgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media(max-width:900px){#tabProbe .pgrid{grid-template-columns:minmax(0,1fr)}}
+#tabProbe .prow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+#tabProbe .prow input[type=text],#tabProbe .prow input:not([type]){font-family:var(--mono)}
+#tabProbe input[type=number]{width:76px}
+#pCur{font-family:var(--mono);font-size:22px;color:var(--acc);padding:10px 12px;background:#0b0d11;border:1px solid var(--line);border-radius:8px;min-height:52px;word-break:break-all}
+#pCurInfo{font-size:12px;color:var(--dim);margin-top:4px;min-height:1.2em}
+#pBig{font-size:15px;padding:10px 18px;background:#5a3a10;border-color:var(--acc);color:#ffd9a0;font-weight:600}
+#pBig:disabled{background:var(--panel2);color:var(--dim)}
+.plog{font-family:var(--mono);font-size:12px;max-height:340px;overflow:auto;background:#0b0d11;border:1px solid var(--line);border-radius:6px}
+.plog table{width:100%;border-collapse:collapse}.plog td{padding:2px 8px;border-bottom:1px solid #161a22;vertical-align:top}
+.plog tr.err td{color:#ff9a9a}.plog tr.ok td:nth-child(3){color:var(--ok)}.plog tr.ntf td{color:#a9c7ff}.plog tr.find td{color:#111;background:var(--acc)}
+.plog tr.note td{color:var(--dim);font-style:italic}
+#pWarn{border-left:3px solid var(--hot);background:#2a2010;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12.5px;color:#e8d3b0;margin-bottom:12px}
+#tabDoc{max-width:1060px;margin:0 auto;padding:16px 18px 60px;line-height:1.55}
+#tabDoc h2{font-size:22px;margin:4px 0 4px;color:var(--fg);text-transform:none;letter-spacing:0;display:block}
+#tabDoc h3{font-size:16px;margin:28px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line);color:var(--acc)}
+#tabDoc h4{font-size:13px;margin:16px 0 6px}
+#tabDoc p,#tabDoc li{color:#c3cad7}
+#tabDoc code{font-family:var(--mono);font-size:12px;background:#0b0d11;border:1px solid var(--line);border-radius:4px;padding:0 4px}
+#tabDoc pre{font-family:var(--mono);font-size:12px;background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto}
+#tabDoc table{border-collapse:collapse;width:100%;margin:6px 0 10px;font-size:12.5px}
+#tabDoc th,#tabDoc td{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
+#tabDoc th{background:var(--panel2);color:var(--fg);font-weight:600;font-size:12px}
+#tabDoc td.m{font-family:var(--mono);white-space:nowrap}
+#tabDoc .infobox{float:right;width:300px;margin:0 0 12px 18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px}
+#tabDoc .infobox table{margin:0}#tabDoc .infobox td{border:0;border-bottom:1px solid var(--line);padding:3px 4px}
+#tabDoc .infobox td:first-child{color:var(--dim);white-space:nowrap}
+#tabDoc .warn{border-left:3px solid var(--bad);background:#2a1414;padding:8px 12px;border-radius:0 8px 8px 0}
+#tabDoc .toc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;display:inline-block;margin:6px 0 4px}
+#tabDoc .toc ol{margin:4px 0;padding-left:18px}#tabDoc a{color:#8fb8ff}
+@media(max-width:760px){#tabDoc .infobox{float:none;width:auto;margin:0 0 12px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>GSX Explorer</h1>
+  <div class="tabs"><button id="tbExp" class="act">Explorer</button><button id="tbDoc">Protocol</button><button id="tbProbe">Lights probe</button></div>
+  <select id="baud" title="Baud rate"><option>115200</option><option>230400</option><option>460800</option><option>921600</option></select>
+  <button id="bSerial">Connect serial</button>
+  <button id="bReset" disabled title="Pulse EN via RTS">Reset ESP32</button>
+  <span id="pSerial" class="pill">serial off</span>
+  <span id="pLink" class="pill">pad off</span>
+  <span class="sep"></span>
+  <button id="bScan" disabled>Scan 10s</button>
+  <button id="bStop" disabled>Stop</button>
+  <button id="bDump" disabled>Dump</button>
+  <button id="bInfo" disabled>Info</button>
+  <button id="bDisc" disabled>Disconnect pad</button>
+  <button id="bForget" disabled>Forget bond</button>
+  <label><input type="checkbox" id="cAuto" checked disabled> auto-reconnect</label>
+  <select id="sConn" disabled title="Request connection interval">
+    <option value="">conn interval…</option><option value="6">7.5 ms</option><option value="9">11.25 ms</option><option value="12">15 ms</option><option value="24">30 ms</option>
+  </select>
+  <span class="sep"></span>
+  <button id="bSave">Save log</button>
+  <span id="fw" class="dim mono"></span>
+</header>
+
+<main>
+  <div>
+    <section>
+      <h2>Devices</h2>
+      <div id="devs" class="empty">Scan to list BLE devices. Put the pad in pairing mode first.</div>
+    </section>
+    <section>
+      <h2>GATT <span id="gattCount" class="dim"></span></h2>
+      <div id="gatt" class="empty">Connect to the pad to dump its services.</div>
+    </section>
+    <section>
+      <h2>Report map <button class="small" id="bCopyMap">copy hex</button></h2>
+      <div id="rmap" class="empty">Not read yet.</div>
+    </section>
+  </div>
+
+  <div>
+    <section>
+      <h2>Gamestation decode <button class="small" id="bResetGS">reset counters</button></h2>
+      <svg id="pad" viewBox="0 0 680 380" style="width:100%;max-width:760px;display:block;margin:0 auto 12px">
+        <defs>
+          <pattern id="tbPat" width="14" height="14" patternUnits="userSpaceOnUse">
+            <circle cx="3" cy="3" r="2.2" fill="#ff6a3d" opacity=".55"/><circle cx="10" cy="10" r="1.6" fill="#ffd0b0" opacity=".35"/>
+          </pattern>
+          <clipPath id="tbClipPath"><circle cx="130" cy="302" r="44"/></clipPath>
+        </defs>
+        <g class="slot shoulder" data-slot="L2"><rect class="cap" x="40" y="10" width="84" height="28" rx="9"/><text x="82" y="29">L2</text></g>
+        <g class="slot shoulder" data-slot="L1"><rect class="cap" x="128" y="20" width="84" height="22" rx="8"/><text x="170" y="35">L1</text></g>
+        <g class="slot shoulder" data-slot="R1"><rect class="cap" x="468" y="20" width="84" height="22" rx="8"/><text x="510" y="35">R1</text></g>
+        <g class="slot shoulder" data-slot="R2"><rect class="cap" x="556" y="10" width="84" height="28" rx="9"/><text x="598" y="29">R2</text></g>
+        <rect x="236" y="26" width="34" height="14" rx="5" fill="#ff6a2a" opacity=".75"/><text x="253" y="18" class="lbl">POWER</text>
+        <rect x="20" y="40" width="640" height="320" rx="46" class="body"/>
+        <rect x="22" y="42" width="636" height="10" rx="5" fill="#ff8a2a" opacity=".18"/>
+
+        <g id="gPaddle">
+          <circle cx="130" cy="110" r="44" class="ring"/>
+          <circle cx="130" cy="110" r="34" class="knob"/>
+          <line id="paddleNotch" x1="130" y1="110" x2="130" y2="80" stroke="#ff8a2a" stroke-width="5" stroke-linecap="round"/>
+          <text x="130" y="166" class="lbl">PADDLE</text>
+        </g>
+        <g id="gTrackball">
+          <circle cx="130" cy="302" r="50" class="ring"/>
+          <circle cx="130" cy="302" r="44" fill="#7a1f16"/>
+          <rect id="tbTex" x="72" y="244" width="116" height="116" fill="url(#tbPat)" clip-path="url(#tbClipPath)"/>
+          <circle cx="116" cy="210" r="16" fill="#fff" opacity=".08"/>
+          <line id="tbVec" x1="130" y1="302" x2="130" y2="302" stroke="#ffd9a0" stroke-width="3" stroke-linecap="round" opacity="0"/>
+        </g>
+        <g transform="translate(130 212)">
+          <g class="slot" data-slot="UP"><path class="cap" d="M-11 -36 h22 v24 l-11 9 l-11 -9z"/></g>
+          <g class="slot" data-slot="DOWN"><path class="cap" d="M-11 36 h22 v-24 l-11 -9 l-11 9z"/></g>
+          <g class="slot" data-slot="LEFT"><path class="cap" d="M-36 -11 v22 h24 l9 -11 l-9 -11z"/></g>
+          <g class="slot" data-slot="RIGHT"><path class="cap" d="M36 -11 v22 h-24 l-9 -11 l9 -11z"/></g>
+        </g>
+
+        <rect x="244" y="60" width="192" height="262" rx="12" fill="#0b0d11" stroke="#2f3542"/>
+        <text x="252" y="110" class="lbl" style="text-anchor:start">SETTINGS</text>
+        <text x="252" y="168" class="lbl" style="text-anchor:start">CREDIT</text>
+        <text x="428" y="110" class="lbl" style="text-anchor:end">SELECT</text>
+        <text x="428" y="168" class="lbl" style="text-anchor:end">START</text>
+        <text id="scr1" x="262" y="214" class="scr">BAT --</text>
+        <text id="scr2" x="262" y="238" class="scr">PADDLE --</text>
+        <text id="scr3" x="262" y="262" class="scr">BALL 0, 0</text>
+        <text id="scr4" x="262" y="286" class="scr dimscr"></text>
+        <rect x="306" y="30" width="38" height="10" rx="5" fill="#0b0d11" stroke="#3a4252"/>
+        <text x="325" y="22" class="lbl">USB-C</text>
+        <circle cx="372" cy="35" r="5" fill="#d9dfea" opacity=".8"/><text x="372" y="22" class="lbl">LED</text>
+        <g id="smallBtns"></g>
+
+        <g class="slot face" data-slot="Y"><circle class="cap" cx="535" cy="80" r="18"/><text x="535" y="86">Y</text></g>
+        <g class="slot face" data-slot="X"><circle class="cap" cx="499" cy="116" r="18"/><text x="499" y="122">X</text></g>
+        <g class="slot face" data-slot="B"><circle class="cap" cx="571" cy="116" r="18"/><text x="571" y="122">B</text></g>
+        <g class="slot face" data-slot="A"><circle class="cap" cx="535" cy="152" r="18"/><text x="535" y="158">A</text></g>
+        <g id="keypad"></g>
+        <text id="unmapped" x="340" y="345" class="lbl"></text>
+      </svg>
+      <div class="subgrid">
+        <div>
+          <h3>Paddle (report 1, byte 2)</h3>
+          <svg id="dial" width="150" height="150" viewBox="-75 -75 150 150">
+            <circle r="66" fill="#0b0d11" stroke="#272c38" stroke-width="2"/>
+            <circle r="3" fill="#ff8a2a"/>
+            <line id="needle" x1="0" y1="0" x2="0" y2="-60" stroke="#ff8a2a" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <div class="kv" style="margin-top:6px">
+            <span>raw</span><span id="padRaw">–</span>
+            <span>delta</span><span id="padDelta">–</span>
+            <span>accum</span><span id="padAcc">0</span>
+            <span>min/max seen</span><span id="padMM">–</span>
+            <span>modulus</span><span><input id="mod" type="number" value="81" min="2" max="256" style="width:64px;padding:1px 4px"></span>
+          </div>
+          <p class="note">Your log showed values 0–80 with wraps 0→78 and 80→1, so 81 counts per turn.</p>
+        </div>
+        <div>
+          <h3>Trackball (report 3, mouse X/Y)</h3>
+          <canvas id="tb" width="220" height="150"></canvas>
+          <div class="kv" style="margin-top:6px">
+            <span>total X / Y</span><span id="tbXY">0 / 0</span>
+            <span>reports</span><span id="tbN">0</span>
+            <span>clipped (±127)</span><span id="tbClip">0</span>
+            <span>mouse buttons</span><span id="tbBtn">00</span>
+          </div>
+        </div>
+        <div>
+          <h3>Other axes (report 1)</h3>
+          <div class="kv" id="axes"></div>
+          <p class="note">These sat idle in the Linux capture. Anything that moves here is worth noting.</p>
+        </div>
+      </div>
+      <h3 style="margin-top:12px">Buttons <span class="dim" style="font-weight:400">— outlined = seen at least once, click a chip to label it</span></h3>
+      <div class="chips" id="chips"></div>
+    </section>
+
+    <section>
+      <h2>Live notifications <label><input type="checkbox" id="cFreeze"> freeze</label></h2>
+      <table><thead><tr><th>handle / id</th><th>what</th><th>n</th><th>/s</th><th>bytes (index below)</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="empty">No notifications yet.</td></tr></tbody></table>
+    </section>
+
+    <section>
+      <h2>Console <span><label><input type="checkbox" id="hideR" checked> hide R lines</label> <button class="small" id="bClear">clear</button></span></h2>
+      <div id="console"></div>
+      <div class="cmd"><input id="cmdIn" placeholder="command, e.g. read 42 · write 50 0102 · sub 33 · conn 6 6" disabled><button id="bSend" disabled>Send</button></div>
+    </section>
+
+    <section>
+      <h2>Flash firmware</h2>
+      <div class="flashrow">
+        <input type="file" id="fFile" accept=".bin">
+        <label>address <input id="fAddr" value="0x10000" class="mono" style="width:86px"></label>
+        <label>baud <select id="fBaud"><option>115200</option><option>460800</option><option selected>921600</option></select></label>
+        <label><input type="checkbox" id="fErase"> erase all first</label>
+        <button id="bFlash">Flash</button>
+      </div>
+      <progress id="fProg" max="100" value="0"></progress>
+      <div id="flog"></div>
+      <p class="note"><b>GSX_Explorer.ino.bin</b> at 0x10000 updates the app only and keeps the saved bond. Use <b>GSX_Explorer.ino.merged.bin</b> at 0x0 for a blank or unknown board; it rewrites the bootloader too and can wipe the bond, as does "erase all". The address fills in from the file name. If the board won't enter the bootloader, hold BOOT while you click Flash.</p>
+    </section>
+  </div>
+</main>
+
+<article id="tabDoc" hidden>
+<h2>My Arcade Atari Gamestation Gamepad — Bluetooth protocol</h2>
+<p class="dim" style="margin-top:0">Reverse-engineered from captures on Linux (BlueZ + hid-recorder) and on an ESP32 central (GSX Explorer, NimBLE), 28 Oct 2026. Byte offsets are given as they arrive in a BLE notification, which carries <i>no</i> report ID byte; add 1 when reading a hidraw dump.</p>
+
+<div class="infobox"><table>
+<tr><td>Link</td><td>Bluetooth LE only (no BR/EDR)</td></tr>
+<tr><td>Profile</td><td>HID over GATT (HOGP)</td></tr>
+<tr><td>Adv. name</td><td><code>GamePad</code></td></tr>
+<tr><td>Appearance</td><td><code>0x03C4</code> Gamepad</td></tr>
+<tr><td>Address</td><td>public, static</td></tr>
+<tr><td>Pairing</td><td>LE Secure Connections, Just Works, bonding</td></tr>
+<tr><td>VID / PID</td><td><code>0x000E</code> / <code>0x3412</code> (USB-IF source)</td></tr>
+<tr><td>Version</td><td><code>0x0400</code></td></tr>
+<tr><td>Manufacturer</td><td><code>QS525</code></td></tr>
+<tr><td>Model</td><td><code>BLE</code></td></tr>
+<tr><td>HW / FW rev</td><td><code>V1.0</code> / <code>V1.2</code></td></tr>
+<tr><td>SW rev</td><td><code>PD0620.20250917</code></td></tr>
+<tr><td>Reports</td><td>ID 1 gamepad, ID 2 keyboard, ID 3 mouse</td></tr>
+<tr><td>Report rate</td><td>on change, one or more per 15 ms connection event</td></tr>
+</table></div>
+
+<div class="toc"><b>Contents</b><ol>
+<li><a href="#d-link">Advertising, pairing and connection</a></li>
+<li><a href="#d-gatt">GATT table</a></li>
+<li><a href="#d-map">Report map overview</a></li>
+<li><a href="#d-r1">Report 1 — gamepad</a></li>
+<li><a href="#d-r2">Report 2 — keyboard</a></li>
+<li><a href="#d-r3">Report 3 — mouse (trackball)</a></li>
+<li><a href="#d-ctl">Controls → HID usage reference</a></li>
+<li><a href="#d-vendor">Vendor services</a></li>
+<li><a href="#d-notes">Quirks and host notes</a></li>
+</ol></div>
+
+<h3 id="d-link">1. Advertising, pairing and connection</h3>
+<p>The pad is a single-mode LE peripheral. Its advertising flags are <code>0x06</code> (LE General Discoverable, BR/EDR not supported), and it advertises the HID service <code>0x1812</code> with appearance <code>0x03C4</code> (Gamepad) and the name <code>GamePad</code>. It uses a public address, so a bond survives power cycles on both sides.</p>
+<p>Pairing is <b>LE Secure Connections, Just Works</b>: no MITM protection, IO capability NoInputNoOutput, with bonding and a 16-byte key. HOGP requires an encrypted link for the reports, so a host should pair before subscribing; the ESP32 does this right after connecting. Like most HOGP devices it should reconnect to its bonded host when it wakes; that hasn't been timed yet.</p>
+<h4>Connection parameters</h4>
+<p>The Peripheral Preferred Connection Parameters characteristic (<code>0x2A04</code>) reads <code>0c 00 0c 00 63 00 90 01</code>:</p>
+<table><tr><th>Field</th><th>Raw</th><th>Value</th></tr>
+<tr><td>Min interval</td><td class="m">0x000C</td><td>12 × 1.25 ms = 15 ms</td></tr>
+<tr><td>Max interval</td><td class="m">0x000C</td><td>15 ms</td></tr>
+<tr><td>Slave latency</td><td class="m">0x0063</td><td>99 events</td></tr>
+<tr><td>Supervision timeout</td><td class="m">0x0190</td><td>400 × 10 ms = 4 s</td></tr></table>
+<p>Right after connecting, the pad sent an L2CAP parameter update request for 7.5–15 ms (6–12 units), latency 99 and timeout 4 s. The link settled at 15 ms. The high slave latency lets the pad sleep through up to 99 events while idle; it still sends at the next event whenever input changes, so it adds no lag. The ATT MTU negotiated to 247.</p>
+
+<h3 id="d-gatt">2. GATT table</h3>
+<p>Handles are value handles as seen by NimBLE; they can differ between firmware versions, so a host should discover by UUID.</p>
+<table><tr><th>Service</th><th>Characteristic</th><th>Handle</th><th>Props</th><th>Content</th></tr>
+<tr><td rowspan="2">FF12 <i>vendor (OTA)</i></td><td class="m">FF15</td><td class="m">3</td><td>R, Wnr</td><td>reads <code>"FOTA\0"</code> — firmware-update control</td></tr>
+<tr><td class="m">FF14</td><td class="m">5</td><td>N</td><td>OTA status / response</td></tr>
+<tr><td rowspan="4">1800 Generic Access</td><td class="m">2A00 Device Name</td><td class="m">9</td><td>R, W</td><td>read back empty over this link</td></tr>
+<tr><td class="m">2A01 Appearance</td><td class="m">11</td><td>R</td><td>read back empty (the advertisement carries 0x03C4)</td></tr>
+<tr><td class="m">2A04 PPCP</td><td class="m">13</td><td>R</td><td>see §1</td></tr>
+<tr><td class="m">2AC9 RPA Only</td><td class="m">15</td><td>R</td><td>empty</td></tr>
+<tr><td rowspan="3">1801 Generic Attribute</td><td class="m">2A05 Service Changed</td><td class="m">18</td><td>I</td><td></td></tr>
+<tr><td class="m">2B29 Client Supported Features</td><td class="m">21</td><td>R, W</td><td></td></tr>
+<tr><td class="m">2B2A Database Hash</td><td class="m">23</td><td>R</td><td></td></tr>
+<tr><td rowspan="8">180A Device Information</td><td class="m">2A29 Manufacturer</td><td class="m">26</td><td>R</td><td><code>QS525</code></td></tr>
+<tr><td class="m">2A24 Model Number</td><td class="m">28</td><td>R</td><td><code>BLE</code></td></tr>
+<tr><td class="m">2A25 Serial Number</td><td class="m">30</td><td>R</td><td>16 × <code>00</code></td></tr>
+<tr><td class="m">2A27 Hardware Rev</td><td class="m">32</td><td>R</td><td><code>V1.0</code></td></tr>
+<tr><td class="m">2A26 Firmware Rev</td><td class="m">34</td><td>R</td><td><code>V1.2</code></td></tr>
+<tr><td class="m">2A28 Software Rev</td><td class="m">36</td><td>R</td><td><code>PD0620.20250917</code> (looks like a build date, 2025-09-17)</td></tr>
+<tr><td class="m">2A23 System ID</td><td class="m">38</td><td>R</td><td>all zero</td></tr>
+<tr><td class="m">2A50 PnP ID</td><td class="m">40</td><td>R</td><td><code>02 0e00 1234 0004</code> → source USB-IF, VID 0x000E, PID 0x3412, ver 0x0400</td></tr>
+<tr><td rowspan="9">1812 HID</td><td class="m">2A4A HID Information</td><td class="m">43</td><td>R</td><td><code>11 01 00 03</code> → bcdHID 1.11, country 0, flags RemoteWake | NormallyConnectable</td></tr>
+<tr><td class="m">2A4C HID Control Point</td><td class="m">45</td><td>Wnr*</td><td>suspend / exit suspend</td></tr>
+<tr><td class="m">2A4B Report Map</td><td class="m">47</td><td>R</td><td>310-byte report descriptor (§3)</td></tr>
+<tr><td class="m">2A22 Boot KB Input</td><td class="m">49</td><td>R, N</td><td>never sent</td></tr>
+<tr><td class="m">2A32 Boot KB Output</td><td class="m">52</td><td>R, W</td><td></td></tr>
+<tr><td class="m">2A33 Boot Mouse Input</td><td class="m">54</td><td>R, N</td><td>never sent</td></tr>
+<tr><td class="m">2A4D Report</td><td class="m">57</td><td>R, N</td><td>Report Reference <code>01 01</code> → ID 1, input</td></tr>
+<tr><td class="m">2A4D Report</td><td class="m">61 / 65</td><td>R, N</td><td>ID 2 input / ID 3 input</td></tr>
+<tr><td class="m">2A4D Report</td><td class="m">69</td><td>R, N</td><td>ID 4 input — <i>not described in the report map, never sent</i></td></tr>
+<tr><td>180F Battery</td><td class="m">2A19 Battery Level</td><td class="m">74</td><td>R</td><td>percent, e.g. <code>0x58</code> = 88%. Read-only, no notifications — poll it.</td></tr>
+<tr><td rowspan="2">1850 <i>Published Audio Capabilities</i></td><td class="m">2C00</td><td class="m">77</td><td>—</td><td>non-standard characteristic UUIDs; most likely SDK leftovers</td></tr>
+<tr><td class="m">2C01</td><td class="m">79</td><td>R, N</td><td>empty, never notified</td></tr>
+<tr><td rowspan="3">FFF0 <i>vendor</i></td><td class="m">FFF1</td><td class="m">83</td><td>W</td><td>command input?</td></tr>
+<tr><td class="m">FFF2</td><td class="m">85</td><td>R, N</td><td>empty, never notified</td></tr>
+<tr><td class="m">0783b03e-8535-b5a0-7140-a304d2495cb8</td><td class="m">88</td><td>R, W, N</td><td>empty, never notified</td></tr>
+</table>
+<p class="dim">* The HID Control Point listed with no properties in the dump; by the HOGP spec it is Write Without Response.</p>
+
+<h3 id="d-map">3. Report map overview</h3>
+<p>The descriptor defines three top-level collections:</p>
+<table><tr><th>ID</th><th>Collection</th><th>Input payload</th><th>Output</th><th>Carries</th></tr>
+<tr><td class="m">1</td><td>Generic Desktop / Game Pad</td><td>12 bytes</td><td>—</td><td>paddle, buttons, D-pad, keypad, front buttons</td></tr>
+<tr><td class="m">2</td><td>Generic Desktop / Keyboard</td><td>8 bytes</td><td>1 byte (LEDs)</td><td>nothing in practice</td></tr>
+<tr><td class="m">3</td><td>Generic Desktop / Mouse</td><td>4 bytes</td><td>—</td><td>trackball</td></tr></table>
+<p>Report 1 is unusual: a Game Pad collection that also contains Keyboard-page (0x07) usages as 1-bit variable fields. That is how the D-pad, keypad and two front buttons are delivered. Linux splits it into a joystick device plus keyboard keys, which is why generic hosts map the pad strangely.</p>
+
+<h3 id="d-r1">4. Report 1 — gamepad (12-byte payload)</h3>
+<table><tr><th>Byte</th><th>Bits</th><th>Usage page / usage</th><th>Range</th><th>Physical control</th></tr>
+<tr><td class="m">0</td><td>7–0</td><td>GD 0x30 X</td><td>0–255</td><td>unused, rests at 0x80</td></tr>
+<tr><td class="m">1</td><td>7–0</td><td>GD 0x31 Y</td><td>0–255</td><td>unused, rests at 0x80</td></tr>
+<tr><td class="m">2</td><td>7–0</td><td>GD 0x32 Z</td><td>0–80</td><td><b>Paddle</b> — absolute angle, 81 positions per turn, wraps (§9)</td></tr>
+<tr><td class="m">3</td><td>7–0</td><td>GD 0x35 Rz</td><td>0–255</td><td>unused, rests at 0x80</td></tr>
+<tr><td class="m">4</td><td>3–0</td><td>GD 0x39 Hat switch</td><td>0–7, null 0xF</td><td>unused, always 0xF</td></tr>
+<tr><td class="m">4</td><td>7–4</td><td>constant</td><td></td><td>padding</td></tr>
+<tr><td class="m">5</td><td>0–7</td><td>Button 0x01–0x08</td><td>bit</td><td>B1–B8 (see §7)</td></tr>
+<tr><td class="m">6</td><td>0–7</td><td>Button 0x09–0x0F (+1 extra bit)</td><td>bit</td><td>B9–B16 (see §7)</td></tr>
+<tr><td class="m">7</td><td>0</td><td>KB 0x52 Up Arrow</td><td>bit</td><td>D-pad Up</td></tr>
+<tr><td class="m">7</td><td>1</td><td>KB 0x51 Down Arrow</td><td>bit</td><td>D-pad Down</td></tr>
+<tr><td class="m">7</td><td>2</td><td>KB 0x50 Left Arrow</td><td>bit</td><td>D-pad Left</td></tr>
+<tr><td class="m">7</td><td>3</td><td>KB 0x4F Right Arrow</td><td>bit</td><td>D-pad Right</td></tr>
+<tr><td class="m">7</td><td>4</td><td>KB 0x14 q</td><td>bit</td><td>Settings</td></tr>
+<tr><td class="m">7</td><td>5</td><td>KB 0x4A Home</td><td>bit</td><td>Home</td></tr>
+<tr><td class="m">7</td><td>6</td><td>KB 0x26 9 (</td><td>bit</td><td>Keypad *</td></tr>
+<tr><td class="m">7</td><td>7</td><td>KB 0x27 0 )</td><td>bit</td><td>Keypad #</td></tr>
+<tr><td class="m">8</td><td>0–7</td><td>KB 0x59–0x60 Keypad 1–8</td><td>bit</td><td>Keypad 1–8</td></tr>
+<tr><td class="m">9</td><td>0</td><td>KB 0x61 Keypad 9</td><td>bit</td><td>Keypad 9</td></tr>
+<tr><td class="m">9</td><td>1</td><td>KB 0x62 Keypad 0</td><td>bit</td><td>Keypad 0</td></tr>
+<tr><td class="m">9</td><td>2</td><td>KB 0x80 Volume Up</td><td>bit</td><td>not observed</td></tr>
+<tr><td class="m">9</td><td>3</td><td>KB 0x81 Volume Down</td><td>bit</td><td>not observed</td></tr>
+<tr><td class="m">9</td><td>7–4</td><td>constant</td><td></td><td>padding</td></tr>
+<tr><td class="m">10</td><td>7–0</td><td>Sim 0xC5 Brake</td><td>0–255</td><td>unused, 0</td></tr>
+<tr><td class="m">11</td><td>7–0</td><td>Sim 0xC4 Accelerator</td><td>0–255</td><td>unused, 0</td></tr></table>
+<p>Idle report: <code>80 80 3c 80 0f 00 00 00 00 00 00 00</code> (paddle at 60).</p>
+
+<h3 id="d-r2">5. Report 2 — keyboard</h3>
+<p>A standard 8-byte boot-style keyboard report: byte 0 holds the modifier bits (usages 0xE0–0xE7), byte 1 is reserved, and bytes 2–7 are a 6-key array (usages 0x00–0xFE). The output report is 5 LED bits (Num, Caps, Scroll, Compose, Kana) plus 3 bits of padding. No captured input ever used this report; all keyboard-page controls arrive in report 1 instead.</p>
+
+<h3 id="d-r3">6. Report 3 — mouse / trackball (4-byte payload)</h3>
+<table><tr><th>Byte</th><th>Usage</th><th>Type</th><th>Notes</th></tr>
+<tr><td class="m">0</td><td>Button 1–8</td><td>8 × 1 bit</td><td>always 0 (the trackball has no buttons)</td></tr>
+<tr><td class="m">1</td><td>GD 0x30 X</td><td>int8, relative</td><td>positive = right</td></tr>
+<tr><td class="m">2</td><td>GD 0x31 Y</td><td>int8, relative</td><td>positive = down (mouse convention)</td></tr>
+<tr><td class="m">3</td><td>GD 0x38 Wheel</td><td>int8, relative</td><td>always 0</td></tr></table>
+<p>Each report carries the motion since the previous one, saturated to ±127. On fast rolls the pad hits that limit and the excess is lost: 4.8% of trackball reports in the ESP32 log were clipped. Shorter connection intervals reduce clipping only if the pad actually sends more often; this hasn't been tested yet.</p>
+
+<h3 id="d-ctl">7. Controls → HID usage reference</h3>
+<table><tr><th>Control</th><th>Report</th><th>Byte.bit</th><th>HID usage</th></tr>
+<tr><td>X</td><td>1</td><td class="m">5.0</td><td>Button 1</td></tr>
+<tr><td>A</td><td>1</td><td class="m">5.1</td><td>Button 2</td></tr>
+<tr><td>L1</td><td>1</td><td class="m">5.2</td><td>Button 3</td></tr>
+<tr><td>B</td><td>1</td><td class="m">5.3</td><td>Button 4</td></tr>
+<tr><td>Y</td><td>1</td><td class="m">5.4</td><td>Button 5</td></tr>
+<tr><td>R1</td><td>1</td><td class="m">5.5</td><td>Button 6</td></tr>
+<tr><td>Select</td><td>1</td><td class="m">5.6</td><td>Button 7</td></tr>
+<tr><td>Start</td><td>1</td><td class="m">5.7</td><td>Button 8</td></tr>
+<tr><td>L2</td><td>1</td><td class="m">6.0</td><td>Button 9 (digital)</td></tr>
+<tr><td>R2</td><td>1</td><td class="m">6.1</td><td>Button 10 (digital)</td></tr>
+<tr><td>Credit</td><td>1</td><td class="m">6.4</td><td>Button 13</td></tr>
+<tr><td>Settings</td><td>1</td><td class="m">7.4</td><td>Keyboard 0x14 (q)</td></tr>
+<tr><td>Home</td><td>1</td><td class="m">7.5</td><td>Keyboard 0x4A (Home)</td></tr>
+<tr><td>D-pad ↑ ↓ ← →</td><td>1</td><td class="m">7.0–7.3</td><td>Keyboard 0x52 / 0x51 / 0x50 / 0x4F</td></tr>
+<tr><td>Keypad 1–8</td><td>1</td><td class="m">8.0–8.7</td><td>Keyboard 0x59–0x60 (Keypad 1–8)</td></tr>
+<tr><td>Keypad 9 / 0</td><td>1</td><td class="m">9.0 / 9.1</td><td>Keyboard 0x61 / 0x62</td></tr>
+<tr><td>Keypad * / #</td><td>1</td><td class="m">7.6 / 7.7</td><td>Keyboard 0x26 / 0x27 (top-row 9 and 0)</td></tr>
+<tr><td>Paddle</td><td>1</td><td class="m">2</td><td>GD Z, absolute 0–80, wrapping</td></tr>
+<tr><td>Trackball</td><td>3</td><td class="m">1, 2</td><td>GD X / Y relative</td></tr>
+<tr><td>Power switch, LED</td><td colspan="3">hardware only, not reported</td></tr>
+<tr><td><i>unused bits</i></td><td>1</td><td class="m">6.2, 6.3, 6.5–6.7, 9.2, 9.3</td><td>Buttons 11, 12, 14, 15, 16; Volume Up/Down</td></tr></table>
+<p>The D-pad isn't a hat: each direction is an independent bit, so opposite directions can both read as pressed and diagonals are two bits.</p>
+
+<h3 id="d-vendor">8. Vendor services</h3>
+<div class="warn"><b>FF12 is the firmware update (OTA) service.</b> Characteristic FF15 reads back <code>FOTA</code>. Writing to it can put the pad into update mode or brick it, so leave it alone. The explorer asks for confirmation before any write to this service.</div>
+<p><b>FFF0</b> holds a write characteristic (FFF1), a notify characteristic (FFF2) and a 128-bit custom characteristic with read, write and notify. None of them sent anything during the captures. This is the most likely channel for <b>SmartGlow</b> (lighting the controls a game uses) and the centre screen, which the Gamestation console drives. The command format is unknown; it would need a capture of what a Gamestation Go writes here, for example by sniffing the link.</p>
+
+<h4>SmartGlow light numbering</h4>
+<p>The Go's own <code>gsgparm</code> tool (in <code>/sdcard/bin</code>) switches the console's lights through Linux LEDs
+<code>/sys/class/leds/key_led1</code>…<code>key_led23</code> (brightness 255 = on, 0 = off). It doesn't talk to the pad itself, but the pad has the same
+set of lights, so this is the likely order on the wire too:</p>
+<table><tr><th>LED</th><th>Light</th><th>LED</th><th>Light</th><th>LED</th><th>Light</th></tr>
+<tr><td class="m">1–9</td><td>keypad 1–9</td><td class="m">13</td><td>trackball</td><td class="m">16–19</td><td>A, B, X, Y</td></tr>
+<tr><td class="m">10</td><td>keypad *</td><td class="m">14</td><td>spinner</td><td class="m">20, 21</td><td>L1, L2</td></tr>
+<tr><td class="m">11</td><td>keypad 0</td><td class="m">15</td><td>d-pad</td><td class="m">22, 23</td><td>R1, R2</td></tr>
+<tr><td class="m">12</td><td>keypad #</td><td colspan="4"></td></tr></table>
+<p>The AGSG custom frontend lights the menu controls with <code>gsgparm -k 21 -0 all -1 dpad,A,B,X,Y,1,3,7,9,L1,R1</code>
+(<code>-k</code> sets the Go's USB key mode).</p>
+<h4>Light report (from the Go's custom-firmware Stella)</h4>
+<p>Stella reads <code>key_led1</code>…<code>key_led23</code>, folds them into a 16-bit mask and writes an 8-byte report to <code>/dev/hidraw1</code>
+(skipped in key mode 27): <code>5a 01 01 HI LO 00 00 00</code>.</p>
+<table><tr><th>Byte</th><th>Bit 7</th><th>6</th><th>5</th><th>4</th><th>3</th><th>2</th><th>1</th><th>0</th></tr>
+<tr><td class="m">3 (HI)</td><td>A</td><td>B</td><td>X</td><td>Y</td><td>L1</td><td>L2</td><td>R1</td><td>R2</td></tr>
+<tr><td class="m">4 (LO)</td><td></td><td></td><td></td><td></td><td>keypad (all 12)</td><td>trackball</td><td>spinner</td><td>d-pad</td></tr></table>
+<p>On the Go, <code>/dev/hidraw1</code> is most likely its wireless receiver, which relays the lights to the pad. How the report travels over the air is the open question; the Lights probe tab's "Go light report" presets send it to the pad's writable characteristics.</p>
+
+<h3 id="d-notes">9. Quirks and host notes</h3>
+<h4>Paddle decoding</h4>
+<p>Byte 2 of report 1 is the paddle's <i>position</i>, not its motion. It counts 0–80 (81 steps per revolution) and wraps both ways (observed 0→78 and 80→1). A host that treats it as an ordinary axis sees a full-scale jump at every wrap. To get spinner motion, take the shortest-path difference:</p>
+<pre>d = new - old
+if d >  40: d -= 81
+if d < -40: d += 81
+spinner += d</pre>
+<p>Several steps can pass between reports, so always apply the wrap correction.</p>
+<h4>Descriptor bugs</h4>
+<ul>
+<li>The mouse X/Y Logical Minimum is encoded <code>16 08 ff</code>, which decodes to −248. The real range is −127…127; strict parsers may reject or misscale it.</li>
+<li>Report 1 declares Button usage maximum 15 but 16 bits; the 16th bit has no defined usage.</li>
+<li>A fourth Report characteristic (ID 4) exists in GATT with no matching collection in the map.</li>
+</ul>
+<h4>Timing</h4>
+<p>Reports are sent only when something changes. On the ESP32 link most consecutive reports were 15 ms apart, matching the connection interval. Gaps of 0–2 ms also showed up, meaning the pad sends more than one notification per connection event while the trackball and paddle move together.</p>
+<h4>Linux</h4>
+<p>hid-generic exposes the paddle as <code>ABS_Z</code>, the trackball as a mouse, and the D-pad, keypad, Settings and Home as keyboard keys. That's why games and emulators see an odd mix of devices, and it's the main reason a remapping dongle helps.</p>
+</article>
+
+<div id="tabProbe" hidden>
+  <div id="pWarn"><b>Lights probe.</b> Writes test patterns to the pad's vendor service FFF0 (most likely where SmartGlow lives) while you watch the orange lights.
+    It never offers the firmware-update service FF12. The likely worst case is the pad disconnecting or restarting; if that happens the sweep pauses and the
+    log shows the last payload sent. Needs GSX Explorer firmware gsx-0.2 or later for the error codes.</div>
+  <div class="pgrid">
+    <div>
+      <section>
+        <h2>Target</h2>
+        <div class="prow"><select id="pTarget" style="min-width:260px"></select><button class="small" id="pRead">read</button><button class="small" id="pRefresh">refresh list</button></div>
+        <div class="prow dim" id="pTargetInfo" style="font-size:12px">Connect to the pad (Explorer tab) first; the list fills from its GATT table.</div>
+      </section>
+      <section>
+        <h2>Single write</h2>
+        <div class="prow"><input id="pHex" placeholder="hex, e.g. 01 ff 00" style="flex:1;min-width:180px"><button id="pSend" class="small">send</button></div>
+        <div class="prow dim" style="font-size:12px">Up arrow recalls earlier payloads.</div>
+      </section>
+      <section>
+        <h2>Auto-reply to the pad's hello</h2>
+        <div class="prow"><label><input type="checkbox" id="arOn"> on</label>
+          <span class="dim" style="font-size:12px">Each new burst of notifications gets the next reply below, sent at once.</span></div>
+        <textarea id="arList" rows="8" spellcheck="false" style="width:100%;font-family:var(--mono);font-size:12px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px">88 echo
+83 echo
+88 99 99 99 99 99 99 99 99 99 99
+83 99 99 99 99 99 99 99 99 99 99
+88 66
+83 66
+88 01
+83 01
+88 00
+83 00</textarea>
+        <div class="prow"><span class="dim mono" id="arNext">next: line 1</span><button class="small" id="arReset">back to line 1</button></div>
+        <p class="note">One reply per line: <span class="mono">handle hex</span>, or <span class="mono">handle echo</span> to send back exactly what the pad sent.
+          Turn the pad off and on between tries (auto-reconnect brings it back). Baseline: the pad sends its hello <b>3 times</b> and stops;
+          a burst that stops after fewer hellos, or a different answer, means a reply was understood.</p>
+      </section>
+      <section>
+        <h2>Sweep</h2>
+        <div class="prow">
+          <select id="pPreset">
+            <option value="">Presets from the Go's light numbering…</option>
+            <option value="go1">Go light report (from Stella): 5a 01 01 HI LO 00 00 00, each light</option>
+            <option value="go2">Same, controller byte 02: 5a 01 02 HI LO …</option>
+            <option value="go0">Same without the 5a 01 01 header: HI LO</option>
+            <option value="bits3">Bitmask, 3 bytes: one light per step (walking bit)</option>
+            <option value="bits4">Bitmask, 4 bytes: one light per step (walking bit)</option>
+            <option value="pairff">[LED number, ff] for LEDs 1–23</option>
+            <option value="pair01">[LED number, 01] for LEDs 1–23</option>
+            <option value="pair0ff">[00, LED number, ff] for LEDs 1–23</option>
+            <option value="lenff">All on? ff × N, for N = 1–24</option>
+            <option value="arr23">Brightness array: 23 bytes, one light at ff per step</option>
+            <option value="arr24">Brightness array: 24 bytes (index 0 unused), one light per step</option>
+          </select>
+        </div>
+        <div class="prow">
+          <select id="pMode">
+            <option value="len">Length scan: zeros, 1 to N bytes</option>
+            <option value="byte">One byte: from → to</option>
+            <option value="tmpl">Template: xx is swept (e.g. a5 xx 00)</option>
+            <option value="bit">Walking bit across N bytes</option>
+            <option value="fill">Fill: N bytes of from → to</option>
+            <option value="lenff">Length scan: ff, 1 to N bytes</option>
+            <option value="onehot">One byte at ff in N bytes, position from → to</option>
+            <option value="golist">Go light report: all off, all on, then each light</option>
+          </select>
+        </div>
+        <div class="prow" id="pTmplRow" hidden><input id="pTmpl" value="01 xx" style="flex:1"></div>
+        <div class="prow">
+          <label>from <input id="pFrom" value="00" style="width:52px"></label>
+          <label>to <input id="pTo" value="ff" style="width:52px"></label>
+          <label id="pNLab">N <input id="pN" type="number" min="1" max="64" value="20"></label>
+          <label>every <input id="pDelay" type="number" min="50" max="10000" step="50" value="800"> ms</label>
+        </div>
+        <div class="prow">
+          <label><input type="checkbox" id="pSkipErr" checked> errors don't wait</label>
+          <label><input type="checkbox" id="pStopErr"> stop on first OK</label>
+        </div>
+        <div class="prow">
+          <button id="pStart">Start</button><button id="pPause" disabled>Pause</button>
+          <button id="pPrev" class="small">◀ prev</button><button id="pNext" class="small">next ▶</button>
+          <button id="pReset" class="small">reset</button>
+          <span class="dim mono" id="pPos">–</span>
+        </div>
+      </section>
+    </div>
+    <div>
+      <section>
+        <h2>Last sent <span class="dim mono" id="pStat"></span></h2>
+        <div id="pCur">–</div>
+        <div id="pCurInfo"></div>
+        <div class="prow" style="margin-top:10px">
+          <button id="pBig" disabled>Lights changed!  (space)</button>
+          <input id="pNote" placeholder="what changed (optional)" style="flex:1;min-width:160px">
+        </div>
+      </section>
+      <section>
+        <h2>Findings <span><button class="small" id="pCopyF">copy</button> <button class="small" id="pClearF">clear</button></span></h2>
+        <div class="plog" style="max-height:180px"><table><tbody id="pFind"><tr class="note"><td>Nothing marked yet.</td></tr></tbody></table></div>
+      </section>
+      <section>
+        <h2>Probe log <span><label><input type="checkbox" id="pOnlyOk"> only accepted / notifications</label> <button class="small" id="pClearL">clear</button></span></h2>
+        <div class="plog"><table><tbody id="pLog"></tbody></table></div>
+        <p class="note">Everything here also goes into Save log. ATT errors are clues: "invalid length" means the size is wrong, "write not permitted" or an application error (0x80+) usually means the size is right but the value isn't.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hx = b => b.toString(16).padStart(2, '0');
+const s8 = b => b > 127 ? b - 256 : b;
+function hexToBytes(h){ h = (h||'').replace(/[^0-9a-f]/gi,''); const a = new Uint8Array(h.length >> 1); for (let i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i*2, 2), 16); return a; }
+
+const NAMES = {
+  '1800':'Generic Access','1801':'Generic Attribute','180a':'Device Information','180f':'Battery','1812':'HID',
+  '1850':'Published Audio Capabilities','ff12':'Vendor FF12 (firmware OTA)','fff0':'Vendor FFF0',
+  'ff15':'OTA control ("FOTA")','ff14':'OTA status','fff1':'FFF0 write','fff2':'FFF0 notify','2ac9':'RPA Only',
+  '2a00':'Device Name','2a01':'Appearance','2a04':'Conn Params','2a05':'Service Changed','2a19':'Battery Level',
+  '2a23':'System ID','2a24':'Model Number','2a25':'Serial Number','2a26':'Firmware Rev','2a27':'Hardware Rev',
+  '2a28':'Software Rev','2a29':'Manufacturer','2a50':'PnP ID','2a4a':'HID Information','2a4b':'Report Map',
+  '2a4c':'HID Control Point','2a4d':'Report','2a4e':'Protocol Mode','2a22':'Boot KB Input','2a32':'Boot KB Output',
+  '2a33':'Boot Mouse Input','2aa6':'Central Addr Resolution','2b29':'Client Supported Features','2b2a':'Database Hash',
+  '2b3a':'Server Supported Features','2902':'CCCD','2908':'Report Reference','2901':'User Description'
+};
+const normU = u => { u = String(u).toLowerCase().replace(/^0x/, ''); const m = u.match(/^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/); return m ? m[1] : u; };
+const uname = u => { const n = normU(u); return NAMES[n] ? `${NAMES[n]} <span class="dim">${n}</span>` : `<span class="dim">${n}</span>`; };
+
+// ------------------------------------------------------------ state
+const S = { serial:false, link:false, devices:new Map(), services:[], chrs:new Map(), curSvc:null,
+  rows:new Map(), rmap:null, all:[], con:[], conDirty:false, dirty:true, lastRender:0 };
+
+// ------------------------------------------------------------ serial
+let port = null, lastPort = null, writer = null, reader = null, pipeIn = null, pipeOut = null;
+async function connectSerial(reuse){
+  if (!('serial' in navigator)) { alert('Web Serial is not available. Use Chrome or Edge, and open this file from disk or localhost.'); return; }
+  try {
+    port = reuse || await navigator.serial.requestPort();
+    lastPort = port;
+    await port.open({ baudRate: +$('#baud').value, bufferSize: 65536 });
+    try { await port.setSignals({ dataTerminalReady:false, requestToSend:false }); } catch {}
+    const enc = new TextEncoderStream(); pipeOut = enc.readable.pipeTo(port.writable).catch(()=>{}); writer = enc.writable.getWriter();
+    setSerial(true); readLoop(); send('hello');
+  } catch (e) { logLine('! ' + e.message); }
+}
+async function readLoop(){
+  const dec = new TextDecoderStream(); pipeIn = port.readable.pipeTo(dec.writable).catch(()=>{});
+  reader = dec.readable.getReader(); let buf = '';
+  try {
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += value; let i;
+      while ((i = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, i).replace(/\r$/, ''); buf = buf.slice(i + 1); if (line) handleLine(line); }
+    }
+  } catch (e) { logLine('! ' + e.message); }
+  finally { try { reader.releaseLock(); } catch {} }
+  if (S.serial) await disconnectSerial();
+}
+async function disconnectSerial(){
+  setSerial(false);
+  try { await reader?.cancel(); } catch {}
+  try { await writer?.close(); } catch {}
+  try { await pipeIn; await pipeOut; } catch {}
+  try { await port?.close(); } catch {}
+  if (port) lastPort = port;
+  port = writer = reader = null;
+}
+async function resetEsp(){
+  if (!port) return;
+  try { await port.setSignals({ dataTerminalReady:false, requestToSend:true }); await new Promise(r=>setTimeout(r,120));
+        await port.setSignals({ dataTerminalReady:false, requestToSend:false }); logLine('# reset pulse sent'); }
+  catch (e) { logLine('! ' + e.message); }
+}
+function send(cmd){ if (!writer) return; writer.write(cmd + '\n'); logLine('> ' + cmd); }
+function setSerial(on){
+  S.serial = on; $('#pSerial').textContent = on ? 'serial on' : 'serial off'; $('#pSerial').classList.toggle('on', on);
+  $('#bSerial').textContent = on ? 'Disconnect serial' : 'Connect serial';
+  for (const id of ['#bReset','#bScan','#bStop','#bDump','#bInfo','#bDisc','#bForget','#cAuto','#sConn','#cmdIn','#bSend']) $(id).disabled = !on;
+  if (!on) setLink(false);
+}
+function setLink(on){ S.link = on; $('#pLink').textContent = on ? 'pad linked' : 'pad off'; $('#pLink').classList.toggle('on', on); }
+
+// ------------------------------------------------------------ line protocol
+function handleLine(line){
+  S.all.push(`${(performance.now()/1000).toFixed(3)} ${line}`);
+  if (S.all.length > 400000) S.all.splice(0, 100000);
+  const sp = line.indexOf(' '); const tag = sp < 0 ? line : line.slice(0, sp); const rest = sp < 0 ? '' : line.slice(sp + 1); const t = rest.split(' ');
+  if (tag === 'R') { onReport(+t[1], +t[2], t[3] || ''); probeNotify(+t[1], t[3] || ''); if (!$('#hideR').checked) logLine(line); return; }
+  switch (tag) {
+    case 'H': {
+      $('#fw').textContent = t[0] || '';
+      const kv = Object.fromEntries(t.slice(1).map(x => x.split('=')));
+      $('#cAuto').checked = kv.auto === '1'; setLink(kv.link === '1');
+      break; }
+    case 'D': {
+      const [addr, type, rssi, hid, app, ...name] = t;
+      S.devices.set(addr, { addr, type, rssi:+rssi, hid: hid === '1', app, name: name.join(' ') }); renderDevices(); break; }
+    case 'I':
+      if (t[0] === 'link_up') setLink(true);
+      if (t[0] === 'services') { S.services = []; S.chrs.clear(); S.curSvc = null; renderGatt(); }
+      if (t[0] === 'dump_done') fillProbeTargets();
+      break;
+    case 'X': setLink(false); probeLinkLost(t[0]); break;
+    case 'S': S.curSvc = { uuid: t[0], chrs: [] }; S.services.push(S.curSvc); renderGatt(); break;
+    case 'C': {
+      const h = +t[2]; S.chrs.set(h, { svc:t[0], uuid:t[1], h, props:t[3], descs:[], reportId:null, rtype:null, value:null, sub:null });
+      if (S.curSvc) S.curSvc.chrs.push(h); renderGatt(); break; }
+    case 'd': {
+      const c = S.chrs.get(+t[0]); if (c) { c.descs.push(normU(t[1])); const m = rest.match(/id=(\d+) type=(\d+)/); if (m) { c.reportId = +m[1]; c.rtype = +m[2]; } renderGatt(); }
+      break; }
+    case 'M': { S.rmap = hexToBytes(t[1]); const c = S.chrs.get(+t[0]); if (c) c.value = t[1] || ''; renderRmap(); renderGatt(); break; }
+    case 'V': { const c = S.chrs.get(+t[0]); if (c) { c.value = t[1] || ''; renderGatt(); } probeRead(+t[0], t[1] || ''); break; }
+    case 'w': probeWriteResult(+t[0], t[1] === '1', t[2] === undefined ? null : +t[2]); break;
+    case 'N': { const c = S.chrs.get(+t[0]); if (c) { c.sub = t[1] === '1'; renderGatt(); } break; }
+  }
+  logLine(line);
+}
+
+// ------------------------------------------------------------ devices / gatt
+function renderDevices(){
+  const list = [...S.devices.values()].sort((a, b) => (b.hid - a.hid) || (b.rssi - a.rssi));
+  $('#devs').className = list.length ? '' : 'empty';
+  $('#devs').innerHTML = list.length ? list.map(d => `
+    <div class="dev ${d.hid ? 'hid' : ''}">
+      <div><div class="n">${esc(d.name || '(no name)')}${d.hid ? ' · HID' : ''}</div>
+      <div class="dim mono" style="font-size:11px">${esc(d.addr)} · t${esc(d.type)} · ${d.rssi} dBm${d.app !== '0000' ? ' · app ' + esc(d.app) : ''}</div></div>
+      <button class="small" data-conn="${esc(d.addr)}" data-type="${esc(d.type)}">Connect</button>
+    </div>`).join('') : 'Nothing seen yet.';
+}
+function asciiOf(hex){ const b = hexToBytes(hex); let s = ''; for (const x of b) s += (x >= 32 && x < 127) ? String.fromCharCode(x) : '·'; return s; }
+let gattTimer = 0;
+function renderGatt(){ if (gattTimer) return; gattTimer = setTimeout(() => { gattTimer = 0; renderGattNow(); }, 60); }
+function renderGattNow(){
+  $('#gattCount').textContent = S.chrs.size ? `${S.services.length} services · ${S.chrs.size} characteristics` : '';
+  if (!S.services.length) { $('#gatt').className = 'empty'; $('#gatt').innerHTML = 'Connect to the pad to dump its services.'; return; }
+  $('#gatt').className = '';
+  $('#gatt').innerHTML = S.services.map(s => `
+    <div class="svc"><div class="t">${uname(s.uuid)}</div>
+    ${s.chrs.map(h => { const c = S.chrs.get(h); if (!c) return ''; const p = c.props;
+      const rid = c.reportId !== null ? ` <span class="pill">id ${c.reportId} · ${['?','in','out','feat'][c.rtype] || c.rtype}</span>` : '';
+      const val = c.value !== null ? `<div class="val">${c.value ? c.value.match(/../g).join(' ') : '(empty)'} <span class="ascii">${esc(asciiOf(c.value))}</span></div>` : '';
+      const canW = /[Ww]/.test(p);
+      return `<div class="chr">
+        <div class="row1"><span class="mono dim">#${h}</span> ${uname(c.uuid)} <span class="props">${esc(p)}</span>${rid}
+          ${c.sub ? '<span class="pill on">sub</span>' : ''}
+          ${p.includes('R') ? `<button class="small" data-read="${h}">read</button>` : ''}
+          ${/[NI]/.test(p) ? `<button class="small" data-${c.sub ? 'unsub' : 'sub'}="${h}">${c.sub ? 'unsub' : 'sub'}</button>` : ''}
+        </div>${val}
+        ${canW ? `<div class="wr"><input placeholder="hex bytes" data-win="${h}"><button class="small" data-write="${h}" data-nr="${p.includes('W') ? '' : 'nr'}">write</button></div>` : ''}
+      </div>`; }).join('')}
+    </div>`).join('');
+}
+
+// ------------------------------------------------------------ HID report descriptor parser
+const UP = {0x01:'Generic Desktop',0x02:'Simulation',0x07:'Keyboard',0x08:'LEDs',0x09:'Button',0x0c:'Consumer',0xff00:'Vendor'};
+const GD = {0x01:'Pointer',0x02:'Mouse',0x04:'Joystick',0x05:'Game Pad',0x06:'Keyboard',0x30:'X',0x31:'Y',0x32:'Z',0x33:'Rx',0x34:'Ry',0x35:'Rz',0x36:'Slider',0x37:'Dial',0x38:'Wheel',0x39:'Hat switch'};
+const SIM = {0xc4:'Accelerator',0xc5:'Brake'};
+const KEYS = {0x14:'q',0x26:'9 (',0x27:'0 )',0x4a:'Home',0x4f:'Right',0x50:'Left',0x51:'Down',0x52:'Up',0x59:'KP1',0x5a:'KP2',0x5b:'KP3',0x5c:'KP4',0x5d:'KP5',0x5e:'KP6',0x5f:'KP7',0x60:'KP8',0x61:'KP9',0x62:'KP0',0x80:'Vol Up',0x81:'Vol Down'};
+function parseRdesc(b){
+  const out = []; let i = 0, depth = 0, page = 0;
+  const main = {0x80:'Input',0x90:'Output',0xb0:'Feature',0xa0:'Collection',0xc0:'End Collection'};
+  const glob = {0x04:'Usage Page',0x14:'Logical Min',0x24:'Logical Max',0x34:'Physical Min',0x44:'Physical Max',0x54:'Unit Exponent',0x64:'Unit',0x74:'Report Size',0x84:'Report ID',0x94:'Report Count',0xa4:'Push',0xb4:'Pop'};
+  const loc = {0x08:'Usage',0x18:'Usage Min',0x28:'Usage Max'};
+  while (i < b.length) {
+    const p = b[i]; let size = p & 3; if (size === 3) size = 4; const tag = p & 0xfc;
+    let u = 0; for (let k = 0; k < size; k++) u |= (b[i+1+k] || 0) << (8*k); u >>>= 0;
+    let sv = u; if (size === 1 && u & 0x80) sv = u - 0x100; else if (size === 2 && u & 0x8000) sv = u - 0x10000; else if (size === 4) sv = u | 0;
+    if (tag === 0xc0) depth = Math.max(0, depth - 1);
+    const name = main[tag] || glob[tag] || loc[tag] || ('tag 0x' + hx(tag));
+    let txt = name;
+    if (tag === 0x04) { page = u; txt += ` (${UP[u] || '0x' + u.toString(16)})`; }
+    else if (tag === 0x08 || tag === 0x18 || tag === 0x28) { const nm = page === 1 ? GD[u] : page === 2 ? SIM[u] : page === 7 ? KEYS[u] : null; txt += ` (${nm || '0x' + u.toString(16)})`; }
+    else if (tag === 0x80 || tag === 0x90 || tag === 0xb0) { txt += ` (${u & 1 ? 'Cnst' : 'Data'},${u & 2 ? 'Var' : 'Arr'},${u & 4 ? 'Rel' : 'Abs'}${u & 0x40 ? ',Null' : ''})`; }
+    else if (tag === 0xa0) { txt += ` (${['Physical','Application','Logical','Report'][u] || u})`; }
+    else if (size) txt += ` (${sv})`;
+    const raw = [...b.slice(i, i + 1 + size)].map(hx).join(' ');
+    out.push(`${raw.padEnd(16)}${'  '.repeat(depth)}${txt}`);
+    if (tag === 0xa0) depth++;
+    i += 1 + size;
+  }
+  return out;
+}
+function renderRmap(){
+  if (!S.rmap || !S.rmap.length) return;
+  $('#rmap').className = ''; $('#rmap').textContent = `${S.rmap.length} bytes\n\n` + parseRdesc(S.rmap).join('\n');
+}
+
+// ------------------------------------------------------------ reports + Gamestation decode
+const GS = { padRaw:null, padAcc:0, padDelta:null, padMin:null, padMax:null, tbX:0, tbY:0, tbN:0, tbClip:0, tbBtn:0, pos:[], dotX:110, dotY:75, pad:null, ever:new Set() };
+function onReport(h, id, hex){
+  if ($('#cFreeze').checked) return;
+  const b = hexToBytes(hex), key = h + '/' + id, now = performance.now();
+  let r = S.rows.get(key);
+  if (!r) { r = { h, id, bytes:b, changed:new Array(b.length).fill(0), count:0, times:[] }; S.rows.set(key, r); }
+  else {
+    if (b.length !== r.bytes.length) r.changed = new Array(b.length).fill(now);
+    else for (let i = 0; i < b.length; i++) if (r.bytes[i] !== b[i]) r.changed[i] = now;
+    r.bytes = b;
+  }
+  r.count++; r.times.push(now); while (r.times.length && now - r.times[0] > 1000) r.times.shift();
+  decodeGS(id, b); S.dirty = true;
+}
+function decodeGS(id, b){
+  const isPad = id === 1 || (id < 0 && b.length === 12);
+  const isMouse = id === 3 || (id < 0 && b.length === 4);
+  if (isPad && b.length >= 12) {
+    const raw = b[2], M = Math.max(2, +$('#mod').value || 81);
+    if (GS.padRaw !== null && raw !== GS.padRaw) { let d = raw - GS.padRaw; if (d > M/2) d -= M; else if (d < -M/2) d += M; GS.padAcc += d; GS.padDelta = d; }
+    GS.padRaw = raw; GS.padMin = GS.padMin === null ? raw : Math.min(GS.padMin, raw); GS.padMax = GS.padMax === null ? raw : Math.max(GS.padMax, raw);
+    const prev = GS.pad; GS.pad = b;
+    for (const c of CHIPS) if (c.get(b)) { GS.ever.add(c.id); if (!prev || !c.get(prev)) onRisingEdge(c.id); }
+  } else if (isMouse && b.length >= 4) {
+    const dx = s8(b[1]), dy = s8(b[2]);
+    GS.tbX += dx; GS.tbY += dy; GS.tbN++; GS.tbBtn = b[0];
+    GS.lastDx = dx; GS.lastDy = dy; GS.lastTbAt = performance.now();
+    if (Math.abs(dx) >= 127 || Math.abs(dy) >= 127) GS.tbClip++;
+    GS.dotX = ((GS.dotX + dx * 0.15) % 220 + 220) % 220; GS.dotY = ((GS.dotY + dy * 0.15) % 150 + 150) % 150;
+    GS.pos.push([GS.dotX, GS.dotY]); if (GS.pos.length > 90) GS.pos.shift();
+  }
+}
+
+// button chips, from the report-1 layout in the descriptor (payload excludes report ID)
+const CHIPS = [];
+for (let i = 0; i < 16; i++) CHIPS.push({ id:'b' + (i+1), def:'B' + (i+1), get: p => (((p[5] | p[6] << 8) >> i) & 1) });
+['D-Up','D-Down','D-Left','D-Right','q 0x14','Home 0x4a','0x26 (*?)','0x27 (#?)'].forEach((n, i) => CHIPS.push({ id:'k7_' + i, def:n, get: p => (p[7] >> i) & 1 }));
+for (let i = 0; i < 8; i++) CHIPS.push({ id:'kp' + (i+1), def:'KP' + (i+1), get: p => (p[8] >> i) & 1 });
+['KP9','KP0','Vol+','Vol-'].forEach((n, i) => CHIPS.push({ id:'k9_' + i, def:n, get: p => (p[9] >> i) & 1 }));
+const PAD_NAMES = {b1:'X',b2:'A',b3:'L1',b4:'B',b5:'Y',b6:'R1',b7:'Select',b8:'Start',b9:'L2',b10:'R2',b13:'Credit',k7_4:'Settings',k7_5:'Home',k7_6:'*',k7_7:'#'};
+let labels = { ...PAD_NAMES }; try { Object.assign(labels, JSON.parse(localStorage.getItem('gsx.labels') || '{}')); } catch {}
+function buildChips(){
+  $('#chips').innerHTML = CHIPS.map(c => `<span class="chip" data-chip="${c.id}" title="${esc(c.def)}">${esc(labels[c.id] || c.def)}</span>`).join('');
+}
+
+// ------------------------------------------------------------ controller diagram
+// Bindings confirmed on the real pad (Oct 28 labels).
+const SMALL = [['S4','SETTINGS','tab',232,84],['S3','CREDIT','tab',232,142],['S1','SELECT','tab',438,84],['S2','START','tab',438,142],['S5','HOME','toptab',420,26]];
+const KEYS12 = [['K1','1'],['K2','2'],['K3','3'],['K4','4'],['K5','5'],['K6','6'],['K7','7'],['K8','8'],['K9','9'],['Kstar','*'],['K0','0'],['Khash','#']];
+const bind = {
+  X:'b1', A:'b2', L1:'b3', B:'b4', Y:'b5', R1:'b6', S1:'b7', S2:'b8', L2:'b9', R2:'b10', S3:'b13',
+  UP:'k7_0', DOWN:'k7_1', LEFT:'k7_2', RIGHT:'k7_3', S4:'k7_4', S5:'k7_5',
+  K1:'kp1', K2:'kp2', K3:'kp3', K4:'kp4', K5:'kp5', K6:'kp6', K7:'kp7', K8:'kp8', K9:'k9_0', K0:'k9_1', Kstar:'k7_6', Khash:'k7_7'
+};
+const chipById = id => CHIPS.find(c => c.id === id);
+
+function buildPad(){
+  const sb = $('#smallBtns'); sb.innerHTML = '';
+  SMALL.forEach(([id, label, kind, x, y]) => {
+    const shape = kind === 'tab'
+      ? `<rect class="cap" x="${x}" y="${y}" width="10" height="38" rx="3"/>`
+      : `<rect class="cap home" x="${x - 17}" y="${y}" width="34" height="14" rx="5"/>`;
+    sb.insertAdjacentHTML('beforeend', `<g class="slot" data-slot="${id}">${shape}</g>` + (kind === 'toptab' ? `<text x="${x}" y="18" class="lbl">${label}</text>` : ''));
+  });
+  const kp = $('#keypad'); kp.innerHTML = '';
+  KEYS12.forEach(([id, label], i) => {
+    const cx = 495 + (i % 3) * 40, cy = 212 + Math.floor(i / 3) * 33;
+    kp.insertAdjacentHTML('beforeend', `<g class="slot" data-slot="${id}"><rect class="cap" x="${cx - 16}" y="${cy - 13}" width="32" height="26" rx="6"/><text x="${cx}" y="${cy + 4}">${label}</text></g>`);
+  });
+}
+function onRisingEdge(){}
+
+function renderPad(){
+  const p = GS.pad, M = Math.max(2, +$('#mod').value || 81), now = performance.now();
+  const bound = new Set();
+  for (const el of document.querySelectorAll('#pad [data-slot]')) {
+    const c = bind[el.dataset.slot] && chipById(bind[el.dataset.slot]);
+    if (c) bound.add(c.id);
+    el.classList.toggle('on', !!(p && c && c.get(p)));
+  }
+  const loose = p ? CHIPS.filter(c => !bound.has(c.id) && c.get(p)).map(c => labels[c.id] || c.def) : [];
+  $('#unmapped').textContent = loose.length ? 'unmapped: ' + loose.join(' ') : '';
+  if (GS.padRaw !== null) $('#paddleNotch').setAttribute('transform', `rotate(${(GS.padRaw / M) * 360} 130 110)`);
+  const k = 0.35;
+  $('#tbTex').setAttribute('transform', `translate(${((GS.tbX * k) % 14 + 14) % 14 - 7} ${((GS.tbY * k) % 14 + 14) % 14 - 7})`);
+  const age = now - (GS.lastTbAt || 0), vec = $('#tbVec');
+  if (age < 200) { const s = 0.3; vec.setAttribute('x2', 130 + GS.lastDx * s); vec.setAttribute('y2', 302 + GS.lastDy * s); vec.setAttribute('opacity', String(1 - age / 200)); }
+  else vec.setAttribute('opacity', '0');
+  const bat = [...S.chrs.values()].find(c => normU(c.uuid) === '2a19' && c.value);
+  $('#scr1').textContent = bat ? `BAT ${parseInt(bat.value.slice(0, 2), 16)}%` : 'BAT --';
+  $('#scr2').textContent = GS.padRaw === null ? 'PADDLE --' : `PADDLE ${String(GS.padRaw).padStart(2)} Σ${GS.padAcc}`;
+  $('#scr3').textContent = `BALL ${GS.tbX}, ${GS.tbY}`;
+  $('#scr4').textContent = GS.tbN ? `clipped ${(100 * GS.tbClip / GS.tbN).toFixed(1)}%` : '';
+}
+
+function renderGS(){
+  renderPad();
+  const M = Math.max(2, +$('#mod').value || 81);
+  if (GS.padRaw !== null) {
+    $('#needle').setAttribute('transform', `rotate(${(GS.padRaw / M) * 360})`);
+    $('#padRaw').textContent = `${GS.padRaw} (0x${hx(GS.padRaw)})`;
+    $('#padDelta').textContent = GS.padDelta === null ? '–' : GS.padDelta;
+    $('#padAcc').textContent = GS.padAcc;
+    $('#padMM').textContent = `${GS.padMin} / ${GS.padMax}`;
+  }
+  $('#tbXY').textContent = `${GS.tbX} / ${GS.tbY}`; $('#tbN').textContent = GS.tbN;
+  $('#tbClip').textContent = GS.tbN ? `${GS.tbClip} (${(100 * GS.tbClip / GS.tbN).toFixed(1)}%)` : '0'; $('#tbBtn').textContent = hx(GS.tbBtn);
+  const cv = $('#tb'), g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height);
+  GS.pos.forEach(([x, y], i) => { g.fillStyle = `rgba(255,138,42,${(i + 1) / GS.pos.length * 0.6})`; g.fillRect(x - 1.5, y - 1.5, 3, 3); });
+  g.fillStyle = '#ff8a2a'; g.beginPath(); g.arc(GS.dotX, GS.dotY, 5, 0, 7); g.fill();
+  const p = GS.pad;
+  if (p) {
+    $('#axes').innerHTML = [['X', p[0]], ['Y', p[1]], ['Rz', p[3]], ['hat', p[4] & 15], ['brake', p[10]], ['accel', p[11]]].map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
+    for (const el of document.querySelectorAll('[data-chip]')) {
+      const c = CHIPS.find(x => x.id === el.dataset.chip);
+      el.classList.toggle('on', !!c.get(p)); el.classList.toggle('seen', GS.ever.has(c.id));
+    }
+  }
+}
+function rowWhat(r){
+  const c = S.chrs.get(r.h);
+  if (r.id === 1) return 'gamepad'; if (r.id === 2) return 'keyboard'; if (r.id === 3) return 'mouse / trackball';
+  return c ? uname(c.uuid) : '';
+}
+function renderRows(){
+  if (!S.rows.size) return;
+  const now = performance.now();
+  $('#rows').innerHTML = [...S.rows.values()].sort((a, b) => a.h - b.h || a.id - b.id).map(r => `
+    <tr><td class="mono">#${r.h} / ${r.id}</td><td>${rowWhat(r)}</td><td class="mono">${r.count}</td><td class="mono">${r.times.length}</td>
+    <td><div class="bytes">${[...r.bytes].map((x, i) => `<span class="b ${now - r.changed[i] < 350 ? 'hot' : ''}">${hx(x)}<span class="bi">${i}</span></span>`).join('')}</div></td></tr>`).join('');
+}
+
+// ------------------------------------------------------------ console + log
+function logLine(s){ S.con.push(s); if (S.con.length > 600) S.con.splice(0, S.con.length - 600); S.conDirty = true; }
+function renderConsole(){
+  const el = $('#console'); const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+  el.textContent = S.con.join('\n'); if (atBottom) el.scrollTop = el.scrollHeight;
+}
+function saveLog(){
+  const blob = new Blob([S.all.join('\n') + '\n'], { type:'text/plain' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `gsx_log_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function frame(){
+  const now = performance.now();
+  if (S.dirty || now - S.lastRender > 150) { S.dirty = false; S.lastRender = now; renderRows(); renderGS(); }
+  if (S.conDirty) { S.conDirty = false; renderConsole(); }
+  requestAnimationFrame(frame);
+}
+
+// ------------------------------------------------------------ flashing (esptool-js over the same Web Serial port)
+const ESPTOOL_URLS = ['https://unpkg.com/esptool-js@0.7.0/bundle.js', 'https://cdn.jsdelivr.net/npm/esptool-js@0.7.0/bundle.js'];
+async function loadEsptool(){
+  let last;
+  for (const u of ESPTOOL_URLS) { try { return await import(u); } catch (e) { last = e; flog(`could not load ${u}`); } }
+  throw last;
+}
+let flogText = '';
+function flog(s, noNewline){
+  flogText += noNewline ? s : s + '\n'; if (flogText.length > 40000) flogText = flogText.slice(-30000);
+  const el = $('#flog'); el.textContent = flogText; el.scrollTop = el.scrollHeight;
+}
+$('#fFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (/\.merged\.bin$/i.test(f.name)) $('#fAddr').value = '0x0';
+  else if (/\.ino\.bin$/i.test(f.name)) $('#fAddr').value = '0x10000';
+};
+async function flashFirmware(){
+  if (!('serial' in navigator)) { alert('Web Serial is not available. Use Chrome or Edge.'); return; }
+  const f = $('#fFile').files[0]; if (!f) { alert('Choose a .bin file first.'); return; }
+  const address = Number($('#fAddr').value.trim());
+  if (!Number.isInteger(address) || address < 0) { alert('Address must be a number such as 0x10000.'); return; }
+  $('#bFlash').disabled = true; $('#fProg').value = 0; flogText = '';
+  const data = new Uint8Array(await f.arrayBuffer());
+  let p = port || lastPort, transport = null;
+  try {
+    if (S.serial) { flog('closing explorer serial…'); await disconnectSerial(); }
+    if (!p) p = await navigator.serial.requestPort();
+    flog(`loading esptool-js… (${f.name}, ${data.length} bytes → 0x${address.toString(16)})`);
+    const { ESPLoader, Transport } = await loadEsptool();
+    transport = new Transport(p, false);
+    const terminal = { clean(){}, writeLine: s => flog(s), write: s => flog(s, true) };
+    const loader = new ESPLoader({ transport, baudrate: +$('#fBaud').value, romBaudrate: 115200, terminal });
+    const chip = await loader.main();
+    flog('chip: ' + chip);
+    await loader.writeFlash({
+      fileArray: [{ data, address }], flashMode: 'keep', flashFreq: 'keep', flashSize: 'keep',
+      eraseAll: $('#fErase').checked, compress: true,
+      reportProgress: (i, written, total) => { $('#fProg').value = Math.round(100 * written / total); }
+    });
+    flog('write done, resetting board');
+    await loader.after('hard_reset');
+    await transport.disconnect(); transport = null;
+    flog('done, reconnecting explorer serial');
+    await new Promise(r => setTimeout(r, 400));
+    await connectSerial(p);
+  } catch (e) {
+    flog('! ' + (e && e.message || e));
+    try { await transport?.disconnect(); } catch {}
+  } finally {
+    $('#bFlash').disabled = false;
+  }
+}
+$('#bFlash').onclick = flashFirmware;
+
+
+// ------------------------------------------------------------ lights probe
+const ATT_ERR = {1:'invalid handle',2:'read not permitted',3:'write not permitted',4:'invalid PDU',5:'insufficient authentication',
+  6:'request not supported',7:'invalid offset',8:'insufficient authorization',9:'prepare queue full',10:'attribute not found',
+  11:'attribute not long',12:'insufficient key size',13:'invalid attribute value length',14:'unlikely error',
+  15:'insufficient encryption',16:'unsupported group type',17:'insufficient resources'};
+function statusName(st){
+  if (st === null || st === undefined) return 'sent (old firmware: no status)';
+  if (st === 0) return 'OK';
+  if (st >= 0x100 && st < 0x200) { const a = st - 0x100;
+    return `ATT 0x${hx(a)} ${ATT_ERR[a] || (a >= 0x80 && a <= 0x9f ? 'application error' : a >= 0xfc ? 'profile error' : '?')}`; }
+  return `NimBLE ${st}` + ({ 7:' not connected', 13:' timeout', 3:' busy', 2:' invalid argument' }[st] || '');
+}
+const P = { seq:[], idx:-1, running:false, pending:null, history:[], hpos:-1, recent:[], findings:[], watch:new Set(), t0:performance.now() };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const bhex = b => [...b].map(hx).join(' ');
+function pTime(){ return ((performance.now() - P.t0) / 1000).toFixed(2).padStart(7); }
+function pAll(msg){ S.all.push(`${(performance.now()/1000).toFixed(3)} # PROBE ${msg}`); }
+function pRow(cls, a, b, c){
+  const tb = $('#pLog'); const tr = document.createElement('tr'); tr.className = cls;
+  tr.innerHTML = `<td>${pTime()}</td><td></td><td></td>`; tr.children[1].textContent = a; tr.children[2].textContent = c ? b + ' ' + c : b;
+  if ($('#pOnlyOk').checked && cls === 'err') tr.hidden = true;
+  tb.appendChild(tr); while (tb.children.length > 3000) tb.firstChild.remove();
+  const box = tb.closest('.plog'); box.scrollTop = box.scrollHeight;
+  return tr;
+}
+function probeChrs(){
+  // FFF0 (vendor) plus the HID Boot Keyboard Output report, the pad's only writable HID output.
+  return [...S.chrs.values()].filter(c => normU(c.svc) === 'fff0' || normU(c.uuid) === '2a32');
+}
+function fillProbeTargets(){
+  const sel = $('#pTarget'), keep = sel.value;
+  const list = probeChrs().filter(c => /[Ww]/.test(c.props));
+  sel.innerHTML = list.map(c => `<option value="${c.h}">#${c.h} ${esc(NAMES[normU(c.uuid)] || normU(c.uuid))} [${esc(c.props)}]</option>`).join('');
+  if (list.some(c => String(c.h) === keep)) sel.value = keep;
+  P.watch = new Set(probeChrs().filter(c => /[NI]/.test(c.props)).map(c => c.h));
+  const w = [...P.watch].map(h => '#' + h).join(', ');
+  $('#pTargetInfo').textContent = list.length
+    ? `Writes ${/W/.test(S.chrs.get(+sel.value)?.props || '') ? 'with response (errors come back)' : 'without response (no error codes possible)'}. ` +
+      (w ? `Watching notifications from ${w}.` : 'Nothing in FFF0 can notify.')
+    : 'No writable FFF0 characteristic yet: connect to the pad on the Explorer tab and let it dump.';
+  $('#pBig').disabled = false;
+}
+function probeTarget(){ const h = +$('#pTarget').value; return h ? S.chrs.get(h) : null; }
+function probeWrite(bytes, handle){
+  const c = handle ? S.chrs.get(handle) : probeTarget();
+  if (!c || !S.serial) return Promise.resolve({ ok:false, status:null, skipped:'no target / not connected' });
+  if (normU(c.svc) === 'ff12') return Promise.resolve({ ok:false, status:null, skipped:'refused: OTA service' });
+  if (P.pending) P.pending.resolve({ ok:false, status:'superseded' });
+  const nr = !/W/.test(c.props);
+  return new Promise(resolve => {
+    const p = { h:c.h, bytes, resolve };
+    p.timer = setTimeout(() => { if (P.pending === p) { P.pending = null; resolve({ ok:false, status:'no reply' }); } }, 4000);
+    P.pending = p;
+    send(`write ${c.h} ${[...bytes].map(hx).join('')}${nr ? ' nr' : ''}`);
+  });
+}
+function probeWriteResult(h, ok, st){
+  const p = P.pending; if (!p || p.h !== h) return;
+  P.pending = null; clearTimeout(p.timer); p.resolve({ ok, status: st });
+}
+function probeNotify(h, hex){
+  if (!P.watch.has(h)) return;
+  pRow('ntf', `← #${h}`, hex.match(/../g)?.join(' ') || '(empty)');
+  pAll(`notify #${h} ${hex}`);
+  arOnNotify(h, hex);
+}
+// Auto-reply: a burst is notifications less than 2 s apart.
+const AR = { idx:0, burst:null };
+function arLines(){ return $('#arList').value.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')); }
+function arShowNext(){ const l = arLines(); $('#arNext').textContent = l.length ? `next: line ${AR.idx % l.length + 1} (${l[AR.idx % l.length]})` : 'no replies listed'; }
+function arFinish(){
+  const b = AR.burst; if (!b) return; AR.burst = null;
+  const verdict = b.count < 3 ? 'STOPPED EARLY: reply may have been understood' : b.count > 3 ? 'more than usual' : 'same as baseline';
+  pRow(b.count === 3 ? 'note' : 'find', 'burst ended', `${b.count} notification${b.count > 1 ? 's' : ''} on #${b.h} after reply "${b.reply || 'none'}"`, `(${verdict})`);
+  pAll(`burst on #${b.h}: ${b.count} notifications, first ${b.first}, reply ${b.reply || 'none'} -> ${verdict}; others: ${b.others.join(' | ') || '-'}`);
+}
+function arOnNotify(h, hex){
+  const now = performance.now();
+  if (AR.burst && now - AR.burst.last < 2000) {
+    AR.burst.count++; AR.burst.last = now; if (hex !== AR.burst.first) AR.burst.others.push(`#${h} ${hex}`);
+    clearTimeout(AR.burst.timer); AR.burst.timer = setTimeout(arFinish, 2000); return;
+  }
+  arFinish();
+  AR.burst = { h, count:1, last:now, first:hex, others:[], reply:null };
+  AR.burst.timer = setTimeout(arFinish, 2000);
+  if (!$('#arOn').checked) return;
+  const lines = arLines(); if (!lines.length) return;
+  const line = lines[AR.idx % lines.length]; AR.idx++; arShowNext();
+  const m = line.match(/^#?(\d+)\s+(.*)$/); if (!m) { pRow('err', 'auto-reply', `can't read line "${line}"`); return; }
+  const th = +m[1], bytes = m[2].trim().toLowerCase() === 'echo' ? hexToBytes(hex) : hexToBytes(m[2]);
+  const tc = S.chrs.get(th);
+  if (!tc || normU(tc.svc) === 'ff12' || !/[Ww]/.test(tc.props)) { pRow('err', 'auto-reply', `#${th} isn't a writable probe target`); return; }
+  AR.burst.reply = `#${th} ${bhex(bytes)}`;
+  probeSend(bytes, `auto-reply to #${h}`, th);
+}
+function probeRead(h, hex){
+  if (h !== +$('#pTarget').value) return;
+  pRow('ntf', `read #${h}`, hex.match(/../g)?.join(' ') || '(empty)');
+}
+function probeLinkLost(reason){
+  const was = P.running; P.running = false; pButtons();
+  if (P.pending) { const p = P.pending; P.pending = null; clearTimeout(p.timer); p.resolve({ ok:false, status:'link lost' }); }
+  const last = P.recent[P.recent.length - 1];
+  pRow('err', 'link lost', `reason ${reason}` + (last ? ` · last payload ${last.hex}` : '') + (was ? ' · sweep paused' : ''));
+  pAll(`link lost reason ${reason} last ${last ? last.hex : '-'}`);
+}
+async function probeSend(bytes, label, handle){
+  const hex = bhex(bytes);
+  P.recent.push({ hex, label }); if (P.recent.length > 4) P.recent.shift();
+  $('#pCur').textContent = hex || '(empty)';
+  $('#pCurInfo').textContent = label || '';
+  $('#pStat').textContent = '…';
+  const row = pRow('', '→ ' + (hex || '(empty)'), '…', label ? `(${label})` : '');
+  const r = await probeWrite(bytes, handle);
+  const st = r.skipped || (typeof r.status === 'string' ? r.status : statusName(r.status));
+  P.recent[P.recent.length - 1].status = st;
+  $('#pStat').textContent = st;
+  row.className = r.ok ? 'ok' : 'err';
+  row.children[2].textContent = st + (label ? ` (${label})` : '');
+  if ($('#pOnlyOk').checked && !r.ok) row.hidden = true;
+  pAll(`write ${hex} -> ${st}${label ? ' (' + label + ')' : ''}`);
+  return r;
+}
+// SmartGlow lights as numbered by the Go's gsgparm tool (/sys/class/leds/key_led1..23).
+const LEDS = [null, 'keypad 1','keypad 2','keypad 3','keypad 4','keypad 5','keypad 6','keypad 7','keypad 8','keypad 9',
+  'keypad *','keypad 0','keypad #','trackball','spinner','d-pad','A','B','X','Y','L1','L2','R1','R2'];
+const ledName = n => LEDS[n] || (n === 0 ? 'nothing (LED 0)' : 'no light');
+// Light report the Go's Stella writes to /dev/hidraw1: 5a 01 01 HI LO 00 00 00.
+const GO_LIGHTS = [['A',0x80,0],['B',0x40,0],['X',0x20,0],['Y',0x10,0],['L1',0x08,0],['L2',0x04,0],['R1',0x02,0],['R2',0x01,0],
+  ['d-pad',0,0x01],['spinner',0,0x02],['trackball',0,0x04],['keypad',0,0x08]];
+const PRESETS = {
+  go1: { mode:'golist', tmpl:'5a 01 01' }, go2: { mode:'golist', tmpl:'5a 01 02' }, go0: { mode:'golist', tmpl:'' },
+  bits3:  { mode:'bit', N:3 },  bits4: { mode:'bit', N:4 },
+  pairff: { mode:'tmpl', tmpl:'xx ff', from:'01', to:'17' }, pair01: { mode:'tmpl', tmpl:'xx 01', from:'01', to:'17' },
+  pair0ff:{ mode:'tmpl', tmpl:'00 xx ff', from:'01', to:'17' },
+  lenff:  { mode:'lenff', N:24 },
+  arr23:  { mode:'onehot', N:23, from:'00', to:'16' }, arr24: { mode:'onehot', N:24, from:'01', to:'17' },
+};
+function parseByte(v, d){ const n = parseInt(String(v).trim(), 16); return Number.isFinite(n) ? Math.max(0, Math.min(255, n)) : d; }
+function genSeq(){
+  const mode = $('#pMode').value, a = parseByte($('#pFrom').value, 0), b = parseByte($('#pTo').value, 255);
+  const N = Math.max(1, Math.min(64, +$('#pN').value || 1)), lo = Math.min(a, b), hi = Math.max(a, b);
+  const out = [];
+  if (mode === 'len') for (let n = 1; n <= N; n++) out.push({ b:new Uint8Array(n), label:`${n} byte${n > 1 ? 's' : ''} of 00` });
+  if (mode === 'byte') for (let v = lo; v <= hi; v++) out.push({ b:Uint8Array.of(v), label:`value 0x${hx(v)}` });
+  if (mode === 'fill') for (let v = lo; v <= hi; v++) out.push({ b:new Uint8Array(N).fill(v), label:`${N} × 0x${hx(v)}` });
+  if (mode === 'bit') for (let i = 0; i < N * 8; i++) { const x = new Uint8Array(N); x[i >> 3] = 1 << (i & 7);
+    out.push({ b:x, label:`byte ${i >> 3}, bit ${i & 7} (bit ${i}: ${ledName(i + 1)} if bit 0 = LED 1, ${ledName(i)} if bit 0 = LED 0)` }); }
+  if (mode === 'golist') {
+    const hdr = hexToBytes($('#pTmpl').value), mk = (hi, lo) => Uint8Array.from([...hdr, hi, lo, ...(hdr.length ? [0, 0, 0] : [])]);
+    out.push({ b:mk(0, 0), label:'all off' }, { b:mk(0xff, 0x0f), label:'all on' });
+    for (const [n, hi, lo] of GO_LIGHTS) out.push({ b:mk(hi, lo), label:`${n} only` });
+    out.push({ b:mk(0xff, 0x0f), label:'all on' }, { b:mk(0, 0), label:'all off' });
+  }
+  if (mode === 'lenff') for (let n = 1; n <= N; n++) out.push({ b:new Uint8Array(n).fill(255), label:`${n} byte${n > 1 ? 's' : ''} of ff` });
+  if (mode === 'onehot') for (let v = lo; v <= Math.min(hi, N - 1); v++) { const x = new Uint8Array(N); x[v] = 255;
+    out.push({ b:x, label:`byte ${v} = ff (${ledName(v + 1)} if byte 0 = LED 1, ${ledName(v)} if byte 0 = LED 0)` }); }
+  if (mode === 'tmpl') {
+    const t = $('#pTmpl').value.toLowerCase().replace(/[^0-9a-fx]/g, ''); const toks = [];
+    for (let i = 0; i + 1 < t.length; i += 2) toks.push(t.substr(i, 2));
+    if (toks.includes('xx')) for (let v = lo; v <= hi; v++) out.push({ b:Uint8Array.from(toks.map(k => k === 'xx' ? v : parseInt(k, 16) || 0)),
+      label:`xx = 0x${hx(v)}` + (v >= 1 && v <= 23 ? ` (LED ${v}: ${ledName(v)})` : '') });
+  }
+  return out;
+}
+function pButtons(){
+  $('#pStart').disabled = P.running; $('#pPause').disabled = !P.running;
+  $('#pStart').textContent = P.idx >= 0 && P.idx < P.seq.length - 1 ? 'Resume' : 'Start';
+  $('#pPos').textContent = P.seq.length ? `${Math.max(0, P.idx + 1)} / ${P.seq.length}` : 'nothing to send';
+}
+function pRegen(){ if (P.running) return; P.seq = genSeq(); P.idx = -1; pButtons(); }
+async function pStep(i){
+  if (i < 0 || i >= P.seq.length) return null;
+  P.idx = i; pButtons();
+  return probeSend(P.seq[i].b, P.seq[i].label);
+}
+async function pRun(){
+  if (!P.seq.length) pRegen();
+  if (P.idx >= P.seq.length - 1) P.idx = -1;
+  P.running = true; pButtons();
+  pAll(`sweep start: ${$('#pMode').selectedOptions[0].textContent} on #${$('#pTarget').value}`);
+  while (P.running && P.idx < P.seq.length - 1) {
+    const r = await pStep(P.idx + 1);
+    if (!P.running) break;
+    if (r && r.ok && $('#pStopErr').checked) { pRow('note', 'stopped', 'first accepted write'); break; }
+    await sleep(r && !r.ok && $('#pSkipErr').checked ? 60 : Math.max(50, +$('#pDelay').value || 800));
+  }
+  P.running = false; pButtons();
+}
+function pMark(){
+  if (!P.recent.length) return;
+  const note = $('#pNote').value.trim(); $('#pNote').value = '';
+  const r = P.recent.slice(-3).reverse();
+  const f = { t:pTime().trim(), note, last:r[0], before:r.slice(1) };
+  P.findings.push(f);
+  const tb = $('#pFind'); if (P.findings.length === 1) tb.innerHTML = '';
+  const tr = document.createElement('tr'); tr.className = 'find';
+  tr.innerHTML = '<td></td>'; tr.firstChild.textContent = `${f.t}s  ${f.last.hex}  [${f.last.status || ''}]` +
+    (f.before.length ? `   (or earlier: ${f.before.map(x => x.hex).join(' | ')})` : '') + (note ? `  — ${note}` : '');
+  tb.appendChild(tr);
+  pRow('find', '★ lights changed', f.last.hex, note);
+  pAll(`LIGHTS CHANGED after ${f.last.hex}${note ? ' : ' + note : ''} (earlier: ${f.before.map(x => x.hex).join(' | ') || '-'})`);
+}
+$('#pMode').onchange = () => { $('#pTmplRow').hidden = !['tmpl','golist'].includes($('#pMode').value); $('#pNLab').hidden = !['len','bit','fill','lenff','onehot'].includes($('#pMode').value); pRegen(); };
+$('#pPreset').onchange = () => {
+  const p = PRESETS[$('#pPreset').value]; if (!p || P.running) return;
+  $('#pMode').value = p.mode; if (p.N) $('#pN').value = p.N; if (p.tmpl !== undefined) $('#pTmpl').value = p.tmpl;
+  if (p.mode === 'golist') $('#pDelay').value = Math.max(+$('#pDelay').value || 0, 1500);
+  $('#pFrom').value = p.from || '00'; $('#pTo').value = p.to || 'ff';
+  $('#pMode').onchange();
+};
+for (const id of ['#pFrom','#pTo','#pN','#pTmpl']) $(id).addEventListener('input', pRegen);
+$('#pTarget').onchange = fillProbeTargets;
+$('#pRefresh').onclick = fillProbeTargets;
+$('#pRead').onclick = () => { const h = +$('#pTarget').value; if (h) send(`read ${h}`); };
+$('#pStart').onclick = () => { if (!probeTarget()) { alert('Pick a target first (connect to the pad on the Explorer tab).'); return; } pRun(); };
+$('#pPause').onclick = () => { P.running = false; pButtons(); };
+$('#pNext').onclick = () => { P.running = false; if (!P.seq.length) pRegen(); pStep(Math.min(P.seq.length - 1, P.idx + 1)); };
+$('#pPrev').onclick = () => { P.running = false; pStep(Math.max(0, P.idx - 1)); };
+$('#pReset').onclick = () => { P.running = false; pRegen(); };
+$('#pSend').onclick = () => {
+  const b = hexToBytes($('#pHex').value); if (!b.length) return;
+  P.history.push($('#pHex').value); P.hpos = P.history.length; probeSend(b, 'manual');
+};
+$('#pHex').onkeydown = e => {
+  if (e.key === 'Enter') $('#pSend').click();
+  else if (e.key === 'ArrowUp' && P.history.length) { P.hpos = Math.max(0, P.hpos - 1); $('#pHex').value = P.history[P.hpos]; e.preventDefault(); }
+  else if (e.key === 'ArrowDown' && P.history.length) { P.hpos = Math.min(P.history.length, P.hpos + 1); $('#pHex').value = P.history[P.hpos] || ''; e.preventDefault(); }
+};
+$('#pBig').onclick = pMark;
+$('#arReset').onclick = () => { AR.idx = 0; arShowNext(); };
+$('#arList').addEventListener('input', arShowNext);
+arShowNext();
+document.addEventListener('keydown', e => {
+  if ($('#tabProbe').hidden || e.code !== 'Space' || /INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement?.tagName || '')) return;
+  e.preventDefault(); pMark();
+});
+$('#pCopyF').onclick = () => navigator.clipboard?.writeText(P.findings.map(f =>
+  `${f.last.hex} [${f.last.status || ''}]${f.note ? ' - ' + f.note : ''}${f.before.length ? ' (earlier: ' + f.before.map(x => x.hex).join(' | ') + ')' : ''}`).join('\n'));
+$('#pClearF').onclick = () => { P.findings = []; $('#pFind').innerHTML = '<tr class="note"><td>Nothing marked yet.</td></tr>'; };
+$('#pClearL').onclick = () => { $('#pLog').innerHTML = ''; };
+$('#pOnlyOk').onchange = () => { for (const tr of $('#pLog').children) tr.hidden = $('#pOnlyOk').checked && tr.className === 'err'; };
+$('#pMode').onchange();
+
+// ------------------------------------------------------------ wiring
+$('#bSerial').onclick = () => S.serial ? disconnectSerial() : connectSerial();
+$('#bReset').onclick = resetEsp;
+$('#bScan').onclick = () => { S.devices.clear(); renderDevices(); send('scan 10'); };
+$('#bStop').onclick = () => send('stop');
+$('#bDump').onclick = () => send('dump');
+$('#bInfo').onclick = () => send('info');
+$('#bDisc').onclick = () => send('disconnect');
+$('#bForget').onclick = () => { if (confirm('Delete the ESP32\'s bond with the pad? You will need to re-pair it.')) send('forget'); };
+$('#cAuto').onchange = e => send('auto ' + (e.target.checked ? 1 : 0));
+$('#sConn').onchange = e => { const v = e.target.value; if (v) send(`conn ${v} ${v}`); e.target.value = ''; setTimeout(() => send('info'), 1500); };
+$('#bSave').onclick = saveLog;
+$('#bClear').onclick = () => { S.con = []; S.conDirty = true; };
+$('#bCopyMap').onclick = () => { if (S.rmap) navigator.clipboard?.writeText([...S.rmap].map(hx).join(' ')); };
+$('#bResetGS').onclick = () => { Object.assign(GS, { padAcc:0, padDelta:null, padMin:null, padMax:null, tbX:0, tbY:0, tbN:0, tbClip:0, pos:[] }); GS.ever.clear(); for (const r of S.rows.values()) { r.count = 0; } S.dirty = true; };
+const sendBox = () => { const v = $('#cmdIn').value.trim(); if (v) { send(v); $('#cmdIn').value = ''; } };
+$('#bSend').onclick = sendBox;
+$('#cmdIn').onkeydown = e => { if (e.key === 'Enter') sendBox(); };
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-conn],[data-read],[data-sub],[data-unsub],[data-write],[data-chip]'); if (!t) return;
+  const d = t.dataset;
+  if (d.conn) send(`connect ${d.conn} ${d.type || 0}`);
+  else if (d.read) send(`read ${d.read}`);
+  else if (d.sub) send(`sub ${d.sub}`);
+  else if (d.unsub) send(`unsub ${d.unsub}`);
+  else if (d.write) {
+    const wc = S.chrs.get(+d.write);
+    if (wc && normU(wc.svc) === 'ff12' && !confirm('This is the pad\'s firmware-update (OTA) service. A bad write here could brick the controller. Write anyway?')) return;
+    const inp = document.querySelector(`[data-win="${d.write}"]`); const hex = (inp?.value || '').replace(/[^0-9a-f]/gi, ''); if (hex.length && hex.length % 2 === 0) send(`write ${d.write} ${hex}${d.nr ? ' nr' : ''}`); else alert('Enter an even number of hex digits.'); }
+  else if (d.chip) {
+    const c = CHIPS.find(x => x.id === d.chip); const v = prompt(`Label for ${c.def} (blank = default):`, labels[c.id] || '');
+    if (v === null) return; if (v.trim()) labels[c.id] = v.trim(); else delete labels[c.id];
+    try { localStorage.setItem('gsx.labels', JSON.stringify(labels)); } catch {}
+    t.textContent = labels[c.id] || c.def;
+  }
+});
+if (navigator.serial) navigator.serial.addEventListener('disconnect', e => { if (port && e.target === port) disconnectSerial(); });
+
+
+// tabs
+function showTab(name){
+  $('main').hidden = name !== 'exp'; $('#tabDoc').hidden = name !== 'doc'; $('#tabProbe').hidden = name !== 'probe';
+  $('#tbExp').classList.toggle('act', name === 'exp'); $('#tbDoc').classList.toggle('act', name === 'doc'); $('#tbProbe').classList.toggle('act', name === 'probe');
+  if (name === 'probe') fillProbeTargets();
+}
+$('#tbExp').onclick = () => showTab('exp');
+$('#tbDoc').onclick = () => showTab('doc');
+$('#tbProbe').onclick = () => showTab('probe');
+buildChips();
+buildPad();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

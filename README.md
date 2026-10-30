@@ -83,6 +83,24 @@ BLE only, HID over GATT, Just Works pairing with bonding. PnP ID VID 0x000E, PID
 keyboard-page bits; report 3 (4 bytes) is the trackball as a relative mouse. Service FF12 is the pad's
 firmware update (OTA) channel: don't write to it. See `gs.h` for the byte layout.
 
+## Exploring the pad
+
+`tools/gsx-explorer/` holds the ESP32 sketch and Web Serial page used to work out the pad's protocol, including
+the Protocol write-up and the SmartGlow light probe. See its README.
+
+## Following the Joy-Con 2 Dongle
+
+This repository continues the Joy-Con 2 Dongle's history, so its fixes merge straight in:
+
+```
+git remote add joycon2-dongle git@github.com:MukiEX/joycon2-dongle.git
+git fetch joycon2-dongle
+git merge joycon2-dongle/main
+```
+
+Expect conflicts only in `README.md`, `dist/` and the files this firmware changed (`ble_central.c`,
+`usb_gamepad.c`, `settings.*`, `config_server.c`, `display.c`, `main/web/index.html`, the flasher template).
+
 ## Building
 
 ESP-IDF 5.5 with esp_tinyusb 2.x (TinyUSB 0.19 API). Normal builds fetch esp_tinyusb from the component
